@@ -83,10 +83,12 @@ inline void initWindow() {
 	}
 	g_Device = vkl::createDevice(g_PhysicalDevice, g_Surface, features, ARRAY_SIZE(device_extensions), device_extensions, queue_count, queue_infos);
 
+	vkGetDeviceQueue(g_Device, g_GraphicsIndex, 0, &g_GraphicsQueue);
+	vkGetDeviceQueue(g_Device, g_PresentIndex, 0, &g_PresentQueue);
+
 
 	uint32_t width, height;
 	glfwGetFramebufferSize(g_Window, (int*) &width, (int*) &height);
 	VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR };
 	g_Swapchain = vkl::createSwapchain(g_Device, g_PhysicalDevice, g_Surface, { width, height }, g_PresentIndex, g_GraphicsIndex, ARRAY_SIZE(present_modes), present_modes);
-	
 }
