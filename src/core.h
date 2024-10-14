@@ -1,4 +1,4 @@
-
+#pragma once
 
 #ifndef NDEBUG
 #define SHL_LOG_ALL
