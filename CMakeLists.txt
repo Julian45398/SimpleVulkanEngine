@@ -28,6 +28,11 @@ add_executable (${PROJECT_NAME} ${SRC_FILES})
 #add tests
 add_subdirectory(${TEST_DIR})
 
+option(RUN_IN_IDE "defines if run in IDE" OFF)
+if (RUN_IN_IDE)
+endif()
+
+	target_compile_definitions(${PROJECT_NAME} PRIVATE RUN_IN_IDE)
 #define the platform specific options
 if (WIN32)
 	message("building for windows")

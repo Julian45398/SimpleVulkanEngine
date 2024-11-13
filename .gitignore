@@ -13,6 +13,12 @@
 *.userosscache
 *.sln.docstates
 
+
+# compiled shader files
+*.vert
+*.frag
+*.comp
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
