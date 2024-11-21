@@ -19,3 +19,6 @@
 [submodule "lib/vkl"]
 	path = lib/vkl
 	url = https://github.com/Julian45398/vkl.git
+[submodule "lib/tinygltf"]
+	path = lib/tinygltf
+	url = https://github.com/syoyo/tinygltf.git

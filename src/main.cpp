@@ -1,12 +1,4 @@
-﻿// SimpleVulkanEngine.cpp: Definiert den Einstiegspunkt für die Anwendung.
-//
-#include "engine_core.h"
-
-#include "ui_data.h"
-#include "render/ModelRenderer.h"
-#include "render/ModelVertexBuffer.h"
-#include "render/StagingBuffer.h"
-
+#include "SimpleVulkanEditor.h"
 
 #ifdef RUN_IN_IDE 
 #ifdef _WIN32
@@ -37,26 +29,16 @@ void changeWorkingDirectory() {
 #endif
 
 
+SimpleVulkanEditor App;
+
 int main() {
 #ifdef RUN_IN_IDE 
 	changeWorkingDirectory();
 #endif
 	shl::logInfo("Version: ", PROJECT_VERSION);
-	initBackend();
-	Core.initialize(600, 400);
-	ModelRenderer model_renderer;
-	ModelVertexBuffer model_buffer;
-	StagingBuffer staging_buffer;
-	while (Core.shouldRun()) {
-		glfwPollEvents();
-		auto primary_commands = Core.beginRendering();
-		model_renderer.recordCommands(Core.getNextSecondaryCommands(), primary_commands);
-		controlUI();
-		Core.finalizeRendering();
-	}
-	shl::logInfo("closed app");
-	//Core.terminate();
-
+	App.init();
+	App.run();
+	App.terminate();
 
 	return 0;
 }

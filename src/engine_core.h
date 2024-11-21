@@ -7,7 +7,7 @@ void initBackend();
 class RenderCore {
 public:
 	inline static const uint32_t FRAMES_IN_FLIGHT = 2;
-	inline static const uint32_t COMMAND_BUFFER_COUNT = 4;
+	inline static const uint32_t COMMAND_BUFFER_COUNT = 2;
 private:
 	inline static const VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
 	inline static const VkPresentModeKHR PRESENT_MODES[] = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR };
@@ -39,14 +39,16 @@ public:
 	VkQueue GraphicsQueue = VK_NULL_HANDLE;
 private:
 	VkQueue PresentQueue = VK_NULL_HANDLE;
+	shl::Timer FrameTimer;
+	double FrameTime = 0;
 	uint32_t PresentIndex = 0;
 public:
 	uint32_t GraphicsIndex = 0;
 	uint32_t WindowWidth = 0;
 	uint32_t WindowHeight = 0;
 	uint32_t FrameIndex = 0;
-private:
 	uint32_t ImageIndex = 0;
+private:
 	SubmitSynchronization Sync[FRAMES_IN_FLIGHT] = {};
 	std::vector<ImageResources> ImageRes;
 	VkSwapchainKHR Swapchain = VK_NULL_HANDLE;
@@ -55,15 +57,52 @@ private:
 	VkDeviceMemory DepthMemory = VK_NULL_HANDLE;
 	uint32_t CommandCount = 0;
 public:
-	bool shouldRun() {
+	inline bool isKeyPressed(int keycode) {
+		return glfwGetKey(Window, keycode) == GLFW_PRESS;
+	}
+	inline bool isMouseClicked(int mousecode) {
+		return glfwGetMouseButton(Window, mousecode) == GLFW_PRESS;
+	}
+	inline glm::vec2 getMousePos() {
+		double xpos, ypos;
+		glfwGetCursorPos(Window, &xpos, &ypos);
+		return glm::vec2(xpos, ypos);
+	}
+	inline void setMousePos(float xpos, float ypos) {
+		glfwSetCursorPos(Window, xpos, ypos);
+	}
+	inline void hideCursor() {
+		glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}
+	inline void showCursor() {
+		glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	}
+	inline bool shouldRun() {
 		return !glfwWindowShouldClose(Window);
+	}
+	inline uint32_t getImageCount() {
+		return ImageRes.size();
+	}
+	inline float getAspectRatio() {
+		return ((float)WindowWidth) / ((float)WindowHeight);
+	}
+	/*
+	* returns the ellapsed time in seconds
+	*/
+	inline double getFrameTime() {
+		return FrameTime;
 	}
 	void initialize(uint32_t windowWidth, uint32_t windowHeight);
 	void terminate();
+	inline void startSecondaryCommands(VkCommandBuffer commands) {
+		VkCommandBufferInheritanceInfo inheritance_info = vkl::createCommandBufferInheritanceInfo(RenderPass, 0, ImageRes[ImageIndex].framebuffer);
+		vkl::beginCommandBuffer(commands, VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT, &inheritance_info);
+	}
 	/**
 	* Starts new Frame and returns the primary commandbuffer for the frame
 	*/
-	VkCommandBuffer beginRendering() {
+	inline VkCommandBuffer beginRendering() {
+		FrameTime = FrameTimer.ellapsedSeconds();
 		vkl::waitForFence(LogicalDevice, Sync[FrameIndex].Fence);
 		vkResetFences(LogicalDevice, 1, &Sync[FrameIndex].Fence);
 		while (true) {
@@ -94,7 +133,7 @@ public:
 	/*
 	* Returns the next secondary commandbuffer for render-commands
 	*/
-	VkCommandBuffer getNextSecondaryCommands() {
+	inline VkCommandBuffer getNextSecondaryCommands() {
 		vkl::resetCommandPool(LogicalDevice, ImageRes[ImageIndex].secondaryPools[CommandCount]);
 		VkCommandBufferInheritanceInfo inheritance_info = vkl::createCommandBufferInheritanceInfo(RenderPass, 0, ImageRes[ImageIndex].framebuffer);
 		VkCommandBuffer commands = ImageRes[ImageIndex].secondaryCommands[CommandCount];
@@ -102,7 +141,7 @@ public:
 		++CommandCount;
 		return commands;
 	}
-	void finalizeRendering() {
+	inline void finalizeRendering() {
 		{
 			auto imgui_commands = getNextSecondaryCommands();
 			ImGui::Render();

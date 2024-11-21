@@ -8,26 +8,23 @@ struct ModelVertex {
 	glm::vec2 UVCoord;
 	uint32_t AnimationIndex;
 	float Intensity;
-	/*
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO, nullptr, VKL_FLAG_NONE, ARRAY_SIZE(BINDINGS), BINDINGS, ARRAY_SIZE(ATTRIBUTES), ATTRIBUTES
-	};
-	*/
+};
+
+class Model {
+public:
+	std::vector<ModelVertex> Vertices;
+	std::vector<uint32_t> Indices;
+	std::vector<uint8_t> PixelData;
+	uint32_t ImageHeight;
+	uint32_t ImageWidth;
+public:
+	Model(const char* filename);
+private:
+
+
 
 };
-inline const VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
-		{0, sizeof(ModelVertex), VK_VERTEX_INPUT_RATE_VERTEX}
-};
-inline const VkVertexInputAttributeDescription MODEL_VERTEX_ATTRIBUTES[] = {
-	{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ModelVertex, Position)},
-	{1, 0, VK_FORMAT_R32_UINT, offsetof(ModelVertex, ImageIndex)},
-	{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ModelVertex, UVCoord)},
-	{3, 0, VK_FORMAT_R32_UINT, offsetof(ModelVertex, AnimationIndex)},
-	{4, 0, VK_FORMAT_R32_SFLOAT, offsetof(ModelVertex, Intensity)}
-};
-inline const VkPipelineVertexInputStateCreateInfo MODEL_VERTEX_INPUT_INFO = vkl::createPipelineVertexInputStateInfo(ARRAY_SIZE(MODEL_VERTEX_BINDINGS), MODEL_VERTEX_BINDINGS,
-	ARRAY_SIZE(MODEL_VERTEX_ATTRIBUTES), MODEL_VERTEX_ATTRIBUTES);
-	
+
 class ModelVertexBuffer {
 private:
 	static const uint32_t MAX_CHANGES = 10;

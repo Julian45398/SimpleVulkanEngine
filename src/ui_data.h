@@ -1,12 +1,13 @@
 #pragma once
 
 #include "engine_core.h"
+#include "render/Camera.h"
 
 
 inline bool ButtonPressed = false;
 inline uint32_t ButtonPressedCount = 0;
 
-void controlUI() {
+inline void controlUI(Camera& camera) {
 	static bool show_demo_window = false;
 	static shl::Timer timer;
 	static int counter;
@@ -27,9 +28,14 @@ void controlUI() {
 
 	// Buttons return true when clicked (most widgets return true when edited/activated) 
 	if (ImGui::Button("Button")) {
-		ButtonPressedCount++;
+		//ButtonPressedCount++;
 		ButtonPressed = true;
 	}
+	ImGui::InputFloat3("Position", (float*)&camera.Pos);
+	ImGui::InputFloat3("Forward", (float*)&camera.Transform[0]);
+	ImGui::InputFloat3("Right", (float*)&camera.Transform[1]);
+	ImGui::InputFloat3("Up", (float*)&camera.Transform[2]);
+	ImGui::Text("yaw: %.3f pitch: %.3f roll: %.3f", camera.Yaw, camera.Pitch, camera.Roll);
 		
 	ImGui::SameLine();
 	ImGui::Text("counter = %d", ButtonPressedCount);

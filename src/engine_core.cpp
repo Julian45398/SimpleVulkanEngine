@@ -42,6 +42,8 @@ void RenderCore::initialize(uint32_t windowWidth, uint32_t windowHeight) {
 	createPresentResources();
 	setupImGui();
 	setupSynchronization();
+	FrameTimer.reset();
+	FrameTime = 0;
 }
 void RenderCore::terminate()
 {

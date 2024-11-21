@@ -18,7 +18,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	"stb"
 	"imgui"
 	"vkl"
-	#"tinygltf"
+	"tinygltf"
 )
 
 if (BUILD_TESTING)
@@ -32,7 +32,7 @@ if (BUILD_TESTING)
 		"stb"
 		"imgui"
 		"vkl"
-		#"tinygltf"
+		"tinygltf"
 	)
 endif()
 
