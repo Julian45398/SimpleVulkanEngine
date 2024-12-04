@@ -29,13 +29,14 @@ void changeWorkingDirectory() {
 #endif
 
 
-SimpleVulkanEditor App;
 
 int main() {
 #ifdef RUN_IN_IDE 
 	changeWorkingDirectory();
 #endif
 	shl::logInfo("Version: ", PROJECT_VERSION);
+	SVE::init(600, 400);
+	SimpleVulkanEditor App;
 	App.init();
 	App.run();
 	App.terminate();

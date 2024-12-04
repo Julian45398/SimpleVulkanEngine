@@ -1,6 +1,7 @@
 #pragma once
 
-#include "engine_core.h"
+#include "core.h"
+#include "SVE_Backend.h"
 
 class Camera {
 public:
@@ -92,7 +93,7 @@ public:
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		//float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		float aspect_ratio = Core.getAspectRatio();
+		float aspect_ratio = SVE::getAspectRatio();
 		const glm::vec3 forward = getForward();
 		const glm::vec3 upwards = getUp();
 		glm::mat4 model = glm::rotate(glm::mat4(1.0f), 2 * Roll, -Transform[0]);

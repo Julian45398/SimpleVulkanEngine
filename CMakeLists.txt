@@ -21,8 +21,6 @@ include(CTest)
 # add all source files from the src directory
 file(GLOB_RECURSE SRC_FILES "${SRC_DIR}/*.cpp" )
     
-#include("cmake/update_submodules.cmake")
-
 #create executable
 add_executable (${PROJECT_NAME} ${SRC_FILES})
 #add tests

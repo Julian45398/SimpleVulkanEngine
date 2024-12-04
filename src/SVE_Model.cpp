@@ -72,9 +72,9 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 	}
 	if (n.scale.size() == 3) {
 		shl::logDebug("scale found!");
-		scale[0][0] = n.scale[0];
-		scale[1][1] = n.scale[1];
-		scale[2][2] = n.scale[2];
+		scale[0][0] = (float)n.scale[0];
+		scale[1][1] = (float)n.scale[1];
+		scale[2][2] = (float)n.scale[2];
 		transform = transform * scale;
 	}
 
@@ -212,12 +212,12 @@ SveModel::SveModel(const char* filename) {
 		return;
 	}
 	uint32_t index_offset = 0;
-	//auto texture = gltf.textures[0];
-	//auto image = gltf.images[0];
-	//shl::logInfo("Bits per channel: ", image.bits);
-	//imageWidth = image.width;
-	//imageHeight = image.height;
-	//pixelData = image.image;
+	auto texture = gltf.textures[0];
+	auto image = gltf.images[0];
+	shl::logInfo("Bits per channel: ", image.bits);
+	imageWidth = image.width;
+	imageHeight = image.height;
+	pixelData = image.image;
 
 	for (size_t i = 0; i < gltf.scenes[0].nodes.size(); ++i) {
 		assert(gltf.scenes[0].nodes[i] >= 0);

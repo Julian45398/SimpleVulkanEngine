@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_core.h"
+#include "core.h"
 
 struct SveModelVertex {
 	alignas(16) glm::vec3 position;
