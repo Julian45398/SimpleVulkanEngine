@@ -1,2 +1,6 @@
-##Simple Vulkan Engine
-This is currently just a small vulkan rendering project
+Simple Vulkan Engine
+===
+
+Currently a just a simple model renderer using the Vulkan API
+
+# Not usable yet!
