@@ -35,7 +35,6 @@ endif()
 if (WIN32)
 	message("building for windows")
 	set(INCLUDE_GLFW ON)
-	set(PLATFORM_DIR "platform/windows/")
 	set(IMGUI "lib/imgui/")
 	target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp" 
 		"${IMGUI}imgui_widgets.cpp" "${IMGUI}backends/imgui_impl_glfw.cpp" "${IMGUI}backends/imgui_impl_vulkan.cpp" )
@@ -58,14 +57,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE PROJECT_VERSION_MAJOR="${PROJ
 target_compile_definitions(${PROJECT_NAME} PRIVATE PROJECT_VERSION_MINOR="${PROJECT_VERSION_MINOR}")
 target_compile_definitions(${PROJECT_NAME} PRIVATE PROJECT_VERSION_PATCH="${PROJECT_VERSION_PATCH}")
 
-file(GLOB_RECURSE PLATFORM_FILES "${PLATFORM_DIR}/*.cpp")
-
 target_sources(${PROJECT_NAME} PUBLIC ${PLATFORM_FILES})
 target_sources(${TEST_TARGET} PUBLIC ${PLATFORM_FILES})
 
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${PLATFORM_DIR} ${SRC_DIR})
-target_include_directories(${TEST_TARGET} PUBLIC ${PLATFORM_DIR} ${SRC_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${SRC_DIR})
+target_include_directories(${TEST_TARGET} PUBLIC ${SRC_DIR})
 
 include("cmake/compile_shaders.cmake")
 include("cmake/update_submodules.cmake")
