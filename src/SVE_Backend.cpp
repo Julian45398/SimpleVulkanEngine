@@ -59,9 +59,30 @@ namespace SVE {
 				0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
 			};
 			_RenderPass = vkl::createRenderPass(_Logical, ARRAY_SIZE(attachments), attachments, ARRAY_SIZE(subpasses), subpasses, ARRAY_SIZE(dependencies), dependencies);
+#ifdef SVE_RENDER_IN_VIEWPORT
+			VkImage attachment_images[FRAMES_IN_FLIGHT + 1];
+			for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+				_ViewportImages[i] = vkl::createImage2D(_Logical, VK_FORMAT_R8G8B8A8_SRGB, _WindowWidth, _WindowHeight,
+					VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_LINEAR);
+				attachment_images[i] = _ViewportImages[i];
+			}
+			_ViewportRenderPass = vkl::createRenderPass(_Logical, ARRAY_SIZE(attachments), attachments, ARRAY_SIZE(subpasses), subpasses, ARRAY_SIZE(dependencies), dependencies);
+			_DepthImage = vkl::createImage2D(_Logical, depth_format, _WindowWidth, _WindowHeight, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+			attachment_images[FRAMES_IN_FLIGHT] = _DepthImage;
+
+			_AttachmentMemory = vkl::allocateAndBind(_Logical, _Physical, ARRAY_SIZE(attachment_images), attachment_images, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			//_AttachmentMemory = vkl::allocateForImage(_Logical, _Physical, _DepthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			_DepthImageView = vkl::createImageView(_Logical, _DepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+			for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+				_ViewportImageViews[i] = vkl::createImageView(_Logical, _ViewportImages[i], VK_FORMAT_R8G8B8A8_SRGB);
+				VkImageView viewport_attachments[] = { _ViewportImageViews[i], _DepthImageView };
+				_ViewportFramebuffers[i] = vkl::createFramebuffer(_Logical, _ViewportRenderPass, ARRAY_SIZE(viewport_attachments), viewport_attachments, _ViewportWidth, _ViewportHeight, 1);
+			}
+#else
 			_DepthImage = vkl::createImage2D(_Logical, depth_format, _WindowWidth, _WindowHeight, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 			_DepthMemory = vkl::allocateForImage(_Logical, _Physical, _DepthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			_DepthImageView = vkl::createImageView(_Logical, _DepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+#endif
 
 			auto images = vkl::getSwapchainImages(_Logical, _Swapchain);
 			_ImageResources.resize(images.size());
@@ -82,7 +103,7 @@ namespace SVE {
 		vkl::destroyRenderPass(_Logical, _RenderPass);
 		vkl::destroyImageView(_Logical, _DepthImageView);
 		vkl::destroyImage(_Logical, _DepthImage);
-		vkl::freeMemory(_Logical, _DepthMemory);
+		vkl::freeMemory(_Logical, _AttachmentMemory);
 		for (size_t i = 0; i < _ImageResources.size(); ++i) {
 			vkl::destroyCommandPool(_Logical, _ImageResources[i].commandPool);
 			vkl::destroyFramebuffer(_Logical, _ImageResources[i].framebuffer);
@@ -103,6 +124,13 @@ namespace SVE {
 			vkl::destroySemaphore(_Logical, _Synchronization[i].renderFinished);
 		}
 	}
+	void onFramebufferResize() {
+		for (size_t i = 0; i < _FramebufferResizeCallbackListeners.size(); ++i) {
+			auto& listener = _FramebufferResizeCallbackListeners[i];
+			auto function = _FramebufferResizeCallbackFunctions[listener.callbackIndex];
+			function(listener.data);
+		}
+	}
 	// recreates the swapchain and framebuffers
 	void onWindowResize(uint32_t width, uint32_t height) {
 		_WindowWidth = width;
@@ -110,6 +138,7 @@ namespace SVE {
 		vkDeviceWaitIdle(_Logical);
 		destroyPresentResources();
 		createPresentResources();
+		onFramebufferResize();
 	}
 	void vulkanCheckResult(VkResult result) {
 		VKL_CHECK(result, "ImGui error");
@@ -151,14 +180,13 @@ namespace SVE {
 		init_info.RenderPass = _RenderPass;
 		init_info.Subpass = 0;
 		init_info.MinImageCount = 2;
-		init_info.ImageCount = _ImageResources.size();
+		init_info.ImageCount = (uint32_t)_ImageResources.size();
 		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		init_info.Allocator = vkl::VKL_Callbacks;
 		init_info.CheckVkResultFn = vulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
 		shl::logInfo("ImGui initialized!");
 	}
-
 
 	void setupVulkanInstance() {
 		uint32_t instance_extension_count;
@@ -169,7 +197,7 @@ namespace SVE {
 		std::vector<const char*> extensions(instance_extensions, instance_extensions + instance_extension_count);
 	#ifdef VKL_ENABLE_VALIDATION
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-		_Instance = vkl::createInstance(VK_VERSION_1_0, extensions.size(), extensions.data(), debugCallback);
+		_Instance = vkl::createInstance(VK_VERSION_1_0, (uint32_t)extensions.size(), extensions.data(), debugCallback);
 		shl::logInfo("Vulkan instance created!");
 		DebugUtilsMessenger = vkl::createDebugUtilsMessengerEXT(_Instance, debugCallback);
 		shl::logInfo("debug messenger created!");
@@ -267,8 +295,18 @@ namespace SVE {
 		_FrameTimer.reset();
 		_FrameTime = 0;
 	}
-	void terminate()
-	{
+	void terminate() {
 		glfwDestroyWindow(_Window);
+	}
+	uint32_t addFramebufferResizeCallbackFunction(CallbackFunction callback) {
+		uint32_t index = (uint32_t)_FramebufferResizeCallbackFunctions.size();
+		_FramebufferResizeCallbackFunctions.push_back(callback);
+		return index;
+	}
+
+	uint32_t addFramebufferResizeCallbackListener(uint32_t callbackFunctionIndex, void* listener) {
+		uint32_t index = (uint32_t)_FramebufferResizeCallbackListeners.size();
+		_FramebufferResizeCallbackListeners.push_back({ listener, callbackFunctionIndex });
+		return index;
 	}
 }

@@ -32,7 +32,7 @@ public:
 		return Pos;
 	}
 	inline void rotate(float yaw, float pitch) {
-		constexpr float MAX_PITCH = glm::pi<float>() * 0.49;
+		constexpr float MAX_PITCH = glm::pi<float>() * 0.499f;
 		this->Yaw -= yaw;
 		this->Pitch += pitch;
 

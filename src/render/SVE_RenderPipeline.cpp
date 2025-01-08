@@ -1,19 +1,26 @@
 #include "SVE_RenderPipeline.h"
 
 
-void pipelineWindowResizeCallback() {
+void pipelineFramebufferResizeCallback(void* data) {
+	SveRenderPipeline& pipeline = *(SveRenderPipeline*)data;
+	pipeline.recreatePipeline();
 }
 
-SveRenderPipeline::SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView) :
+SveRenderPipeline::SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView, VkPolygonMode polygonMode_T, VkCullModeFlags cullMode_T, VkPrimitiveTopology primitiveTopology) :
 	vertShaderFile(vertexFileName), fragShaderFile(fragmentFileName), vertexInput(vertexInfo)
 {
+	polygonMode = polygonMode_T;
+	topology = primitiveTopology;
+	cullMode = cullMode_T;
 	if (windowResizeCallbackFunctionIndex == UINT32_MAX) {
-		//TODO: add callback to backend
+		windowResizeCallbackFunctionIndex = SVE::addFramebufferResizeCallbackFunction(pipelineFramebufferResizeCallback);
 	}
+	SVE::addFramebufferResizeCallbackListener(windowResizeCallbackFunctionIndex, this);
 	create(uniformBuffers, imageSampler, imageView);
 }
 SveRenderPipeline::~SveRenderPipeline()
 {
+	// TODO: remove callback listener!
 	destroy();
 }
 void SveRenderPipeline::create(const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView) {
@@ -47,8 +54,8 @@ void SveRenderPipeline::destroy() {
 	vkl::destroyPipeline(SVE::getDevice(), pipelineHandle);
 	vkl::destroyPipelineLayout(SVE::getDevice(), pipelineLayout);
 }
-void SveRenderPipeline::recreatePipeline()
-{
+void SveRenderPipeline::recreatePipeline() {
+	vkDeviceWaitIdle(SVE::getDevice());
 	vkl::destroyPipeline(SVE::getDevice(), pipelineHandle);
 	createGraphicPipeline();
 }
@@ -63,8 +70,8 @@ void SveRenderPipeline::createGraphicPipeline() {
 		vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragment_module)
 	};
 	VkPipelineInputAssemblyStateCreateInfo assembly_info = vkl::createPipelineInputAssemblyInfo(topology, VK_FALSE);
-	VkViewport viewport = { 0.0f, 0.0f, (float)SVE::getWindowWidth(), (float)SVE::getWindowHeight(), 0.0f, 1.0f };
-	VkRect2D scissor = { {0, 0}, {SVE::getWindowWidth(), SVE::getWindowHeight()} };
+	VkViewport viewport = { 0.0f, 0.0f, (float)SVE::getFramebufferWidth(), (float)SVE::getFramebufferHeight(), 0.0f, 1.0f };
+	VkRect2D scissor = { {0, 0}, {SVE::getFramebufferWidth(), SVE::getFramebufferHeight()} };
 	VkPipelineViewportStateCreateInfo viewport_info = vkl::createPipelineViewportStateInfo(1, &viewport, 1, &scissor);
 	VkPipelineRasterizationStateCreateInfo rasterization = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, polygonMode, cullMode, VK_FRONT_FACE_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
 	VkPipelineMultisampleStateCreateInfo multisample = vkl::createPipelineMultisampleStateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE);

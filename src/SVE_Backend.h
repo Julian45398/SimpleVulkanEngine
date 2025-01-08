@@ -4,12 +4,17 @@
 #include "core.h"
 #include <thread>
 
+#define SVE_RENDER_IN_VIEWPORT
 
 namespace SVE {
+	typedef void (*CallbackFunction)(void* data);
 	inline constexpr uint32_t FRAMES_IN_FLIGHT = 2;
 	void onWindowResize(uint32_t width, uint32_t height);
 	void init(uint32_t windowWidth, uint32_t windowHeight);
 	void terminate();
+	uint32_t addFramebufferResizeCallbackFunction(CallbackFunction callback);
+	uint32_t addFramebufferResizeCallbackListener(uint32_t callbackFunctionIndex, void* listener);
+	//void removeCallbackListener(uint32_t listenerIndex);
 	namespace _private {
 		inline VkInstance _Instance = VK_NULL_HANDLE;
 		inline GLFWwindow* _Window = nullptr;
@@ -20,7 +25,7 @@ namespace SVE {
 		inline VkRenderPass _RenderPass = VK_NULL_HANDLE;
 		inline VkImage _DepthImage = VK_NULL_HANDLE;
 		inline VkImageView _DepthImageView = VK_NULL_HANDLE;
-		inline VkDeviceMemory _DepthMemory = VK_NULL_HANDLE;
+		inline VkDeviceMemory _AttachmentMemory = VK_NULL_HANDLE;
 		inline VkQueue _GraphicsQueue = VK_NULL_HANDLE;
 		inline VkQueue _PresentQueue = VK_NULL_HANDLE;
 		inline shl::Timer _FrameTimer;
@@ -29,6 +34,14 @@ namespace SVE {
 		inline uint32_t _GraphicsIndex = 0;
 		inline uint32_t _WindowWidth = 0;
 		inline uint32_t _WindowHeight = 0;
+#ifdef SVE_RENDER_IN_VIEWPORT
+		inline uint32_t _ViewportWidth = 0;
+		inline uint32_t _ViewportHeight = 0;
+		inline VkRenderPass _ViewportRenderPass = VK_NULL_HANDLE;
+		inline VkFramebuffer _ViewportFramebuffers[FRAMES_IN_FLIGHT] = {};
+		inline VkImage _ViewportImages[FRAMES_IN_FLIGHT] = {};
+		inline VkImageView _ViewportImageViews[FRAMES_IN_FLIGHT] = {};
+#endif
 		struct ImageResource {
 			VkImage image;
 			VkImageView imageView;
@@ -46,6 +59,12 @@ namespace SVE {
 		inline InFlightSynchronization _Synchronization[FRAMES_IN_FLIGHT] = {};
 		inline uint32_t _ImageIndex = 0;
 		inline uint32_t _InFlightIndex = 0;
+		struct CallbackListener {
+			void* data;
+			uint32_t callbackIndex;
+		};
+		inline std::vector<CallbackFunction> _FramebufferResizeCallbackFunctions;
+		inline std::vector<CallbackListener> _FramebufferResizeCallbackListeners;
 	}
 	inline VkDevice getDevice() { return _private::_Logical; }
 	inline VkPhysicalDevice getPhysicalDevice() { return _private::_Physical; }
@@ -54,6 +73,8 @@ namespace SVE {
 	inline uint32_t getGraphicsFamily() { return _private::_GraphicsIndex; }
 	inline uint32_t getWindowWidth() { return _private::_WindowWidth; }
 	inline uint32_t getWindowHeight() { return _private::_WindowHeight; }
+	inline uint32_t getFramebufferWidth() { return _private::_WindowWidth; }
+	inline uint32_t getFramebufferHeight() { return _private::_WindowHeight; }
 	inline double getFrameTime() { return _private::_FrameTime; }
 	inline uint32_t getImageIndex() { return _private::_ImageIndex; }
 	inline uint32_t getImageCount() { return (uint32_t)_private::_ImageResources.size(); }
@@ -76,7 +97,7 @@ namespace SVE {
 	inline VkCommandBuffer newFrame() {
 		_private::_FrameTime = _private::_FrameTimer.ellapsedSeconds();
 		vkl::waitForFence(_private::_Logical, _private::_Synchronization[_private::_InFlightIndex].fence);
-		vkResetFences(_private::_Logical, 1, &_private::_Synchronization[_private::_InFlightIndex].fence);
+		vkl::resetFence(_private::_Logical, _private::_Synchronization[_private::_InFlightIndex].fence);
 		while (true) {
 			VkResult err = vkAcquireNextImageKHR(_private::_Logical, _private::_Swapchain, UINT64_MAX, _private::_Synchronization[_private::_InFlightIndex].imageAvailable, VK_NULL_HANDLE, &_private::_ImageIndex);
 			if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)

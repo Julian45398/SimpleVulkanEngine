@@ -32,7 +32,7 @@ public:
 	}
 	inline void render(VkCommandBuffer commands) {
 		deviceLocalBuffer.bind(commands);
-		uint32_t count = models.back().indexOffset + models.back().modelReference.indices.size();
+		uint32_t count = models.back().indexOffset + (uint32_t)models.back().modelReference.indices.size();
 		vkCmdDrawIndexed(commands, count, 1, 0, 0, 0);
 	}
 	inline bool hasChanges() {
@@ -40,8 +40,8 @@ public:
 	}
 	inline void uploadChanges(VkCommandBuffer commands) {
 		assert(hasChanges());
-		deviceLocalBuffer.uploadVertexData(commands, stagingBuffer, vertexRegions.size(), vertexRegions.data(), indexRegions.size(), indexRegions.data());
-		imageBuffer.uploadChanges(commands, stagingBuffer, imageRegions.size(), imageRegions.data(), VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+		deviceLocalBuffer.uploadVertexData(commands, stagingBuffer, (uint32_t)vertexRegions.size(), vertexRegions.data(), (uint32_t)indexRegions.size(), indexRegions.data());
+		imageBuffer.uploadChanges(commands, stagingBuffer, (uint32_t)imageRegions.size(), imageRegions.data(), VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
 		vertexRegions.clear();
 		indexRegions.clear();
 		imageRegions.clear();
@@ -64,7 +64,7 @@ public:
 		vertex_copy.srcOffset = stagingBuffer.addToTransfer(vertex_copy.size, model.vertices.data());
 		index_copy.size = model.indices.size() * sizeof(model.indices[0]);
 		index_copy.srcOffset = stagingBuffer.addToTransfer(index_copy.size, model.indices.data());
-		uint32_t model_index = models.size();
+		uint32_t model_index = (uint32_t)models.size();
 		VkBufferImageCopy image_copy;
 		image_copy.bufferImageHeight = 0;
 		image_copy.bufferRowLength = 0;

@@ -24,7 +24,7 @@ public:
 		auto req = vkl::getBufferMemoryRequirements(SVE::getDevice(), vertexBuffer);
 		auto index_req = vkl::getBufferMemoryRequirements(SVE::getDevice(), indexBuffer);
 		indexOffset = req.size;
-		uint32_t padding = req.alignment - (index_req.size % req.alignment);
+		uint32_t padding = static_cast<uint32_t>(req.alignment - (index_req.size % req.alignment));
 		maxIndexCount += padding / sizeof(uint32_t);
 		req.size += index_req.size + padding;
 		req.memoryTypeBits |= index_req.memoryTypeBits;

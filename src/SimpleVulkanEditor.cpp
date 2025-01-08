@@ -19,25 +19,25 @@ void SimpleVulkanEditor::handleInput() {
 	auto pos = SVE::getCursorPos();
 	if (SVE::isMouseClicked(GLFW_MOUSE_BUTTON_2)) {
 		SVE::hideCursor();
-		ViewCamera.rotate(0.005f * (pos.x - xpos), 0.005f * (pos.y - ypos));
+		ViewCamera.rotate(0.005f * ((float)pos.x - xpos), 0.005f * ((float)pos.y - ypos));
 		if (SVE::isKeyPressed(GLFW_KEY_W)) {
-			ViewCamera.moveForward(0.5f * SVE::getFrameTime());
+			ViewCamera.moveForward(0.5f * (float)SVE::getFrameTime());
 		}
 		if (SVE::isKeyPressed(GLFW_KEY_S)) {
-			ViewCamera.moveForward(-0.5f * SVE::getFrameTime());
+			ViewCamera.moveForward(-0.5f * (float)SVE::getFrameTime());
 		}
 		if (SVE::isKeyPressed(GLFW_KEY_A)) {
-			ViewCamera.moveRight(-0.5f * SVE::getFrameTime());
+			ViewCamera.moveRight(-0.5f * (float)SVE::getFrameTime());
 		}
 		if (SVE::isKeyPressed(GLFW_KEY_D)) {
-			ViewCamera.moveRight(0.5f * SVE::getFrameTime());
+			ViewCamera.moveRight(0.5f * (float)SVE::getFrameTime());
 		}
 	}
 	else {
 		SVE::showCursor();
 	}
-	xpos = pos.x;
-	ypos = pos.y;
+	xpos = (float)pos.x;
+	ypos = (float)pos.y;
 }
 
 void SimpleVulkanEditor::run() {

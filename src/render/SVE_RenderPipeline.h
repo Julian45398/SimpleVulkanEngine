@@ -19,8 +19,9 @@ private:
 	VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL; 
 	VkCullModeFlags cullMode = VK_CULL_MODE_NONE;
 	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	uint32_t callbackListenerIndex;
 public:
-	SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView);
+	SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView, VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL, VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT, VkPrimitiveTopology primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	~SveRenderPipeline();
 	void create(const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView);
 	void destroy();
@@ -29,6 +30,14 @@ public:
 		vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[SVE::getImageIndex()], 0, nullptr);
 	}
 	void recreatePipeline();
+	inline void setCullMode(VkCullModeFlags newCullMode) {
+		cullMode = newCullMode;
+		recreatePipeline();
+	}
+	inline void setPolygonMode(VkPolygonMode newPolygonMode) {
+		polygonMode = newPolygonMode;
+		recreatePipeline();
+	}
 private:
 	void createGraphicPipeline();
 };
