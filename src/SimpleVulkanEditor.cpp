@@ -2,6 +2,7 @@
 //
 #include "SimpleVulkanEditor.h"
 #include "SVE_Backend.h"
+#include "render/UiHandler.h"
 
 void SimpleVulkanEditor::init()
 {
@@ -19,18 +20,19 @@ void SimpleVulkanEditor::handleInput() {
 	auto pos = SVE::getCursorPos();
 	if (SVE::isMouseClicked(GLFW_MOUSE_BUTTON_2)) {
 		SVE::hideCursor();
+		const float scale_factor = 0.005f;
 		ViewCamera.rotate(0.005f * ((float)pos.x - xpos), 0.005f * ((float)pos.y - ypos));
 		if (SVE::isKeyPressed(GLFW_KEY_W)) {
-			ViewCamera.moveForward(0.5f * (float)SVE::getFrameTime());
+			ViewCamera.moveForward((float)SVE::getFrameTime() * scale_factor);
 		}
 		if (SVE::isKeyPressed(GLFW_KEY_S)) {
-			ViewCamera.moveForward(-0.5f * (float)SVE::getFrameTime());
+			ViewCamera.moveForward(-(float)SVE::getFrameTime() * scale_factor);
 		}
 		if (SVE::isKeyPressed(GLFW_KEY_A)) {
-			ViewCamera.moveRight(-0.5f * (float)SVE::getFrameTime());
+			ViewCamera.moveRight(-(float)SVE::getFrameTime() * scale_factor);
 		}
 		if (SVE::isKeyPressed(GLFW_KEY_D)) {
-			ViewCamera.moveRight(0.5f * (float)SVE::getFrameTime());
+			ViewCamera.moveRight((float)SVE::getFrameTime() * scale_factor);
 		}
 	}
 	else {
@@ -66,7 +68,8 @@ void SimpleVulkanEditor::run() {
 			shl::logDebug("scene has changes!");
 			sceneBuffer.uploadChanges(primary_commands);
 		}
-		controlUI(ViewCamera);
+		Menu::BuildUi();
+		//controlUI(ViewCamera);
 		//auto secondary = SVE::getNextSecondaryCommands();
 		//Renderer.getRenderCommands(secondary, primary_commands);
 		sceneBuffer.render(secondary[SVE::getInFlightIndex()]);

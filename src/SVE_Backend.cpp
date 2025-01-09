@@ -1,4 +1,3 @@
-
 #include "SVE_Backend.h"
 
 namespace SVE {
@@ -38,6 +37,7 @@ namespace SVE {
 		VkFormat depth_format = vkl::findSupportedFormat(_Physical, ARRAY_SIZE(POSSIBLE_DEPTH_FORMATS), POSSIBLE_DEPTH_FORMATS, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 		// render pass:
 		{
+			shl::logInfo("creating render passes: ");
 			VkAttachmentDescription attachments[] = {
 				vkl::createAttachmentDescription(surface_format.format, VK_SAMPLE_COUNT_1_BIT,
 				VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
@@ -60,27 +60,40 @@ namespace SVE {
 			};
 			_RenderPass = vkl::createRenderPass(_Logical, ARRAY_SIZE(attachments), attachments, ARRAY_SIZE(subpasses), subpasses, ARRAY_SIZE(dependencies), dependencies);
 #ifdef SVE_RENDER_IN_VIEWPORT
-			VkImage attachment_images[FRAMES_IN_FLIGHT + 1];
+			// change attachments: 
+			attachments[0].format = VK_FORMAT_R8G8B8A8_SRGB;
+			attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			shl::logInfo("TODO: change method to size viewport height and width!");
+			_ViewportWidth = _WindowWidth - 100;
+			_ViewportHeight = _WindowHeight - 100;
+			_ViewportSampler = vkl::createSampler(_Logical, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
+				
+			VkImage attachment_images[FRAMES_IN_FLIGHT + 2];
 			for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-				_ViewportImages[i] = vkl::createImage2D(_Logical, VK_FORMAT_R8G8B8A8_SRGB, _WindowWidth, _WindowHeight,
-					VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_LINEAR);
+				_ViewportImages[i] = vkl::createImage2D(_Logical, attachments[0].format, _ViewportWidth, _ViewportHeight,
+					VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL);
 				attachment_images[i] = _ViewportImages[i];
 			}
 			_ViewportRenderPass = vkl::createRenderPass(_Logical, ARRAY_SIZE(attachments), attachments, ARRAY_SIZE(subpasses), subpasses, ARRAY_SIZE(dependencies), dependencies);
 			_DepthImage = vkl::createImage2D(_Logical, depth_format, _WindowWidth, _WindowHeight, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+			_ViewportDepthImage = vkl::createImage2D(_Logical, depth_format, _ViewportWidth, _ViewportHeight, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 			attachment_images[FRAMES_IN_FLIGHT] = _DepthImage;
+			attachment_images[FRAMES_IN_FLIGHT+1] = _ViewportDepthImage;
 
 			_AttachmentMemory = vkl::allocateAndBind(_Logical, _Physical, ARRAY_SIZE(attachment_images), attachment_images, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			//_AttachmentMemory = vkl::allocateForImage(_Logical, _Physical, _DepthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			_DepthImageView = vkl::createImageView(_Logical, _DepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+			_ViewportDepthImageView = vkl::createImageView(_Logical, _ViewportDepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+			
 			for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-				_ViewportImageViews[i] = vkl::createImageView(_Logical, _ViewportImages[i], VK_FORMAT_R8G8B8A8_SRGB);
-				VkImageView viewport_attachments[] = { _ViewportImageViews[i], _DepthImageView };
+				_ViewportImageViews[i] = vkl::createImageView(_Logical, _ViewportImages[i], attachments[0].format);
+				VkImageView viewport_attachments[] = { _ViewportImageViews[i], _ViewportDepthImageView };
 				_ViewportFramebuffers[i] = vkl::createFramebuffer(_Logical, _ViewportRenderPass, ARRAY_SIZE(viewport_attachments), viewport_attachments, _ViewportWidth, _ViewportHeight, 1);
 			}
+			attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			attachments[0].format = surface_format.format;
 #else
 			_DepthImage = vkl::createImage2D(_Logical, depth_format, _WindowWidth, _WindowHeight, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-			_DepthMemory = vkl::allocateForImage(_Logical, _Physical, _DepthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			_AttachmentMemory = vkl::allocateForImage(_Logical, _Physical, _DepthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			_DepthImageView = vkl::createImageView(_Logical, _DepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 #endif
 
@@ -91,12 +104,15 @@ namespace SVE {
 				_ImageResources[i].imageView = vkl::createImageView(_Logical, images[i], surface_format.format);
 				_ImageResources[i].commandPool = vkl::createCommandPool(_Logical, _GraphicsIndex);
 				_ImageResources[i].primaryCommands = vkl::createCommandBuffer(_Logical, _ImageResources[i].commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+#ifdef SVE_RENDER_IN_VIEWPORT
+				_ImageResources[i].imGuiCommands = vkl::createCommandBuffer(_Logical, _ImageResources[i].commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+#else
 				_ImageResources[i].imGuiCommands = vkl::createCommandBuffer(_Logical, _ImageResources[i].commandPool, VK_COMMAND_BUFFER_LEVEL_SECONDARY);
+#endif
 				VkImageView attachments[] = { _ImageResources[i].imageView, _DepthImageView };
 				_ImageResources[i].framebuffer = vkl::createFramebuffer(_Logical, _RenderPass, ARRAY_SIZE(attachments), attachments, _WindowWidth, _WindowHeight, 1);
 			}
 		}
-
 	}
 	void destroyPresentResources() {
 		vkl::destroySwapchain(_Logical, _Swapchain);
@@ -115,6 +131,9 @@ namespace SVE {
 			_Synchronization[i].fence = vkl::createFence(_Logical, VK_FENCE_CREATE_SIGNALED_BIT);
 			_Synchronization[i].imageAvailable = vkl::createSemaphore(_Logical);
 			_Synchronization[i].renderFinished = vkl::createSemaphore(_Logical);
+#ifdef SVE_RENDER_IN_VIEWPORT
+			_Synchronization[i].viewportRenderFinished = vkl::createSemaphore(_Logical);
+#endif
 		}
 	}
 	void destroySynchronization() {
@@ -122,6 +141,9 @@ namespace SVE {
 			vkl::destroyFence(_Logical, _Synchronization[i].fence);
 			vkl::destroySemaphore(_Logical, _Synchronization[i].imageAvailable);
 			vkl::destroySemaphore(_Logical, _Synchronization[i].renderFinished);
+#ifdef SVE_RENDER_IN_VIEWPORT
+			vkl::destroySemaphore(_Logical, _Synchronization[i].viewportRenderFinished);
+#endif
 		}
 	}
 	void onFramebufferResize() {
@@ -157,12 +179,12 @@ namespace SVE {
 		VkDescriptorPool pool;
 		VkDescriptorPoolSize pool_sizes[] =
 		{
-			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
 		};
 		VkDescriptorPoolCreateInfo pool_info = {};
 		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		pool_info.maxSets = 1;
+		pool_info.maxSets = 3;
 		pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
 		pool_info.pPoolSizes = pool_sizes;
 		vkCreateDescriptorPool(_Logical, &pool_info, nullptr, &pool);
@@ -185,6 +207,13 @@ namespace SVE {
 		init_info.Allocator = vkl::VKL_Callbacks;
 		init_info.CheckVkResultFn = vulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
+
+#ifdef SVE_RENDER_IN_VIEWPORT
+		for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+			shl::logInfo("adding textures: ", _ViewportSampler, ", ", _ViewportImageViews[i]);
+			_ViewportTextureIDs[i] = ImGui_ImplVulkan_AddTexture(_ViewportSampler, _ViewportImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		}
+#endif
 		shl::logInfo("ImGui initialized!");
 	}
 
@@ -202,7 +231,7 @@ namespace SVE {
 		DebugUtilsMessenger = vkl::createDebugUtilsMessengerEXT(_Instance, debugCallback);
 		shl::logInfo("debug messenger created!");
 	#else
-		Instance = vkl::createInstance(VK_VERSION_1_0, extensions.size(), extensions.data());
+		_Instance = vkl::createInstance(VK_VERSION_1_0, extensions.size(), extensions.data());
 	#endif
 		assert(_Instance != VK_NULL_HANDLE);
 
@@ -308,5 +337,12 @@ namespace SVE {
 		uint32_t index = (uint32_t)_FramebufferResizeCallbackListeners.size();
 		_FramebufferResizeCallbackListeners.push_back({ listener, callbackFunctionIndex });
 		return index;
+	}
+	void setViewport(uint32_t width, uint32_t height, uint32_t xOffset, uint32_t yOffset) {
+		_private::_ViewportWidth = (uint32_t)width;
+		_private::_ViewportHeight = (uint32_t)height;
+		_private::_ViewportOffsetX = (uint32_t)xOffset;
+		_private::_ViewportOffsetY = (uint32_t)yOffset;
+		//onFramebufferResize();
 	}
 }

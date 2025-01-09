@@ -26,28 +26,19 @@ add_executable (${PROJECT_NAME} ${SRC_FILES})
 #add tests
 add_subdirectory(${TEST_DIR})
 
+#add define if building from ide
 option(RUN_IN_IDE "defines if run in IDE" OFF)
 if (RUN_IN_IDE)
+	message(STATUS "runs in IDE")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE "RUN_IN_IDE")
 endif()
 
-	target_compile_definitions(${PROJECT_NAME} PRIVATE RUN_IN_IDE)
 #define the platform specific options
 if (WIN32)
-	message("building for windows")
-	set(INCLUDE_GLFW ON)
-	set(IMGUI "lib/imgui/")
-	target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp" 
-		"${IMGUI}imgui_widgets.cpp" "${IMGUI}backends/imgui_impl_glfw.cpp" "${IMGUI}backends/imgui_impl_vulkan.cpp" )
-
-	target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI}" "${IMGUI}backends/")
-	target_compile_definitions(${PROJECT_NAME} PRIVATE USE_IMGUI)
-	target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GLFW)
-
+	message(STATUS "building for windows")
 	if (MSVC)
 		target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
 	endif()
-else()
-	message(FATAL_ERROR "only windows currently supported!")
 endif()
 #add libraries
 add_subdirectory(${LIB_DIR})

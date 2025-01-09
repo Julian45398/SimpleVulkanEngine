@@ -70,9 +70,9 @@ void SveRenderPipeline::createGraphicPipeline() {
 		vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragment_module)
 	};
 	VkPipelineInputAssemblyStateCreateInfo assembly_info = vkl::createPipelineInputAssemblyInfo(topology, VK_FALSE);
-	VkViewport viewport = { 0.0f, 0.0f, (float)SVE::getFramebufferWidth(), (float)SVE::getFramebufferHeight(), 0.0f, 1.0f };
-	VkRect2D scissor = { {0, 0}, {SVE::getFramebufferWidth(), SVE::getFramebufferHeight()} };
-	VkPipelineViewportStateCreateInfo viewport_info = vkl::createPipelineViewportStateInfo(1, &viewport, 1, &scissor);
+	VkViewport viewport = { (float)SVE::getViewportOffsetX(), (float)SVE::getViewportOffsetY(), (float)SVE::getViewportWidth(), (float)SVE::getViewportHeight(), 0.0f, 1.0f};
+	VkRect2D scissor = { {SVE::getViewportOffsetX(), SVE::getViewportOffsetY()}, {SVE::getViewportWidth(), SVE::getViewportHeight()}};
+	VkPipelineViewportStateCreateInfo viewport_info = vkl::createPipelineViewportStateInfo(1, nullptr, 1, nullptr);
 	VkPipelineRasterizationStateCreateInfo rasterization = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, polygonMode, cullMode, VK_FRONT_FACE_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
 	VkPipelineMultisampleStateCreateInfo multisample = vkl::createPipelineMultisampleStateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE);
 	VkPipelineDepthStencilStateCreateInfo depth_stencil = vkl::createPipelineDepthStencilStateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL, VK_FALSE, VK_FALSE);
@@ -91,8 +91,12 @@ void SveRenderPipeline::createGraphicPipeline() {
 #endif
 	float blend_constants[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	VkPipelineColorBlendStateCreateInfo color_blend = vkl::createPipelineColorBlendStateInfo(VK_FALSE, VK_LOGIC_OP_COPY, 1, &color_blend_attachement, blend_constants);
-	//VkPipelineDynamicStateCreateInfo dynamic_state = vkl::createPipelineDynamiceStateCreateInfo(0, nullptr);
-	VkGraphicsPipelineCreateInfo info = vkl::createGraphicsPipelineInfo(ARRAY_SIZE(stages), stages, &vertexInput, &assembly_info, nullptr, &viewport_info, &rasterization, &multisample, &depth_stencil, &color_blend, nullptr, pipelineLayout, SVE::getRenderPass(), 0);
+	VkDynamicState dynamic_states[] = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+	VkPipelineDynamicStateCreateInfo dynamic_state = vkl::createPipelineDynamiceStateCreateInfo(ARRAY_SIZE(dynamic_states), dynamic_states);
+	VkGraphicsPipelineCreateInfo info = vkl::createGraphicsPipelineInfo(ARRAY_SIZE(stages), stages, &vertexInput, &assembly_info, nullptr, &viewport_info, &rasterization, &multisample, &depth_stencil, &color_blend, &dynamic_state, pipelineLayout, SVE::getRenderPass(), 0);
 
 	pipelineHandle = vkl::createGraphicsPipeline(SVE::getDevice(), info);
 	vkl::destroyShaderModule(SVE::getDevice(), vertex_module);

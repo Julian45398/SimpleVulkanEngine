@@ -28,6 +28,10 @@ public:
 	inline void bindPipeline(VkCommandBuffer commands) {
 		vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineHandle);
 		vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[SVE::getImageIndex()], 0, nullptr);
+		VkViewport viewport = { (float)SVE::getViewportOffsetX(), (float)SVE::getViewportOffsetY(), (float)SVE::getViewportWidth(), (float)SVE::getViewportHeight(), 0.0f, 1.0f};
+		VkRect2D scissor = { {SVE::getViewportOffsetX(), SVE::getViewportOffsetY()}, {SVE::getViewportWidth(), SVE::getViewportHeight()}};
+		vkCmdSetViewport(commands, 0, 1, &viewport);
+		vkCmdSetScissor(commands, 0, 1, &scissor);
 	}
 	void recreatePipeline();
 	inline void setCullMode(VkCullModeFlags newCullMode) {

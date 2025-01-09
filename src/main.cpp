@@ -35,7 +35,7 @@ int main() {
 	changeWorkingDirectory();
 #endif
 	shl::logInfo("Version: ", PROJECT_VERSION);
-	SVE::init(600, 400);
+	SVE::init(1280, 720);
 	SimpleVulkanEditor App;
 	App.init();
 	App.run();

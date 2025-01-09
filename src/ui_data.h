@@ -12,8 +12,14 @@ inline void controlUI(Camera& camera) {
 	static shl::Timer timer;
 	static int counter;
 	double FrameTime = timer.ellapsedMillis();
-	ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove);                          // Create a window called "Hello, world!" and append into it.
-	ImGui::SetWindowPos(ImVec2(0.f, 0.f));
+	ImGui::BeginMainMenuBar();
+	// Add menu bar items here
+	ImGui::EndMainMenuBar();
+	ImGui::SetNextWindowSize(ImVec2(200, SVE::getWindowHeight()));
+	ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 200, 0));
+	//ImGui::SetNextWindow
+	ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+	//ImGui::SetWindowPos(ImVec2(0.f, 0.f));
 
 	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
 	ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state

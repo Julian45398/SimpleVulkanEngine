@@ -7,8 +7,14 @@
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DRUN_IN_IDE=0",
-      "ctestCommandArgs": ""
+      "ctestCommandArgs": "",
+      "variables": [
+        {
+          "name": "RUN_IN_IDE",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
     },
     {
       "name": "x64-Release",
@@ -16,11 +22,16 @@
       "configurationType": "RelWithDebInfo",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DRUN_IN_IDE=0",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "variables": []
+      "variables": [
+        {
+          "name": "RUN_IN_IDE",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
     }
   ]
 }

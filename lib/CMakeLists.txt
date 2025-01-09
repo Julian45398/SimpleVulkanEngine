@@ -1,17 +1,24 @@
 cmake_minimum_required (VERSION 3.16)
 
-message("including GLFW! ${LIB_DIR}")
+#setting up glfw:
 set(GLFW_BUILD_WAYLAND OFF)
 set(GLFW_VULKAN_STATIC ON)
 set(GLFW_BUILD_DOCS OFF)
 set(GLFW_DIR "glfw")
 add_subdirectory(${GLFW_DIR})
-
-
-
 target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
 target_include_directories(${PROJECT_NAME} PUBLIC "${GLFW_DIR}/include")
 
+#setting up imgui:
+set(IMGUI "imgui/")
+target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp" 
+	"${IMGUI}imgui_widgets.cpp" "${IMGUI}backends/imgui_impl_glfw.cpp" "${IMGUI}backends/imgui_impl_vulkan.cpp" )
+
+target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI}" "${IMGUI}backends/")
+target_compile_definitions(${PROJECT_NAME} PRIVATE USE_IMGUI)
+target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GLFW)
+
+#adding header libraries:
 target_include_directories(${PROJECT_NAME} PUBLIC 
 	"shl" 
 	"glm"
