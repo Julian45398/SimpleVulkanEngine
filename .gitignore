@@ -3,7 +3,8 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-/lib/vulkan/*
+#vulkan library dir
+lib/vulkan/
 
 # User-specific files
 
