@@ -9,7 +9,7 @@
 #include <shl/Timer.h>
 
 #define GLFW_INCLUDE_VULKAN
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 
 #ifndef NDEBUG
 #define VKL_ENABLE_VALIDATION
