@@ -18,6 +18,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI}" "${IMGUI}backends/"
 target_compile_definitions(${PROJECT_NAME} PRIVATE USE_IMGUI)
 target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GLFW)
 
+#volk:
+target_sources(${PROJECT_NAME} PUBLIC "volk/volk.c")
+target_compile_definitions(${PROJECT_NAME} PUBLIC VK_NO_PROTOTYPES IMGUI_IMPL_VULKAN_USE_VOLK)
+
+
 #adding header libraries:
 target_include_directories(${PROJECT_NAME} PUBLIC 
 	"shl" 
@@ -26,6 +31,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	"imgui"
 	"vkl"
 	"tinygltf"
+	"volk"
 	"Vulkan-Headers/include"
 )
 
@@ -41,6 +47,7 @@ if (BUILD_TESTING)
 		"imgui"
 		"vkl"
 		"tinygltf"
+		"volk"
 		"Vulkan-Headers/include"
 	)
 endif()
@@ -85,7 +92,7 @@ else()
 	message(STATUS "vulkan library found locally: ${VULKAN_LIBRARY}")
 endif()
 #link vulkan library
-target_link_libraries(${PROJECT_NAME} PUBLIC ${VULKAN_LIBRARY})
+#target_link_libraries(${PROJECT_NAME} PUBLIC ${VULKAN_LIBRARY})
 if (BUILD_TESTING)
-	target_link_libraries(${TEST_TARGET} PUBLIC ${VULKAN_LIBRARY})
+	#target_link_libraries(${TEST_TARGET} PUBLIC ${VULKAN_LIBRARY})
 endif()

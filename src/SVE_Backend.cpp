@@ -7,7 +7,7 @@ namespace SVE {
 	inline const VkFormat SURFACE_FORMATS[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
 
 
-	#ifdef VKL_ENABLE_VALIDATION
+#ifdef VKL_ENABLE_VALIDATION
 	VkDebugUtilsMessengerEXT DebugUtilsMessenger = VK_NULL_HANDLE;
 	VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 		switch (message_severity) {
@@ -25,7 +25,7 @@ namespace SVE {
 		}
 		return VK_FALSE;
 	}
-	#endif
+#endif
 
 	void createPresentResources() {
 		const VkColorSpaceKHR requested_colorspace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
@@ -167,6 +167,7 @@ namespace SVE {
 	}
 
 	void setupImGui() {
+		shl::logDebug("setting up imgui!");
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -206,6 +207,7 @@ namespace SVE {
 		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		init_info.Allocator = vkl::VKL_Callbacks;
 		init_info.CheckVkResultFn = vulkanCheckResult;
+		shl::logDebug("initializing vulkan for imgui!");
 		ImGui_ImplVulkan_Init(&init_info);
 
 #ifdef SVE_RENDER_IN_VIEWPORT
@@ -225,16 +227,41 @@ namespace SVE {
 		}
 		std::vector<const char*> extensions(instance_extensions, instance_extensions + instance_extension_count);
 	#ifdef VKL_ENABLE_VALIDATION
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-		_Instance = vkl::createInstance(VK_VERSION_1_0, (uint32_t)extensions.size(), extensions.data(), debugCallback);
+		uint32_t layer_count;
+		vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+		std::vector<VkLayerProperties> layers(layer_count);
+		vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
+		bool debug_support = false;
+		shl::logDebug("available layers: ");
+		for (uint32_t i = 0; i < layer_count; ++i) {
+			shl::logDebug(layers[i].layerName);
+			if (strcmp(vkl::VKL_VALIDATION_LAYER_NAME, layers[i].layerName) == 0) {
+				debug_support = true;
+				break;
+			}
+		}
+		if (debug_support) {
+			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			_Instance = vkl::createInstance(VK_VERSION_1_0, (uint32_t)extensions.size(), extensions.data(), debugCallback);
+			volkLoadInstance(_Instance);
+			DebugUtilsMessenger = vkl::createDebugUtilsMessengerEXT(_Instance, debugCallback);
+			if (!DebugUtilsMessenger) {
+				shl::logError("failed to create debug messenger!");
+			} else {
+				shl::logInfo("debug messenger created!");
+			}
+		} else {
+			shl::logWarn("Validation layers requested but not available!");
+			_Instance = vkl::createInstance(VK_VERSION_1_0, (uint32_t)extensions.size(), extensions.data());
+			volkLoadInstance(_Instance);
+			DebugUtilsMessenger = nullptr;
+		}
 		shl::logInfo("Vulkan instance created!");
-		DebugUtilsMessenger = vkl::createDebugUtilsMessengerEXT(_Instance, debugCallback);
-		shl::logInfo("debug messenger created!");
 	#else
 		_Instance = vkl::createInstance(VK_VERSION_1_0, extensions.size(), extensions.data());
+		volkLoadInstance(_Instance);
 	#endif
 		assert(_Instance != VK_NULL_HANDLE);
-
 	}
 	void setupVulkanDevice() {
 		const char* device_extensions[]{
@@ -277,8 +304,9 @@ namespace SVE {
 		if (_GraphicsIndex == UINT32_MAX || _PresentIndex == UINT32_MAX) {
 			shl::logFatal("no sufficient queue family found!");
 		}
-		_Logical = vkl::createDevice(_Physical, _Surface, features, ARRAY_SIZE(device_extensions), device_extensions, queue_count, queue_infos);
+		_Logical = vkl::createDevice(_Physical, _Surface, features, ARRAY_SIZE(device_extensions), device_extensions, queue_count, queue_infos, DebugUtilsMessenger != nullptr);
 		shl::logInfo("logical device created!");
+		volkLoadDevice(_Logical);
 
 		vkGetDeviceQueue(_Logical, _GraphicsIndex, 0, &_GraphicsQueue);
 		vkGetDeviceQueue(_Logical, _PresentIndex, 0, &_PresentQueue);
@@ -314,15 +342,27 @@ namespace SVE {
 
 	
 	void init(uint32_t windowWidth, uint32_t windowHeight) {
+		if (volkInitialize() != VK_SUCCESS) {
+			shl::logFatal("failed to initialize volk!");
+		} else {
+			shl::logInfo("volk initialized");
+		}
 		glfwInit();
+		shl::logInfo("glfw initialized");
 		setupVulkanInstance();
+		shl::logDebug("vulkan instance created!");
 		setupWindow(windowWidth, windowHeight);
+		shl::logDebug("window created!");
 		setupVulkanDevice();
+		shl::logDebug("device created!");
 		createPresentResources();
+		shl::logDebug("swapchain created!");
 		setupImGui();
+		shl::logDebug("imgui initialized!");
 		setupSynchronization();
 		_FrameTimer.reset();
 		_FrameTime = 0;
+		shl::logInfo("backend initialized!");
 	}
 	void terminate() {
 		glfwDestroyWindow(_Window);
