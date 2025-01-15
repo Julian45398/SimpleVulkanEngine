@@ -89,18 +89,12 @@ public:
 	}
 	inline glm::mat4 getViewProj() const {
 		float aspect_ratio = SVE::getAspectRatio();
-		shl::logDebug("Aspect ratio: ", aspect_ratio);
-		shl::logDebug("forward upward");
 		glm::mat4 model = glm::rotate(glm::mat4(1.0f), 2 * Roll, -Transform[0]);
-		shl::logDebug("model");
 		glm::mat4 view = glm::lookAt(Pos, Pos + Transform[0], glm::vec3(0.0f, 0.0f, 1.0f));
-		shl::logDebug("view");
 		glm::mat4 proj = glm::perspective(glm::radians(Fov), aspect_ratio, 0.1f, 10000.0f);
-		shl::logDebug("proj");
 
 		proj[1][1] *= -1;
 		glm::mat4 res = proj * view * model;
-		shl::logDebug("result");
 		return res;
 	}
 private:

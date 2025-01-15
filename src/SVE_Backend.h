@@ -169,9 +169,7 @@ namespace SVE {
 	inline void renderFrame(uint32_t commandCount, const VkCommandBuffer* commandBuffer) {
 		const auto& res = _private::_ImageResources[_private::_ImageIndex];
 		const auto& sync = _private::_Synchronization[_private::_InFlightIndex];
-		
 		{
-			shl::logDebug("starting imgui commands: ");
 			auto& imgui_commands = _private::_ImageResources[_private::_ImageIndex].imGuiCommands;
 #ifdef SVE_RENDER_IN_VIEWPORT
 
@@ -207,7 +205,6 @@ namespace SVE {
 			vkCmdEndRenderPass(imgui_commands);
 #endif
 			vkEndCommandBuffer(imgui_commands);
-			shl::logDebug("imgui commands recorded!");
 		}
 		{
 			VkClearValue clear_values[2] = {};

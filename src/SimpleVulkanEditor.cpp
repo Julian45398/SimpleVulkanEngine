@@ -56,17 +56,14 @@ void SimpleVulkanEditor::run() {
 	while (!SVE::shouldClose()) {
 		handleInput();
 		auto primary_commands = SVE::newFrame();
-		shl::logDebug("new frame");
 		vkl::resetCommandPool(SVE::getDevice(), pools[SVE::getInFlightIndex()]);
 		SVE::beginRenderCommands(secondary[SVE::getInFlightIndex()]);
 		renderPipeline.bindPipeline(secondary[SVE::getInFlightIndex()]);
-		shl::logDebug("pipeline bound");
 		//auto primary_commands = SVE::beginRendering();
 		{
 			UniformData data = {};
 			data.transformMatrix = ViewCamera.getViewProj();
 			uniformBuffer.update(data);
-			shl::logDebug("uniform buffer updated!");
 		}
 		if (sceneBuffer.hasChanges()) {
 			shl::logDebug("scene has changes!");

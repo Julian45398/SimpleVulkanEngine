@@ -36,9 +36,7 @@ public:
 	}
 	inline void update(const T& updateData) {
 		size_t offset = SVE::getImageIndex() * uniformSize;
-		shl::logDebug("starting copy at: ", offset, " with size: ", sizeof(T));
 		memcpy(mappedMemory + offset, &updateData, sizeof(T));
-		shl::logDebug("memory copied!");
 	}
 	inline operator VkBuffer() { return buffers[SVE::getImageIndex()]; }
 	inline operator const VkBuffer* () { return buffers.data(); }
