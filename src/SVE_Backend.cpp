@@ -207,7 +207,6 @@ namespace SVE {
 		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		init_info.Allocator = vkl::VKL_Callbacks;
 		init_info.CheckVkResultFn = vulkanCheckResult;
-		shl::logDebug("initializing vulkan for imgui!");
 		ImGui_ImplVulkan_Init(&init_info);
 
 #ifdef SVE_RENDER_IN_VIEWPORT
@@ -253,13 +252,13 @@ namespace SVE {
 		} else {
 			shl::logWarn("Validation layers requested but not available!");
 			_Instance = vkl::createInstance(VK_VERSION_1_0, (uint32_t)extensions.size(), extensions.data());
-			volkLoadInstance(_Instance);
+			volkLoadInstanceOnly(_Instance);
 			DebugUtilsMessenger = nullptr;
 		}
 		shl::logInfo("Vulkan instance created!");
 	#else
 		_Instance = vkl::createInstance(VK_VERSION_1_0, extensions.size(), extensions.data());
-		volkLoadInstance(_Instance);
+		volkLoadInstanceOnly(_Instance);
 	#endif
 		assert(_Instance != VK_NULL_HANDLE);
 	}

@@ -51,5 +51,3 @@ if (BUILD_TESTING)
 		"Vulkan-Headers/include"
 	)
 endif()
-
-#add header only libraries
