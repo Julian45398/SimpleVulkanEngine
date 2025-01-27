@@ -1,4 +1,18 @@
+#ifdef SVE_WINDOWS 
+#define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(SVE_LINUX)
+#ifdef SVE_USE_X11
+#define GLFW_EXPOSE_NATIVE_X11
+#elif defined(SVE_USE_WAYLAND)
+#define GLFW_EXPOSE_NATIVE_WAYLAND
+#endif
+#elif define(SVE_APPLE)
+#define GLFW_EXPOSE_NATIVE_COCOA
+#endif
 #include "SVE_Backend.h"
+
+#include <nfd_glfw3.h>
+
 
 namespace SVE {
 	using namespace _private;
@@ -383,5 +397,67 @@ namespace SVE {
 		_private::_ViewportOffsetX = (uint32_t)xOffset;
 		_private::_ViewportOffsetY = (uint32_t)yOffset;
 		//onFramebufferResize();
+	}
+
+
+	std::string openFileDialog(uint32_t filterCount, const nfdu8filteritem_t* filters) {
+		NFD_Init();
+
+		nfdu8char_t* outPath;
+		nfdopendialogu8args_t args = { 0 };
+
+		NFD_GetNativeWindowFromGLFWWindow(_Window, &args.parentWindow);
+		args.filterList = static_cast<const nfdu8filteritem_t*>(filters);
+		args.filterCount = filterCount;
+		shl::logDebug("filter count: ", filterCount);
+		nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
+		if (result == NFD_OKAY)
+		{
+			puts("Success!");
+			puts(outPath);
+			NFD_FreePathU8(outPath);
+		}
+		else if (result == NFD_CANCEL)
+		{
+			puts("User pressed cancel.");
+		}
+		else
+		{
+			printf("Error: %s\n", NFD_GetError());
+		}
+
+		NFD_Quit();
+
+		std::string filepath;
+		return filepath;
+	}
+	std::string saveFileDialog(uint32_t filterCount, const nfdu8filteritem_t* filters) {
+		NFD_Init();
+
+		nfdu8char_t* outPath;
+		nfdsavedialogu8args_t args = {};
+		NFD_GetNativeWindowFromGLFWWindow(_Window, &args.parentWindow);
+		args.filterList = static_cast<const nfdu8filteritem_t*>(filters);
+		args.filterCount = filterCount;
+		nfdresult_t result = NFD_SaveDialogU8_With(&outPath, &args);
+		if (result == NFD_OKAY)
+		{
+			puts("Success!");
+			puts(outPath);
+			NFD_FreePathU8(outPath);
+		}
+		else if (result == NFD_CANCEL)
+		{
+			puts("User pressed cancel.");
+		}
+		else
+		{
+			printf("Error: %s\n", NFD_GetError());
+		}
+
+		NFD_Quit();
+
+		std::string filepath;
+		return filepath;
 	}
 }

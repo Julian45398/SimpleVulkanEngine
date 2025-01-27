@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core.h"
+#include <nfd.h>
 
 //#define SVE_RENDER_IN_VIEWPORT
 
@@ -236,4 +237,7 @@ namespace SVE {
 		vkl::presentSwapchain(_private::_PresentQueue, _private::_Swapchain, _private::_ImageIndex, 1, &sync.renderFinished);
 		_private::_InFlightIndex = (_private::_InFlightIndex + 1) % FRAMES_IN_FLIGHT;
 	}
+
+	std::string openFileDialog(uint32_t filtercount, const nfdu8filteritem_t* filters);
+	std::string saveFileDialog(uint32_t filterCount, const nfdu8filteritem_t* filters);
 }

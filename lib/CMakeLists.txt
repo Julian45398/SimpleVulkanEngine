@@ -9,6 +9,13 @@ add_subdirectory(${GLFW_DIR})
 target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
 target_include_directories(${PROJECT_NAME} PUBLIC "${GLFW_DIR}/include")
 
+
+#setting up native file dialog:
+set(NFD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/nativefiledialog-extended")
+add_subdirectory("${NFD_DIR}")
+target_link_libraries(${PROJECT_NAME} PRIVATE nfd)
+target_include_directories(${PROJECT_NAME} PUBLIC "${NFD_DIR}/src/include")
+
 #setting up imgui:
 set(IMGUI "imgui/")
 target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp" 

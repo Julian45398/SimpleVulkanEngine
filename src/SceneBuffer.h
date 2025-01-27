@@ -64,17 +64,26 @@ public:
 		vertex_copy.srcOffset = stagingBuffer.addToTransfer(vertex_copy.size, model.vertices.data());
 		index_copy.size = model.indices.size() * sizeof(model.indices[0]);
 		index_copy.srcOffset = stagingBuffer.addToTransfer(index_copy.size, model.indices.data());
+
+		vertexRegions.push_back(vertex_copy);
+		indexRegions.push_back(index_copy);
+		
 		uint32_t model_index = (uint32_t)models.size();
-		VkBufferImageCopy image_copy;
-		image_copy.bufferImageHeight = 0;
-		image_copy.bufferRowLength = 0;
-		image_copy.imageExtent = { model.imageWidth, model.imageHeight , 1 };
-		image_copy.imageOffset = { 0, 0, 0 };
-		image_copy.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		image_copy.bufferOffset = stagingBuffer.addToTransfer(model.pixelData.size() * sizeof(model.pixelData[0]), model.pixelData.data());
-		models.push_back({ glm::mat4(1.f), 0, 0, model });
-		shl::logDebug("added model with ", model.vertices.size(), " vertices and ", model.indices.size(), " indices");
-		shl::logDebug("image width: ", model.imageWidth, ", height: ", model.imageHeight, "pixel count: ", model.pixelData.size());
+		std::vector<VkBufferImageCopy> image_copies(model.images.size());
+		for (uint32_t i = 0; i < image_copies.size(); ++i) {
+			VkBufferImageCopy& image_copy = image_copies[i];
+			image_copy.bufferImageHeight = 0;
+			image_copy.bufferRowLength = 0;
+			image_copy.imageExtent = { model.images[i].width, model.images[i].height, 1};
+			image_copy.imageOffset = { 0, 0, 0 };
+			image_copy.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			image_copy.bufferOffset = stagingBuffer.addToTransfer(model.images[i].pixels.size() * sizeof(model.images[i].pixels[0]), model.images[i].pixels.data());
+			models.push_back({ glm::mat4(1.f), 0, 0, model });
+			shl::logDebug("added model with ", model.vertices.size(), " vertices and ", model.indices.size(), " indices");
+			shl::logDebug("image width: ", model.images[i].width, ", height: ", model.images[i].height);
+
+			imageRegions.push_back(image_copy);
+		}
 		/*
 		for (uint32_t i = 0; i < model.vertices.size(); ++i) {
 			auto position = model.vertices[i].position;
@@ -85,9 +94,6 @@ public:
 			shl::logDebug("index: ", i, " value: ", index);
 		}
 		*/
-		vertexRegions.push_back(vertex_copy);
-		indexRegions.push_back(index_copy);
-		imageRegions.push_back(image_copy);
 		shl::logInfo("Vertex copy created: { dstOffset: ", vertex_copy.dstOffset, ", srcOffset: ", vertex_copy.srcOffset, ", size: ", vertex_copy.size, " }");
 		shl::logInfo("Index copy created: { dstOffset: ", index_copy.dstOffset, ", srcOffset: ", index_copy.srcOffset, ", size: ", index_copy.size, " }");
 		return model_index;

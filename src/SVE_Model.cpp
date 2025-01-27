@@ -32,15 +32,15 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 		shl::logInfo("transformation matrix found");
 		for (uint32_t j = 0; j < 4; j++) {
 			for (uint32_t k = 0; k < 4; k++) {
-				transform[j][k] = n.matrix[4 * j + k];
+				transform[j][k] = (float)n.matrix[4 * j + k];
 			}
 		}
 	}
 	if (n.translation.size() == 3) {
 		shl::logDebug("translation found");
-		translation[3][0] = n.translation[0];
-		translation[3][1] = n.translation[1];
-		translation[3][2] = n.translation[2];
+		translation[3][0] = (float)n.translation[0];
+		translation[3][1] = (float)n.translation[1];
+		translation[3][2] = (float)n.translation[2];
 		transform = transform * translation;
 	}
 	if (n.rotation.size() == 4) {
@@ -201,27 +201,26 @@ bool loadGLTF(const char* filename, tinygltf::Model* model) {
 	return true;
 }
 SveModel::SveModel() {
-	imageHeight = 0;
-	imageWidth = 0;
 }
 
 SveModel::SveModel(const char* filename) {
 	tinygltf::Model gltf;
 	if (!loadGLTF(filename, &gltf)) {
-		shl::logError("failed to load model: ", filename);
+		shl::logError("failed to load GLTF file: ", filename);
 		return;
 	}
-	uint32_t index_offset = 0;
-	auto texture = gltf.textures[0];
-	auto image = gltf.images[0];
-	shl::logInfo("Bits per channel: ", image.bits);
-	imageWidth = image.width;
-	imageHeight = image.height;
-	pixelData = image.image;
+	images.resize(gltf.images.size());
+	for (uint32_t i = 0; i < gltf.textures.size(); ++i) {
+		images[i].height = gltf.images[i].height;
+		images[i].width = gltf.images[i].width;
+		images[i].pixels = gltf.images[i].image;
+		shl::logInfo("Bits per channel: ", gltf.images[i].bits);
+	}
+	uint32_t mainScene = gltf.defaultScene;
 
-	for (size_t i = 0; i < gltf.scenes[0].nodes.size(); ++i) {
-		assert(gltf.scenes[0].nodes[i] >= 0);
-		auto n = gltf.nodes[gltf.scenes[0].nodes[i]];
+	for (size_t i = 0; i < gltf.scenes[mainScene].nodes.size(); ++i) {
+		assert(gltf.scenes[mainScene].nodes[i] >= 0);
+		auto n = gltf.nodes[gltf.scenes[mainScene].nodes[i]];
 		glm::mat4 transform(1.0f);
 		parseNode(gltf, n, *this, transform);
 	}

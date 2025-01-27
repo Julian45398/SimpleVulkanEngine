@@ -14,7 +14,7 @@ layout(location = 5) in uint animationIndex;
 layout(location = 6) in uint intensity;
 
 layout(location = 0) out vec3 uvFragCoord;
-layout(location = 1) out vec3 color;
+layout(location = 1) out float color;
 
 
 //vec3 positions[4] = vec3[](
@@ -24,13 +24,15 @@ layout(location = 1) out vec3 color;
 	//vec3(0.5f, 0.5f, 0.5f)
 //);
 
+vec3 sunVektor = normalize(vec3(0.5, 0.5, 0.5));
+
 void main() {
     gl_Position = ubo.transform * vec4(vertexPosition, 1.0);
     //gl_Position = vec4(vertexPosition, 1.0);
     //gl_Position = vec4(positions[gl_VertexIndex], 1.0);
     //normal = 0.5 * (normalize(vertexNormal) + vec3(1.0, 1.0, 1.0));
     uvFragCoord = vec3(uvCoord, 0);
-    color = (vec3(1.0f) + normalize(vertexNormal)) * 0.5;
+    color = 0.7 + dot(normalize(vertexNormal), sunVektor) * 0.3;
     //uvFragCoord = vec2(0.5, 0.5);
 
 }

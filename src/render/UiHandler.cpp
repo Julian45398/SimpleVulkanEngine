@@ -26,6 +26,10 @@ namespace Menu {
 			LeftPanelWidth = ImGui::GetWindowWidth();
 		}
 		ImGui::Text("Application average %.3f ms/frame", SVE::getFrameTime());
+		if (ImGui::Button("StandardButton")) {
+			nfdu8filteritem_t filters[] = { {"GLTF files: ", ".gltf,glb"} };
+			std::string filepath = SVE::openFileDialog(ARRAY_SIZE(filters), filters);
+		}
 		ImGui::End();
 
 		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - RightPanelWidth, height_offset));

@@ -27,14 +27,18 @@ inline constexpr VkVertexInputAttributeDescription SVE_MODEL_VERTEX_ATTRIBUTES[]
 inline const VkPipelineVertexInputStateCreateInfo SVE_MODEL_VERTEX_INPUT_INFO = vkl::createPipelineVertexInputStateInfo(ARRAY_SIZE(SVE_MODEL_VERTEX_BINDINGS), SVE_MODEL_VERTEX_BINDINGS,
 	ARRAY_SIZE(SVE_MODEL_VERTEX_ATTRIBUTES), SVE_MODEL_VERTEX_ATTRIBUTES);
 	
+struct SveImage {
+	std::vector<uint8_t> pixels;
+	uint32_t height = 0;
+	uint32_t width = 0;
+};
 
 struct SveModel {
 	std::vector<SveModelVertex> vertices;
 	std::vector<uint32_t> indices;
-	std::vector<uint8_t> pixelData;
-	uint32_t imageWidth;
-	uint32_t imageHeight;
+	std::vector<SveImage> images;
 
 	SveModel();
 	SveModel(const char* filename);
+	void synchronizeData(VkCommandBuffer commands);
 };
