@@ -34,10 +34,14 @@ public:
 		vkl::freeMemory(SVE::getDevice(), deviceMemory);
 		uniformSize = 0;
 	}
+	inline VkDescriptorSetLayoutBinding getDescriptorLayoutBinding(uint32_t binding, VkShaderStageFlags shaderStage) {
+		return { binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, shaderStage, nullptr };
+	}
 	inline void update(const T& updateData) {
 		size_t offset = SVE::getImageIndex() * uniformSize;
 		memcpy(mappedMemory + offset, &updateData, sizeof(T));
 	}
+	inline VkBuffer getBuffer(uint32_t index) { return buffers[index]; }
 	inline operator VkBuffer() { return buffers[SVE::getImageIndex()]; }
 	inline operator const VkBuffer* () { return buffers.data(); }
 	inline VkDeviceSize size() { return uniformSize; }

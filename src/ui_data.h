@@ -15,7 +15,7 @@ inline void controlUI(Camera& camera) {
 	ImGui::BeginMainMenuBar();
 	// Add menu bar items here
 	ImGui::EndMainMenuBar();
-	ImGui::SetNextWindowSize(ImVec2(200, SVE::getWindowHeight()));
+	ImGui::SetNextWindowSize(ImVec2(200.0f, (float)SVE::getWindowHeight()));
 	ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 200, 0));
 	//ImGui::SetNextWindow
 	ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);

@@ -3,15 +3,28 @@
 #include "SimpleVulkanEditor.h"
 #include "SVE_Backend.h"
 #include "render/UiHandler.h"
+#include "render/SVE_SceneRenderer.h"
 
 void SimpleVulkanEditor::init()
 {
 	//SVE::init(600, 400);
 	//sceneBuffer.init();
 	//renderPipeline.create("resources/shaders/model.vert", "resources/shaders/model.frag", SVE_MODEL_VERTEX_INPUT_INFO, uniformBuffer, sceneBuffer.imageBuffer.getSampler(), sceneBuffer.imageBuffer.getImageView());
+
 	models.emplace_back("resources/assets/models/test_car.gltf");
+	//models[0].loadFromGLTF();
+	//shl::logDebug("loading model finished!");
+	renderer = new SveSceneRenderer();
+	renderer->addModel(models[0]);
+	//sceneBuffer.addModel(models[0]);
+}
+
+void SimpleVulkanEditor::loadModel(const char* filename) {
+	models.emplace_back(filename);
+	//models[0].loadFromGLTF();
 	shl::logDebug("loading model finished!");
-	sceneBuffer.addModel(models[0]);
+	//renderer = new SveSceneRenderer();
+	renderer->addModel(models.back());
 }
 
 void SimpleVulkanEditor::handleInput() {
@@ -43,7 +56,6 @@ void SimpleVulkanEditor::handleInput() {
 }
 
 void SimpleVulkanEditor::run() {
-	shl::logDebug("starting loop:");
 	VkCommandPool pools[] = {
 		vkl::createCommandPool(SVE::getDevice(), SVE::getGraphicsFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT),
 		vkl::createCommandPool(SVE::getDevice(), SVE::getGraphicsFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)
@@ -52,28 +64,31 @@ void SimpleVulkanEditor::run() {
 		vkl::createCommandBuffer(SVE::getDevice(), pools[0], VK_COMMAND_BUFFER_LEVEL_SECONDARY),
 		vkl::createCommandBuffer(SVE::getDevice(), pools[1], VK_COMMAND_BUFFER_LEVEL_SECONDARY)
 	};
-	shl::logDebug("loop started!");
 	while (!SVE::shouldClose()) {
 		handleInput();
 		auto primary_commands = SVE::newFrame();
+
+		BuildUi();
 		vkl::resetCommandPool(SVE::getDevice(), pools[SVE::getInFlightIndex()]);
 		SVE::beginRenderCommands(secondary[SVE::getInFlightIndex()]);
-		renderPipeline.bindPipeline(secondary[SVE::getInFlightIndex()]);
+		renderer->renderScene(secondary[SVE::getInFlightIndex()], ViewCamera);
+		//renderPipeline.bindPipeline(secondary[SVE::getInFlightIndex()]);
 		//auto primary_commands = SVE::beginRendering();
 		{
 			UniformData data = {};
 			data.transformMatrix = ViewCamera.getViewProj();
-			uniformBuffer.update(data);
+			//uniformBuffer.update(data);
 		}
+		/*
 		if (sceneBuffer.hasChanges()) {
 			shl::logDebug("scene has changes!");
 			sceneBuffer.uploadChanges(primary_commands);
-		}
-		Menu::BuildUi();
+		}*/
+
 		//controlUI(ViewCamera);
 		//auto secondary = SVE::getNextSecondaryCommands();
 		//Renderer.getRenderCommands(secondary, primary_commands);
-		sceneBuffer.render(secondary[SVE::getInFlightIndex()]);
+		//sceneBuffer.render(secondary[SVE::getInFlightIndex()]);
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 
 		SVE::renderFrame(1, &secondary[SVE::getInFlightIndex()]);

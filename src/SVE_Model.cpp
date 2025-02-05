@@ -29,7 +29,6 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 	glm::mat4 scale(1.0f);
 
 	if (n.matrix.size() == 16) {
-		shl::logInfo("transformation matrix found");
 		for (uint32_t j = 0; j < 4; j++) {
 			for (uint32_t k = 0; k < 4; k++) {
 				transform[j][k] = (float)n.matrix[4 * j + k];
@@ -37,7 +36,6 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 		}
 	}
 	if (n.translation.size() == 3) {
-		shl::logDebug("translation found");
 		translation[3][0] = (float)n.translation[0];
 		translation[3][1] = (float)n.translation[1];
 		translation[3][2] = (float)n.translation[2];
@@ -47,7 +45,6 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 		auto qt = n.rotation;
 		glm::vec4 q = glm::normalize(glm::vec4(qt[0], qt[1], qt[2], qt[3]));
 		//double q[] = { 0.259, 0.0f, 0.0f, 0.966 };
-		shl::logDebug("quaternion: [", q.x, ", ", q.y, ", ", q.z, ", ", q.w, "]");
 
 
 		rot[0][0] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]));
@@ -62,16 +59,9 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 		rot[2][1] = (float)((double)2.0 * (q[1] * q[2] - q[0] * q[3]));
 		rot[2][2] = (float)((double)1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
 
-		shl::logInfo("rotation matrix: ");
-		shl::logDebug("[", rot[0][0], ", ", rot[1][0], ", ", rot[2][0], ", ", rot[3][0], "]");
-		shl::logDebug("[", rot[0][1], ", ", rot[1][1], ", ", rot[2][1], ", ", rot[3][1], "]");
-		shl::logDebug("[", rot[0][2], ", ", rot[1][2], ", ", rot[2][2], ", ", rot[3][2], "]");
-		shl::logDebug("[", rot[0][3], ", ", rot[1][3], ", ", rot[2][3], ", ", rot[3][3], "]");
-
 		transform = transform * rot;
 	}
 	if (n.scale.size() == 3) {
-		shl::logDebug("scale found!");
 		scale[0][0] = (float)n.scale[0];
 		scale[1][1] = (float)n.scale[1];
 		scale[2][2] = (float)n.scale[2];
@@ -82,17 +72,12 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 	transform = base_transform * transform;
 
 	if (n.mesh >= 0) {
-		shl::logDebug("mesh found!");
-
 		auto mesh = gltf.meshes[n.mesh];
-		uint32_t index_offset = model.vertices.size();
+		uint32_t index_offset = (uint32_t)model.vertices.size();
 		for (size_t j = 0; j < mesh.primitives.size(); ++j) {
 			auto p = mesh.primitives[j];
-			for (auto const& [key, val] : p.attributes)
-			{
-				shl::logInfo("key: ", key, " value: ", val);
-			}
 
+			// vertices:
 			GLTFData pos, normal, uv;
 			if (p.attributes.find("POSITION") == p.attributes.end()
 				|| p.attributes.find("NORMAL") == p.attributes.end()
@@ -117,8 +102,8 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 				assert(uv.acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
 				assert(uv.acc.type == TINYGLTF_TYPE_VEC2);
 
+
 				assert(pos.acc.count == uv.acc.count && uv.acc.count == normal.acc.count);
-				shl::logDebug("vertex count: ", pos.acc.count, " pos buffer size: ", pos.view.byteLength);
 
 				for (size_t k = 0; k < pos.acc.count; ++k) {
 					SveModelVertex vertex{};
@@ -147,7 +132,6 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 				assert(view.target == TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER);
 				auto buf = gltf.buffers[view.buffer];
 				model.indices.reserve(model.indices.size() + indices.count);
-				shl::logDebug("index count: ", indices.count, " buf size: ", view.byteLength);
 				for (size_t k = 0; k < indices.count; ++k) {
 					uint32_t value;
 					int comp_type = indices.componentType;
@@ -157,7 +141,6 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 						value = s;
 					}
 					else if (comp_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
-						shl::logDebug("type is a int with stride: ", indices.ByteStride(view));
 						memcpy(&value, &buf.data[indices.byteOffset + view.byteOffset + k * sizeof(uint32_t)], sizeof(value));
 					}
 					else {
@@ -194,27 +177,27 @@ bool loadGLTF(const char* filename, tinygltf::Model* model) {
 	}
 
 	if (!ret) {
-		shl::logError("Failed to parse glTF: ", filename);
+		shl::logError("Failed to parse GLTF: ", filename);
 		return false;
 	}
 	shl::logInfo("GLTF loaded!");
 	return true;
 }
-SveModel::SveModel() {
-}
 
 SveModel::SveModel(const char* filename) {
+	shl::logInfo("loading file: ", filename);
 	tinygltf::Model gltf;
 	if (!loadGLTF(filename, &gltf)) {
 		shl::logError("failed to load GLTF file: ", filename);
 		return;
 	}
+	shl::logInfo("constructing model...");
+	shl::Timer timer;
 	images.resize(gltf.images.size());
 	for (uint32_t i = 0; i < gltf.textures.size(); ++i) {
 		images[i].height = gltf.images[i].height;
 		images[i].width = gltf.images[i].width;
 		images[i].pixels = gltf.images[i].image;
-		shl::logInfo("Bits per channel: ", gltf.images[i].bits);
 	}
 	uint32_t mainScene = gltf.defaultScene;
 
@@ -224,7 +207,8 @@ SveModel::SveModel(const char* filename) {
 		glm::mat4 transform(1.0f);
 		parseNode(gltf, n, *this, transform);
 	}
-	shl::logInfo("finished model loading!");
+	double ellapsed_time = timer.ellapsedMillis();
+	shl::logInfo("finished model loading! (took: ", ellapsed_time, "ms)");
 	shl::logDebug("vertex count: ", vertices.size());
 	shl::logDebug("index count: ", indices.size());
 }

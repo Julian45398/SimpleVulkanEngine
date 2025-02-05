@@ -4,9 +4,9 @@
 #include "core.h"
 
 #include "SVE_Backend.h"
-#include "SVE_Model.h"
 
 
+template<typename T>
 class SveVertexBuffer {
 private:
 	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
@@ -19,7 +19,7 @@ public:
 	inline void allocate(uint32_t maxVertices, uint32_t maxIndices) {
 		maxVertexCount = maxVertices;
 		maxIndexCount = maxIndices;
-		vertexBuffer = vkl::createBuffer(SVE::getDevice(), sizeof(SveModelVertex) * maxVertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, SVE::getGraphicsFamily());
+		vertexBuffer = vkl::createBuffer(SVE::getDevice(), sizeof(T) * maxVertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, SVE::getGraphicsFamily());
 		indexBuffer = vkl::createBuffer(SVE::getDevice(), sizeof(uint32_t) * maxIndices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, SVE::getGraphicsFamily());
 		auto req = vkl::getBufferMemoryRequirements(SVE::getDevice(), vertexBuffer);
 		auto index_req = vkl::getBufferMemoryRequirements(SVE::getDevice(), indexBuffer);
@@ -32,6 +32,7 @@ public:
 		vkl::bindBufferMemory(SVE::getDevice(), vertexBuffer, deviceMemory, 0);
 		vkl::bindBufferMemory(SVE::getDevice(), indexBuffer, deviceMemory, indexOffset);
 	}
+	
 	inline void uploadVertexData(VkCommandBuffer commands, VkBuffer srcBuffer, uint32_t vertexRegionCount, const VkBufferCopy* pVertexRegions, uint32_t indexRegionCount, const VkBufferCopy* pIndexRegions) {
 		assert(vertexRegionCount != 0 || indexRegionCount != 0);
 		VkBufferMemoryBarrier barriers[] = {
@@ -52,6 +53,15 @@ public:
 		barriers[1].dstAccessMask = barriers[1].srcAccessMask;
 		barriers[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VKL_FLAG_NONE, 0, nullptr, ARRAY_SIZE(barriers), barriers, 0, nullptr);
+	}
+	inline void lazyUploadVertexData(uint32_t vertexCount, uint32_t vertexOffset, const T* vertexData, uint32_t indexCount, uint32_t indexOffset, const uint32_t* indexData) {
+		VkCommandPool command_pool = vkl::createCommandPool(SVE::getDevice(), SVE::getGraphicsFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		VkCommandBuffer commands = vkl::createCommandBuffer(SVE::getDevice(), command_pool);
+		vkl::beginCommandBuffer(commands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+		VkDeviceSize total_size = vertexCount * sizeof(T) + indexCount * sizeof(uint32_t);
+		VkBuffer staging_buffer = vkl::createBuffer(SVE::getDevice(), total_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, SVE::getGraphicsQueue());
+		shl::logFatal("TODO: finish function lazyUploadVertexData for vertex buffer!");
+		//uploadVertexData(commands, )
 	}
 	inline void bind(VkCommandBuffer commands) {
 		vkCmdBindIndexBuffer(commands, indexBuffer, 0, VK_INDEX_TYPE_UINT32);

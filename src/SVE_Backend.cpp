@@ -411,24 +411,22 @@ namespace SVE {
 		args.filterCount = filterCount;
 		shl::logDebug("filter count: ", filterCount);
 		nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
-		if (result == NFD_OKAY)
-		{
-			puts("Success!");
-			puts(outPath);
+
+		std::string filepath;
+		if (result == NFD_OKAY) {
+			filepath = outPath;
+			shl::logInfo("Picked file: ", filepath);
 			NFD_FreePathU8(outPath);
 		}
-		else if (result == NFD_CANCEL)
-		{
-			puts("User pressed cancel.");
+		else if (result == NFD_CANCEL) {
+			shl::logInfo("User pressed cancel.");
 		}
-		else
-		{
-			printf("Error: %s\n", NFD_GetError());
+		else {
+			shl::logError(NFD_GetError());
 		}
 
 		NFD_Quit();
 
-		std::string filepath;
 		return filepath;
 	}
 	std::string saveFileDialog(uint32_t filterCount, const nfdu8filteritem_t* filters) {
@@ -440,24 +438,26 @@ namespace SVE {
 		args.filterList = static_cast<const nfdu8filteritem_t*>(filters);
 		args.filterCount = filterCount;
 		nfdresult_t result = NFD_SaveDialogU8_With(&outPath, &args);
+
+		std::string filepath;
 		if (result == NFD_OKAY)
 		{
-			puts("Success!");
-			puts(outPath);
+			filepath = outPath;
+			shl::logInfo("User picked savefile: ", filepath);
 			NFD_FreePathU8(outPath);
 		}
 		else if (result == NFD_CANCEL)
 		{
-			puts("User pressed cancel.");
+			shl::logInfo("User pressed cancel.");
 		}
 		else
 		{
-			printf("Error: %s\n", NFD_GetError());
+
+			shl::logError(NFD_GetError());
 		}
 
 		NFD_Quit();
 
-		std::string filepath;
 		return filepath;
 	}
 }

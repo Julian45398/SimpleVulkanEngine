@@ -5,7 +5,6 @@
 #include "render/SVE_VertexBuffer.h"
 #include "render/SVE_StagingBuffer.h"
 #include "render/SVE_ImageBuffer.h"
-#include "render/SVE_Descriptor.h"
 #include "SVE_Model.h"
 
 class SceneBuffer {
@@ -16,7 +15,7 @@ public:
 		uint32_t indexOffset;
 		SveModel& modelReference;
 	};
-	SveVertexBuffer deviceLocalBuffer;
+	SveVertexBuffer<SveModelVertex> deviceLocalBuffer;
 	SveStagingBuffer stagingBuffer;
 	SveImageBuffer imageBuffer;
 	std::vector<ModelInfo> models;

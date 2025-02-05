@@ -36,8 +36,8 @@ namespace SVE {
 		inline uint32_t _WindowHeight = 0;
 		inline uint32_t _ViewportWidth = 1;
 		inline uint32_t _ViewportHeight = 1;
-		inline uint32_t _ViewportOffsetX = 0;
-		inline uint32_t _ViewportOffsetY = 0;
+		inline int32_t _ViewportOffsetX = 0;
+		inline int32_t _ViewportOffsetY = 0;
 #ifdef SVE_RENDER_IN_VIEWPORT
 		inline VkRenderPass _ViewportRenderPass = VK_NULL_HANDLE;
 		inline VkFramebuffer _ViewportFramebuffers[FRAMES_IN_FLIGHT] = {};
@@ -103,8 +103,8 @@ namespace SVE {
 	inline uint32_t getWindowHeight() { return _private::_WindowHeight; }
 	inline uint32_t getViewportWidth() { return _private::_ViewportWidth; }
 	inline uint32_t getViewportHeight() { return _private::_ViewportHeight; }
-	inline uint32_t getViewportOffsetX() { return _private::_ViewportOffsetX; }
-	inline uint32_t getViewportOffsetY() { return _private::_ViewportOffsetY; }
+	inline int32_t getViewportOffsetX() { return _private::_ViewportOffsetX; }
+	inline int32_t getViewportOffsetY() { return _private::_ViewportOffsetY; }
 	inline uint32_t getFramebufferWidth() { 
 #ifdef SVE_RENDER_IN_VIEWPORT
 		return _private::_ViewportWidth; 
@@ -133,6 +133,66 @@ namespace SVE {
 		glm::dvec2 pos;
 		glfwGetCursorPos(_private::_Window, &pos.x, &pos.y);
 		return pos;
+	}
+	inline VkCommandPool createCommandPool(VkCommandPoolCreateFlags flags = VKL_FLAG_NONE) {
+		return vkl::createCommandPool(_private::_Logical, _private::_GraphicsIndex, flags);
+	}
+	inline void destroyCommandPool(VkCommandPool commandPool) {
+		vkl::destroyCommandPool(_private::_Logical, commandPool);
+	}
+	inline void resetCommandPool(VkCommandPool commandPool, VkCommandPoolResetFlags resetFlags = VKL_FLAG_NONE) {
+		vkl::resetCommandPool(_private::_Logical, commandPool, resetFlags);
+	}
+	inline VkCommandBuffer createCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+		return vkl::createCommandBuffer(_private::_Logical, commandPool, level);
+	}
+	inline void destroyCommandBuffer(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
+		vkFreeCommandBuffers(_private::_Logical, commandPool, 1, &commandBuffer);
+	}
+	inline VkFence createFence(VkFenceCreateFlags flags = VKL_FLAG_NONE) { return vkl::createFence(_private::_Logical, flags); }
+	inline void destroyFence(VkFence fence) { vkl::destroyFence(_private::_Logical, fence); }
+	inline void waitForFence(VkFence fence) { vkl::waitForFence(_private::_Logical, fence); }
+	inline VkSemaphore createSemaphore() { return vkl::createSemaphore(_private::_Logical); }
+	inline void destroySemaphore(VkSemaphore semaphore) { vkl::destroySemaphore(_private::_Logical, semaphore); }
+	inline VkBuffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = VKL_FLAG_NONE) {
+		return vkl::createBuffer(_private::_Logical, size, usage, _private::_GraphicsIndex, createFlags);
+	}
+	inline void destroyBuffer(VkBuffer buffer) {
+		vkl::destroyBuffer(_private::_Logical, buffer);
+	}
+	inline VkDeviceMemory allocateForBuffer(VkBuffer buffer, VkMemoryPropertyFlags memoryProperties) {
+		return vkl::allocateForBuffer(_private::_Logical, _private::_Physical, buffer, memoryProperties);
+	}
+	inline void* mapMemory(VkDeviceMemory memory, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkMemoryMapFlags mapFlags = VKL_FLAG_NONE) {
+		return vkl::mapMemory(_private::_Logical, memory, size, offset, mapFlags);
+	}
+	inline void unmapMemory(VkDeviceMemory memory) { vkUnmapMemory(_private::_Logical, memory); }
+	inline void submitCommands(VkCommandBuffer commands, VkSemaphore waitSemaphore, VkPipelineStageFlags waitStages, VkSemaphore signalSemaphore, VkFence fence) {
+		vkl::submitCommands(_private::_GraphicsQueue, commands, waitSemaphore, waitStages, signalSemaphore, fence);
+	}
+	inline void freeMemory(VkDeviceMemory memory) {
+		vkl::freeMemory(_private::_Logical, memory);
+	}
+	inline void submitCommands(VkCommandBuffer commands, VkFence fence) {
+		vkl::submitCommands(_private::_GraphicsQueue, commands, fence);
+	}
+	inline void lazyUpload(VkBuffer targetBuffer, VkDeviceSize dataSize, const void* data, VkDeviceSize targetOffset) {
+		VkBuffer staging_buf = createBuffer(dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+		VkDeviceMemory staging_mem = allocateForBuffer(staging_buf, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		void* mapped_mem = mapMemory(staging_mem);
+		memcpy(mapped_mem, data, dataSize);
+		auto fence = createFence();
+		auto pool = createCommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		auto commands = createCommandBuffer(pool);
+		vkl::beginCommandBuffer(commands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+		VkBufferCopy region = { 0, targetOffset, dataSize };
+		vkCmdCopyBuffer(commands, staging_buf, targetBuffer, 1, &region);
+		vkl::endCommandBuffer(commands);
+		submitCommands(commands, fence);
+		waitForFence(fence);
+		destroyCommandPool(pool);
+		freeMemory(staging_mem);
+		destroyBuffer(staging_buf);
 	}
 	inline void beginRenderCommands(VkCommandBuffer commands, VkCommandBufferUsageFlags flags = VKL_FLAG_NONE) {
 		auto inheritance = vkl::createCommandBufferInheritanceInfo(getRenderPass(), 0, getRenderFramebuffer());

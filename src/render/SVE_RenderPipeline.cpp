@@ -6,7 +6,8 @@ void pipelineFramebufferResizeCallback(void* data) {
 	pipeline.recreatePipeline();
 }
 
-SveRenderPipeline::SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView, VkPolygonMode polygonMode_T, VkCullModeFlags cullMode_T, VkPrimitiveTopology primitiveTopology) :
+SveRenderPipeline::SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, 
+	uint32_t layoutCount, const VkDescriptorSetLayout* descriptorLayouts, VkPolygonMode polygonMode_T, VkCullModeFlags cullMode_T, VkPrimitiveTopology primitiveTopology) :
 	vertShaderFile(vertexFileName), fragShaderFile(fragmentFileName), vertexInput(vertexInfo)
 {
 	polygonMode = polygonMode_T;
@@ -16,14 +17,15 @@ SveRenderPipeline::SveRenderPipeline(const char* vertexFileName, const char* fra
 		windowResizeCallbackFunctionIndex = SVE::addFramebufferResizeCallbackFunction(pipelineFramebufferResizeCallback);
 	}
 	SVE::addFramebufferResizeCallbackListener(windowResizeCallbackFunctionIndex, this);
-	create(uniformBuffers, imageSampler, imageView);
+	create(layoutCount, descriptorLayouts);
 }
 SveRenderPipeline::~SveRenderPipeline()
 {
 	// TODO: remove callback listener!
 	destroy();
 }
-void SveRenderPipeline::create(const VkBuffer* uniformBuffers, VkSampler imageSampler, VkImageView imageView) {
+void SveRenderPipeline::create(uint32_t layoutCount, const VkDescriptorSetLayout* descriptorLayouts) {
+	/*
 	VkDescriptorPoolSize pool_sizes[] = {
 		vkl::createDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SVE::getImageCount()),
 		vkl::createDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SVE::getImageCount())
@@ -44,8 +46,8 @@ void SveRenderPipeline::create(const VkBuffer* uniformBuffers, VkSampler imageSa
 			vkl::createDescriptorWrite(descriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, 0, 1, &image_info)
 		};
 		vkUpdateDescriptorSets(SVE::getDevice(), ARRAY_SIZE(writes), writes, 0, nullptr);
-	}
-	pipelineLayout = vkl::createPipelineLayout(SVE::getDevice(), 1, &descriptorSetLayout);
+	}*/
+	pipelineLayout = vkl::createPipelineLayout(SVE::getDevice(), layoutCount, descriptorLayouts);
 	createGraphicPipeline();
 }
 void SveRenderPipeline::destroy() {

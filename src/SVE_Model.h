@@ -2,6 +2,11 @@
 
 #include "core.h"
 
+#include "render/SVE_ImageBuffer.h"
+#include "render/SVE_VertexBuffer.h"
+#include "render/SVE_RenderPipeline.h"
+#include "render/SVE_StagingBuffer.h"
+
 struct SveModelVertex {
 	alignas(16) glm::vec3 position;
 	uint32_t imageIndex;
@@ -38,7 +43,5 @@ struct SveModel {
 	std::vector<uint32_t> indices;
 	std::vector<SveImage> images;
 
-	SveModel();
 	SveModel(const char* filename);
-	void synchronizeData(VkCommandBuffer commands);
 };
