@@ -108,14 +108,14 @@ namespace SVE {
 #else
 			_DepthImage = vkl::createImage2D(_Logical, depth_format, _WindowWidth, _WindowHeight, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 			_AttachmentMemory = vkl::allocateForImage(_Logical, _Physical, _DepthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			_DepthImageView = vkl::createImageView(_Logical, _DepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+			_DepthImageView = vkl::createImageView2D(_Logical, _DepthImage, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 #endif
 
 			auto images = vkl::getSwapchainImages(_Logical, _Swapchain);
 			_ImageResources.resize(images.size());
 			for (size_t i = 0; i < images.size(); ++i) {
 				_ImageResources[i].image = images[i];
-				_ImageResources[i].imageView = vkl::createImageView(_Logical, images[i], surface_format.format);
+				_ImageResources[i].imageView = vkl::createImageView2D(_Logical, images[i], surface_format.format);
 				_ImageResources[i].commandPool = vkl::createCommandPool(_Logical, _GraphicsIndex);
 				_ImageResources[i].primaryCommands = vkl::createCommandBuffer(_Logical, _ImageResources[i].commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 #ifdef SVE_RENDER_IN_VIEWPORT

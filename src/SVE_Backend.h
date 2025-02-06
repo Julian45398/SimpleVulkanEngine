@@ -2,6 +2,7 @@
 
 #include "core.h"
 #include <nfd.h>
+#include <vk_mem_alloc.h>
 
 //#define SVE_RENDER_IN_VIEWPORT
 
@@ -38,6 +39,7 @@ namespace SVE {
 		inline uint32_t _ViewportHeight = 1;
 		inline int32_t _ViewportOffsetX = 0;
 		inline int32_t _ViewportOffsetY = 0;
+		inline VmaAllocator _Allocator = VK_NULL_HANDLE;
 #ifdef SVE_RENDER_IN_VIEWPORT
 		inline VkRenderPass _ViewportRenderPass = VK_NULL_HANDLE;
 		inline VkFramebuffer _ViewportFramebuffers[FRAMES_IN_FLIGHT] = {};
@@ -75,28 +77,14 @@ namespace SVE {
 		inline std::vector<CallbackFunction> _FramebufferResizeCallbackFunctions;
 		inline std::vector<CallbackListener> _FramebufferResizeCallbackListeners;
 	}
+
+#pragma region GETTERS
 	inline VkDevice getDevice() { return _private::_Logical; }
 	inline VkPhysicalDevice getPhysicalDevice() { return _private::_Physical; }
 	inline VkRenderPass getRenderPass() { 
-#ifdef SVE_RENDER_IN_VIEWPORT
-		return _private::_ViewportRenderPass;
-#else
 		return _private::_RenderPass;
-#endif
 	}
-	inline VkFramebuffer getRenderFramebuffer(uint32_t index = 
-#ifdef SVE_RENDER_IN_VIEWPORT
-		_private::_InFlightIndex
-#else
-		_private::_ImageIndex
-#endif
-	) {
-#ifdef SVE_RENDER_IN_VIEWPORT
-		return _private::_ViewportFramebuffers[index];
-#else
-		return _private::_ImageResources[index].framebuffer;
-#endif
-	}
+	inline VkFramebuffer getRenderFramebuffer(uint32_t index = _private::_ImageIndex) { return _private::_ImageResources[index].framebuffer; }
 	inline VkQueue getGraphicsQueue() { return _private::_GraphicsQueue; }
 	inline uint32_t getGraphicsFamily() { return _private::_GraphicsIndex; }
 	inline uint32_t getWindowWidth() { return _private::_WindowWidth; }
@@ -105,20 +93,8 @@ namespace SVE {
 	inline uint32_t getViewportHeight() { return _private::_ViewportHeight; }
 	inline int32_t getViewportOffsetX() { return _private::_ViewportOffsetX; }
 	inline int32_t getViewportOffsetY() { return _private::_ViewportOffsetY; }
-	inline uint32_t getFramebufferWidth() { 
-#ifdef SVE_RENDER_IN_VIEWPORT
-		return _private::_ViewportWidth; 
-#else
-		return _private::_WindowWidth; 
-#endif
-	}
-	inline uint32_t getFramebufferHeight() { 
-#ifdef SVE_RENDER_IN_VIEWPORT
-		return _private::_ViewportHeight; 
-#else
-		return _private::_WindowHeight; 
-#endif
-	}
+	inline uint32_t getFramebufferWidth() { return _private::_WindowWidth; }
+	inline uint32_t getFramebufferHeight() { return _private::_WindowHeight; }
 	inline double getFrameTime() { return _private::_FrameTime; }
 	inline uint32_t getImageIndex() { return _private::_ImageIndex; }
 	inline uint32_t getImageCount() { return (uint32_t)_private::_ImageResources.size(); }
@@ -134,6 +110,10 @@ namespace SVE {
 		glfwGetCursorPos(_private::_Window, &pos.x, &pos.y);
 		return pos;
 	}
+#pragma endregion GETTERS
+
+#pragma region VULKAN
+	// Commands: 
 	inline VkCommandPool createCommandPool(VkCommandPoolCreateFlags flags = VKL_FLAG_NONE) {
 		return vkl::createCommandPool(_private::_Logical, _private::_GraphicsIndex, flags);
 	}
@@ -146,22 +126,59 @@ namespace SVE {
 	inline VkCommandBuffer createCommandBuffer(VkCommandPool commandPool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
 		return vkl::createCommandBuffer(_private::_Logical, commandPool, level);
 	}
+	inline std::vector<VkCommandBuffer> createCommandBuffers(VkCommandPool commandPool, uint32_t count, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+		std::vector<VkCommandBuffer> buffers(count);
+		auto info = vkl::createCommandBufferAllocateInfo(commandPool, count, level);
+		if (vkAllocateCommandBuffers(_private::_Logical, &info, buffers.data()) != VK_SUCCESS) {
+			shl::logError("failed to create commandBuffers");
+			buffers.resize(0);
+		}
+		return buffers;
+	}
+	inline void destroyCommandBuffers(VkCommandPool commandPool, uint32_t count, VkCommandBuffer* commandBuffers) {
+		vkFreeCommandBuffers(_private::_Logical, commandPool, count, commandBuffers);
+	}
 	inline void destroyCommandBuffer(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
 		vkFreeCommandBuffers(_private::_Logical, commandPool, 1, &commandBuffer);
 	}
+
+	// Synchronization:
 	inline VkFence createFence(VkFenceCreateFlags flags = VKL_FLAG_NONE) { return vkl::createFence(_private::_Logical, flags); }
 	inline void destroyFence(VkFence fence) { vkl::destroyFence(_private::_Logical, fence); }
 	inline void waitForFence(VkFence fence) { vkl::waitForFence(_private::_Logical, fence); }
+	inline bool isFenceSignaled(VkFence fence) { return vkGetFenceStatus(_private::_Logical, fence) == VK_SUCCESS; }
 	inline VkSemaphore createSemaphore() { return vkl::createSemaphore(_private::_Logical); }
 	inline void destroySemaphore(VkSemaphore semaphore) { vkl::destroySemaphore(_private::_Logical, semaphore); }
+
+	// Buffers:
 	inline VkBuffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = VKL_FLAG_NONE) {
 		return vkl::createBuffer(_private::_Logical, size, usage, _private::_GraphicsIndex, createFlags);
 	}
 	inline void destroyBuffer(VkBuffer buffer) {
 		vkl::destroyBuffer(_private::_Logical, buffer);
 	}
-	inline VkDeviceMemory allocateForBuffer(VkBuffer buffer, VkMemoryPropertyFlags memoryProperties) {
+	inline VkImage createImage2D(uint32_t width, uint32_t height, VkImageUsageFlags usage, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB,
+		uint32_t mipLevels = 1, uint32_t arrayLayers = 1, uint32_t sampleCount = 1, VkImageTiling imageTiling = VK_IMAGE_TILING_OPTIMAL) {
+		return vkl::createImage2D(_private::_Logical, imageFormat, width, height, usage, mipLevels, arrayLayers, sampleCount, imageTiling);
+	}
+	inline VkImage createImage3D(uint32_t width, uint32_t height, uint32_t depth, VkImageUsageFlags usage, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB, uint32_t mipLevels = 1, uint32_t arrayLayers = 1, uint32_t sampleCount = 1, VkImageTiling imageTiling = VK_IMAGE_TILING_OPTIMAL) {
+		return vkl::createImage(_private::_Logical, VK_IMAGE_TYPE_3D, imageFormat, { width, height, depth }, usage, mipLevels, arrayLayers, sampleCount, imageTiling);
+	}
+	inline VkImageView createImageView2D(VkImage image, VkFormat viewFormat, VkImageAspectFlags imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t mipLevelCount = 1, uint32_t arrayLayer = 0) {
+		return vkl::createImageView2D(_private::_Logical, image, viewFormat, imageAspectFlags, mipLevel, mipLevelCount, arrayLayer);
+	}
+	// Memory:
+	inline VkDeviceMemory allocateMemory(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+		return vkl::allocateMemory(_private::_Logical, _private::_Physical, memoryRequirements, properties);
+	}
+	inline VkDeviceMemory allocateForStagingBuffer(VkBuffer buffer) {
+		return vkl::allocateForBuffer(_private::_Logical, _private::_Physical, buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	}
+	inline VkDeviceMemory allocateForBuffer(VkBuffer buffer, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
 		return vkl::allocateForBuffer(_private::_Logical, _private::_Physical, buffer, memoryProperties);
+	}
+	inline VkDeviceMemory allocateForImage(VkImage image, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+		return vkl::allocateForImage(_private::_Logical, _private::_Physical, image, memoryProperties);
 	}
 	inline void* mapMemory(VkDeviceMemory memory, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkMemoryMapFlags mapFlags = VKL_FLAG_NONE) {
 		return vkl::mapMemory(_private::_Logical, memory, size, offset, mapFlags);
@@ -194,6 +211,8 @@ namespace SVE {
 		freeMemory(staging_mem);
 		destroyBuffer(staging_buf);
 	}
+
+#pragma endregion VULKAN
 	inline void beginRenderCommands(VkCommandBuffer commands, VkCommandBufferUsageFlags flags = VKL_FLAG_NONE) {
 		auto inheritance = vkl::createCommandBufferInheritanceInfo(getRenderPass(), 0, getRenderFramebuffer());
 		vkl::beginCommandBuffer(commands, VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT | flags, &inheritance);

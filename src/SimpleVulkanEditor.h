@@ -26,6 +26,7 @@ private:
 	//SveRenderPipeline renderPipeline;
 	std::vector<SveModel> models;
 	SveSceneRenderer* renderer = nullptr;
+	SceneRenderer sceneRenderer;
 	float LeftPanelWidth = 200.f;
 	float RightPanelWidth = 200.f;
 	float BottomPanelHeight = 200.f;

@@ -29,9 +29,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GLFW)
 target_sources(${PROJECT_NAME} PUBLIC "volk/volk.c")
 target_compile_definitions(${PROJECT_NAME} PUBLIC VK_NO_PROTOTYPES IMGUI_IMPL_VULKAN_USE_VOLK)
 
+#VulkanMemoryAllocator:
+#add_subdirectory("VulkanMemoryAllocator")
+#target_link_libraries(${PROJECTT_NAME} VulkanMemoryAllocator)
 
-#adding header libraries:
-target_include_directories(${PROJECT_NAME} PUBLIC 
+
+set(HEADER_DIRS PUBLIC
 	"shl" 
 	"glm"
 	"stb"
@@ -40,7 +43,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	"tinygltf"
 	"volk"
 	"Vulkan-Headers/include"
+	"VulkanMemoryAllocator/include"
 )
+#adding header libraries:
+target_include_directories(${PROJECT_NAME} PUBLIC ${HEADER_DIRS})
 
 if (BUILD_TESTING)
 	add_subdirectory("googletest")
@@ -56,5 +62,6 @@ if (BUILD_TESTING)
 		"tinygltf"
 		"volk"
 		"Vulkan-Headers/include"
+		"VulkanMemoryAllocator/include"
 	)
 endif()

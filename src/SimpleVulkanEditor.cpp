@@ -16,6 +16,21 @@ void SimpleVulkanEditor::init()
 	//shl::logDebug("loading model finished!");
 	renderer = new SveSceneRenderer();
 	renderer->addModel(models[0]);
+
+
+	Image image;
+	image.width = models.back().images[0].width;
+	image.height = models.back().images[0].height;
+	image.pixels = std::vector(models.back().images[0].pixels);
+	Mesh mesh;
+	mesh.imageIndex = 0;
+	mesh.indices = std::vector(models.back().indices);
+	mesh.vertices = std::vector(models.back().vertices);
+	mesh.instanceTransforms.push_back(glm::mat4(1.f));
+	Model model;
+	model.images.push_back(image);
+	model.meshes.push_back(mesh);
+	sceneRenderer.addModel(model);
 	//sceneBuffer.addModel(models[0]);
 }
 
@@ -71,7 +86,8 @@ void SimpleVulkanEditor::run() {
 		BuildUi();
 		vkl::resetCommandPool(SVE::getDevice(), pools[SVE::getInFlightIndex()]);
 		SVE::beginRenderCommands(secondary[SVE::getInFlightIndex()]);
-		renderer->renderScene(secondary[SVE::getInFlightIndex()], ViewCamera);
+		//renderer->renderScene(secondary[SVE::getInFlightIndex()], ViewCamera);
+		sceneRenderer.draw(secondary[SVE::getInFlightIndex()], ViewCamera.getViewProj());
 		//renderPipeline.bindPipeline(secondary[SVE::getInFlightIndex()]);
 		//auto primary_commands = SVE::beginRendering();
 		{

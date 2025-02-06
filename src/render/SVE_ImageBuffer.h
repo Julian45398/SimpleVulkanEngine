@@ -43,7 +43,7 @@ public:
 	inline void allocate(uint32_t imageWidth, uint32_t imageHeight, uint32_t imageCount = 1, uint32_t mipLevelCount = 1, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB) {
 		imageHandle = vkl::createImage(SVE::getDevice(), VK_IMAGE_TYPE_2D, imageFormat, { imageWidth, imageHeight, 1 }, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, mipLevelCount, imageCount, VK_SAMPLE_COUNT_1_BIT);
 		memory = vkl::allocateForImage(SVE::getDevice(), SVE::getPhysicalDevice(), imageHandle, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		imageView = vkl::createImageView(SVE::getDevice(), imageHandle, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevelCount, 0, imageCount, (imageCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+		imageView = vkl::createImageView(SVE::getDevice(), imageHandle, (imageCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevelCount, 0, imageCount);
 		//sampler = vkl::createSampler(SVE::getDevice(), VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 		arraySize = imageCount;
 		mipLevels = mipLevelCount;
