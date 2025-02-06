@@ -145,16 +145,21 @@ private:
 		uint32_t offset;
 		uint32_t regionIndex;
 	};
+	struct ImageRegion {
+		TextureImage image;
+		MemRegion region;
+	};
 	std::vector<VkDeviceMemory> allocatedRegions;
 	std::vector<MemRegion> freeRegions;
-	//std::unordered_map<TextureImage, MemRegion> imageRegions;
+	std::vector<ImageRegion> imageRegions;
 public:
-	inline TextureImage createImage(uint32_t width, uint32_t height) {
+	inline const TextureImage createImage(uint32_t width, uint32_t height) {
 		TextureImage texture;
+		MemRegion textureRegion;
 		texture.image = SVE::createImage2D(width, height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-		auto memreq = vkl::getImageMemoryRequirements(SVE::getDevice(), texture.image);
+		auto memreq = SVE::getImageMemoryRequirements(texture.image);
 		if (memreq.size > REGION_SIZE) {
-			shl::logFatal("required image size greater than REGION_SIZE!");
+			shl::logFatal("image memory requirement exceeds max byts size of: ", REGION_SIZE);
 		}
 		bool region_found = false;
 		for (size_t i = 0; i < freeRegions.size(); ++i) {
@@ -162,8 +167,8 @@ public:
 			if (memreq.size <= region.size) {
 				region_found = true;
 				region.size = (uint32_t)memreq.size;
-				vkl::bindImageMemory(SVE::getDevice(), texture.image, allocatedRegions[region.regionIndex], region.offset);
-				//imageRegions.insert(std::pair(texture, region));
+				SVE::bindImageMemory(texture.image, allocatedRegions[region.regionIndex], region.offset);
+				textureRegion = region;
 				if (memreq.size != region.size) {
 					freeRegions[i].offset += (uint32_t)memreq.size;
 					freeRegions[i].size -= (uint32_t)memreq.size;
@@ -179,39 +184,48 @@ public:
 			memreq.size = REGION_SIZE;
 			VkDeviceMemory memory = SVE::allocateMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			allocatedRegions.push_back(memory);
-			MemRegion region = { size, 0, (uint32_t)allocatedRegions.size() };
-			vkl::bindImageMemory(SVE::getDevice(), texture.image, memory, region.offset);
-			//imageRegions.insert(std::pair(texture, region));
+			MemRegion region = { size, 0, (uint32_t)allocatedRegions.size() - 1 };
+			SVE::bindImageMemory(texture.image, memory, region.offset);
+			textureRegion = region;
 			region.offset = size;
 			region.size = (uint32_t)REGION_SIZE - size;
 			freeRegions.push_back(region);
 		}
 		texture.view = SVE::createImageView2D(texture.image, VK_FORMAT_R8G8B8A8_SRGB);
-		return texture;
+		imageRegions.push_back({texture, textureRegion});
+
+		return imageRegions.back().image;
 	}
 
-	inline void destroyImage(TextureImage texture) {
-		//MemRegion region = imageRegions.at(texture);
-		//imageRegions.erase(texture);
-		//freeRegions.push_back(region);
-		vkl::destroyImage(SVE::getDevice(), texture.image);
-		vkl::destroyImageView(SVE::getDevice(), texture.view);
+	inline void destroyImage(const TextureImage& texture) {
+		MemRegion region;
+		for (uint32_t i = 0; i < imageRegions.size(); ++i) {
+			if (imageRegions[i].image.image ==  texture.image) {
+				region = imageRegions[i].region;
+				imageRegions.erase(imageRegions.begin() + i);
+				break;
+			}
+		}
+		freeRegions.push_back(region);
+		SVE::destroyImage(texture.image);
+		SVE::destroyImageView(texture.view);
 	}
 
 	inline void defragmentMemory() {
-		shl::logWarn("Defragmentation of image alocator memory not implemented yet!");
+		shl::logWarn("Defragmentation of image allocator memory not implemented yet!");
 	}
 
 	inline ~ImageMemoryAllocator() {
-		//for (const auto& [texture, region] : imageRegions) {
-			//vkl::destroyImage(SVE::getDevice(), texture.image);
-			//vkl::destroyImageView(SVE::getDevice(), texture.view);
-		//}
+		for (const auto& region : imageRegions) {
+			SVE::destroyImage(region.image.image);
+			SVE::destroyImageView(region.image.view);
+		}
 		for (size_t i = 0; i < allocatedRegions.size(); ++i) {
-			vkl::freeMemory(SVE::getDevice(), allocatedRegions[i]);
+			SVE::freeMemory(allocatedRegions[i]);
 		}
 	}
 };
+
 class SceneRenderer {
 private:
 	// Models:
@@ -226,8 +240,6 @@ private:
 	static constexpr char VERTEX_SHADER_FILE[] = "resources/shaders/model_2.vert";
 	static constexpr char FRAGMENT_SHADER_FILE[] = "resources/shaders/model_2.frag";
 	VkBuffer vertexBuffer = VK_NULL_HANDLE;
-	VkBuffer instanceBuffer = VK_NULL_HANDLE;
-	VkBuffer indexBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory vertexDeviceMemory;
 
 	// Images:
@@ -349,6 +361,21 @@ public:
 	}
 
 	inline ~SceneRenderer() {
+		SVE::waitForFence(fence);
+		SVE::destroyFence(fence);
+		SVE::destroyCommandPool(commandPool);
+		if (stagingMapped != nullptr) {
+			SVE::freeMemory(stagingMemory);
+			SVE::destroyBuffer(stagingBuffer);
+		}
+		SVE::destroyPipelineLayout(pipelineLayout);
+		SVE::destroyPipeline(pipeline);
+
+		SVE::destroyDescriptorSetLayout(descriptorLayout);
+		SVE::destroyDescriptorPool(descriptorPool);
+
+		SVE::destroyBuffer(vertexBuffer);
+		SVE::freeMemory(vertexDeviceMemory);
 	}
 
 	inline void addModel(const Model& model) {

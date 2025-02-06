@@ -167,9 +167,21 @@ namespace SVE {
 	inline VkImageView createImageView2D(VkImage image, VkFormat viewFormat, VkImageAspectFlags imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t mipLevelCount = 1, uint32_t arrayLayer = 0) {
 		return vkl::createImageView2D(_private::_Logical, image, viewFormat, imageAspectFlags, mipLevel, mipLevelCount, arrayLayer);
 	}
+	inline void destroyImage(VkImage image) {
+		vkl::destroyImage(_private::_Logical, image);
+	}
+	inline void destroyImageView(VkImageView imageView) {
+		vkl::destroyImageView(_private::_Logical, imageView);
+	}
 	// Memory:
 	inline VkDeviceMemory allocateMemory(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
 		return vkl::allocateMemory(_private::_Logical, _private::_Physical, memoryRequirements, properties);
+	}
+	inline VkMemoryRequirements getBufferMemoryRequirements(VkBuffer buffer) {
+		return vkl::getBufferMemoryRequirements(_private::_Logical, buffer);
+	}
+	inline VkMemoryRequirements getImageMemoryRequirements(VkImage image) {
+		return vkl::getImageMemoryRequirements(_private::_Logical, image);
 	}
 	inline VkDeviceMemory allocateForStagingBuffer(VkBuffer buffer) {
 		return vkl::allocateForBuffer(_private::_Logical, _private::_Physical, buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -179,6 +191,12 @@ namespace SVE {
 	}
 	inline VkDeviceMemory allocateForImage(VkImage image, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
 		return vkl::allocateForImage(_private::_Logical, _private::_Physical, image, memoryProperties);
+	}
+	inline void bindImageMemory(VkImage image, VkDeviceMemory memory, VkDeviceSize offset = 0) {
+		vkl::bindImageMemory(_private::_Logical, image, memory, offset);
+	}
+	inline void bindBufferMemory(VkBuffer buffer, VkDeviceMemory memory, VkDeviceSize offset = 0) {
+		vkl::bindBufferMemory(_private::_Logical, buffer, memory, offset);
 	}
 	inline void* mapMemory(VkDeviceMemory memory, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkMemoryMapFlags mapFlags = VKL_FLAG_NONE) {
 		return vkl::mapMemory(_private::_Logical, memory, size, offset, mapFlags);
@@ -190,6 +208,23 @@ namespace SVE {
 	inline void freeMemory(VkDeviceMemory memory) {
 		vkl::freeMemory(_private::_Logical, memory);
 	}
+
+	// Pipeline:
+	inline void destroyPipeline(VkPipeline pipeline) {
+		vkl::destroyPipeline(_private::_Logical, pipeline);
+	}
+	inline void destroyPipelineLayout(VkPipelineLayout pipelineLayout) {
+		vkl::destroyPipelineLayout(_private::_Logical, pipelineLayout);
+	}
+
+	// Descriptor Sets:
+	inline void destroyDescriptorPool(VkDescriptorPool descriptorPool) {
+		vkl::destroyDescriptorPool(_private::_Logical, descriptorPool);
+	}
+	inline void destroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout) {
+		vkl::destroyDescriptorSetLayout(_private::_Logical, descriptorSetLayout);
+	}
+
 	inline void submitCommands(VkCommandBuffer commands, VkFence fence) {
 		vkl::submitCommands(_private::_GraphicsQueue, commands, fence);
 	}
