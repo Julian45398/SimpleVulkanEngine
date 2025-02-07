@@ -380,8 +380,8 @@ public:
 
 	inline void addModel(const Model& model) {
 		shl::logInfo("adding Model");
+		//const Model& model = *modelPtr;
 		models.push_back(model);
-		shl::logInfo("pushed back");
 		size_t total_size = 0;
 
 		// get total allocation size:
@@ -393,11 +393,7 @@ public:
 			total_size += model.meshes[i].indices.size() * sizeof(uint32_t);
 			total_size += model.meshes[i].vertices.size() * sizeof(SveModelVertex);
 			total_size += model.meshes[i].instanceTransforms.size() * sizeof(glm::mat4);
-			shl::logInfo("instances: ", model.meshes[i].instanceTransforms.size());
-			shl::logInfo("indices: ", model.meshes[i].indices.size());
-			shl::logInfo("vertices: ", model.meshes[i].vertices.size());
 		}
-		shl::logDebug("total size: ", total_size);
 
 		stagingBuffer = SVE::createBuffer(total_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 		stagingMemory = SVE::allocateForBuffer(stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -527,9 +523,9 @@ public:
 		constexpr uint32_t max_index_offset = PAGE_SIZE / sizeof(uint32_t);
 		uint32_t index_offset = max_index_offset;
 		for (size_t i = 0; i < models.size(); ++i) {
-			Model& model = models[i];
+			const Model& model = models[i];
 			for (size_t j = 0; j < model.meshes.size(); ++j) {
-				Mesh& mesh = model.meshes[j];
+				const Mesh& mesh = model.meshes[j];
 				index_offset -= (uint32_t)mesh.indices.size();
 				vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(mesh.imageIndex), &mesh.imageIndex);
 				vkCmdDrawIndexed(commands, (uint32_t)mesh.indices.size(), (uint32_t)mesh.instanceTransforms.size(), index_offset, vertex_offset, instance_offset);
