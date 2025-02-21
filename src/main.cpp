@@ -36,10 +36,10 @@ int main() {
 #endif
 	shl::logInfo("Version: ", PROJECT_VERSION);
 	SVE::init(1280, 720);
-	SimpleVulkanEditor App;
-	App.init();
-	App.run();
-	App.terminate();
+	SimpleVulkanEditor* App = new SimpleVulkanEditor();
+	App->run();
+	delete App;
+	SVE::terminate();
 
 	return 0;
 }

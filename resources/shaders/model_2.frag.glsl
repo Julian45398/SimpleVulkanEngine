@@ -15,10 +15,11 @@ layout(push_constant) uniform PER_OBJECT
 
 layout(location = 0) in vec2 fragUV;
 layout(location = 1) in float color;
+layout(location = 2) flat in uint texIndex;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = texture(sampler2D(textures[pc.imgIdx], texSampler), fragUV) * color;
+    outColor = texture(sampler2D(textures[texIndex + pc.imgIdx], texSampler), fragUV) * color;
     //outColor = texture(texSampler, uvFragCoord) * color;
     outColor[3] = 1.0;
     //outColor = vec4(color, 1.0);

@@ -22,74 +22,116 @@ struct GLTFData {
 void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& model, const glm::mat4& base_transform) {
 	glm::mat4 transform(1.0f);
 
-	glm::mat4 translation(1.0f);
+	{
+		glm::mat4 translation(1.0f);
 
-	glm::mat4 rot(1.0f);
+		glm::mat4 rot(1.0f);
 
-	glm::mat4 scale(1.0f);
+		glm::mat4 scale(1.0f);
 
-	if (n.matrix.size() == 16) {
-		for (uint32_t j = 0; j < 4; j++) {
-			for (uint32_t k = 0; k < 4; k++) {
-				transform[j][k] = (float)n.matrix[4 * j + k];
+		if (n.matrix.size() == 16) {
+			for (uint32_t j = 0; j < 4; j++) {
+				for (uint32_t k = 0; k < 4; k++) {
+					transform[j][k] = (float)n.matrix[4 * j + k];
+				}
 			}
 		}
+		if (n.translation.size() == 3) {
+			translation[3][0] = (float)n.translation[0];
+			translation[3][1] = (float)n.translation[1];
+			translation[3][2] = (float)n.translation[2];
+			transform = transform * translation;
+		}
+		if (n.rotation.size() == 4) {
+			auto qt = n.rotation;
+			glm::vec4 q = glm::normalize(glm::vec4(qt[0], qt[1], qt[2], qt[3]));
+			//double q[] = { 0.259, 0.0f, 0.0f, 0.966 };
+
+
+			rot[0][0] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]));
+			rot[0][1] = (float)(2.0 * (q[0] * q[1] + q[2] * q[3]));
+			rot[0][2] = (float)(2.0 * (q[0] * q[2] - q[1] * q[3]));
+
+			rot[1][0] = (float)(2.0 * (q[0] * q[1] - q[2] * q[3]));
+			rot[1][1] = (float)(1.0 - 2.0 * (q[0] * q[0] + q[2] * q[2]));
+			rot[1][2] = (float)(2.0 * (q[1] * q[2] + q[0] * q[3]));
+
+			rot[2][0] = (float)((double)2.0 * (q[0] * q[2] + q[1] * q[3]));
+			rot[2][1] = (float)((double)2.0 * (q[1] * q[2] - q[0] * q[3]));
+			rot[2][2] = (float)((double)1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
+
+			transform = transform * rot;
+		}
+		if (n.scale.size() == 3) {
+			scale[0][0] = (float)n.scale[0];
+			scale[1][1] = (float)n.scale[1];
+			scale[2][2] = (float)n.scale[2];
+			transform = transform * scale;
+		}
+
+		transform = translation * rot * scale;
+		transform = base_transform * transform;
 	}
-	if (n.translation.size() == 3) {
-		translation[3][0] = (float)n.translation[0];
-		translation[3][1] = (float)n.translation[1];
-		translation[3][2] = (float)n.translation[2];
-		transform = transform * translation;
-	}
-	if (n.rotation.size() == 4) {
-		auto qt = n.rotation;
-		glm::vec4 q = glm::normalize(glm::vec4(qt[0], qt[1], qt[2], qt[3]));
-		//double q[] = { 0.259, 0.0f, 0.0f, 0.966 };
-
-
-		rot[0][0] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]));
-		rot[0][1] = (float)(2.0 * (q[0] * q[1] + q[2] * q[3]));
-		rot[0][2] = (float)(2.0 * (q[0] * q[2] - q[1] * q[3]));
-
-		rot[1][0] = (float)(2.0 * (q[0] * q[1] - q[2] * q[3]));
-		rot[1][1] = (float)(1.0 - 2.0 * (q[0] * q[0] + q[2] * q[2]));
-		rot[1][2] = (float)(2.0 * (q[1] * q[2] + q[0] * q[3]));
-
-		rot[2][0] = (float)((double)2.0 * (q[0] * q[2] + q[1] * q[3]));
-		rot[2][1] = (float)((double)2.0 * (q[1] * q[2] - q[0] * q[3]));
-		rot[2][2] = (float)((double)1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
-
-		transform = transform * rot;
-	}
-	if (n.scale.size() == 3) {
-		scale[0][0] = (float)n.scale[0];
-		scale[1][1] = (float)n.scale[1];
-		scale[2][2] = (float)n.scale[2];
-		transform = transform * scale;
-	}
-
-	transform = translation * rot * scale;
-	transform = base_transform * transform;
-
+	
+	// Check if node has a mesh
 	if (n.mesh >= 0) {
+		uint32_t vertex_count = 0;
+		uint32_t index_count = 0;
+
+
+		model.meshes.push_back({});
+		Mesh& modelMesh = model.meshes.back();
+		modelMesh.instanceTransforms.push_back(transform);
+
 		auto mesh = gltf.meshes[n.mesh];
-		uint32_t index_offset = (uint32_t)model.vertices.size();
+
+	
+		//uint32_t index_offset = (uint32_t)modelMesh.vertices.size();
 		for (size_t j = 0; j < mesh.primitives.size(); ++j) {
+			uint32_t vertex_count = modelMesh.vertices.size();
+			uint32_t index_count = modelMesh.indices.size();
+	
 			auto p = mesh.primitives[j];
+			p.material;
+			auto& material = gltf.materials[p.material];
+			int base_texture_index = material.pbrMetallicRoughness.baseColorTexture.texCoord;
+			int texture_index = material.pbrMetallicRoughness.baseColorTexture.index;
+			bool has_texture = true;
+			if (base_texture_index < 0 || texture_index < 0) {
+				has_texture = false;
+				shl::logWarn("doesnt have a texture!");
+			}
+			std::string tex_coord = std::string("TEXCOORD_" + std::to_string(base_texture_index));
+			shl::logInfo("Tex coord: ", tex_coord);
 
 			// vertices:
 			GLTFData pos, normal, uv;
-			if (p.attributes.find("POSITION") == p.attributes.end()
-				|| p.attributes.find("NORMAL") == p.attributes.end()
-				|| p.attributes.find("TEXCOORD_0") == p.attributes.end()
-				) {
-				shl::logError("failed to find required vertex data!");
+			if (p.attributes.find("POSITION") == p.attributes.end()) {
+				shl::logWarn("Primitive: ", j, " of mesh: ", n.mesh, " is missing required attribute: POSITION!");
 				continue;
+			} else if (p.attributes.find("NORMAL") == p.attributes.end()) {
+				shl::logWarn("Primitive: ", j, " of mesh: ", n.mesh, " is missing required attribute: NORMAL!");
+				continue;
+			} if (p.attributes.find(tex_coord) == p.attributes.end()) {
+				has_texture = false;
+				shl::logWarn("doesnt have a texture no tex_coord!");
 			}
-			else {
+
+			{
 				pos.fromAccessor(p.attributes.at("POSITION"), gltf);
 				normal.fromAccessor(p.attributes.at("NORMAL"), gltf);
-				uv.fromAccessor(p.attributes.at("TEXCOORD_0"), gltf);
+				if (has_texture) {
+					uv.fromAccessor(p.attributes.at(tex_coord), gltf);
+
+					modelMesh.imageIndex = material.pbrMetallicRoughness.baseColorTexture.index;
+					assert(uv.view.target == TINYGLTF_TARGET_ARRAY_BUFFER);
+					assert(uv.acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+					assert(uv.acc.type == TINYGLTF_TYPE_VEC2);
+					assert(uv.acc.count == normal.acc.count);
+				}
+				else {
+					modelMesh.imageIndex = UINT32_MAX;
+				}
 				assert(pos.view.target == TINYGLTF_TARGET_ARRAY_BUFFER);
 				assert(pos.acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
 				assert(pos.acc.type == TINYGLTF_TYPE_VEC3);
@@ -98,29 +140,30 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 				assert(normal.acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
 				assert(normal.acc.type == TINYGLTF_TYPE_VEC3);
 
-				assert(uv.view.target == TINYGLTF_TARGET_ARRAY_BUFFER);
-				assert(uv.acc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
-				assert(uv.acc.type == TINYGLTF_TYPE_VEC2);
+				assert(pos.acc.count == normal.acc.count);
 
-
-				assert(pos.acc.count == uv.acc.count && uv.acc.count == normal.acc.count);
-
+				modelMesh.vertices.resize(pos.acc.count + vertex_count);
 				for (size_t k = 0; k < pos.acc.count; ++k) {
 					SveModelVertex vertex{};
 					memcpy(&vertex.position, &pos.buf.data[pos.acc.byteOffset + pos.view.byteOffset + k * pos.view.byteStride], sizeof(vertex.position));
 					memcpy(&vertex.normal, &normal.buf.data[normal.acc.byteOffset + normal.view.byteOffset + k * normal.view.byteStride], sizeof(vertex.normal));
-					memcpy(&vertex.uvCoord, &uv.buf.data[uv.acc.byteOffset + uv.view.byteOffset + k * uv.view.byteStride], sizeof(vertex.uvCoord));
-					glm::vec4 transform_pos = glm::vec4(vertex.position, 1.0f);
-					glm::vec4 transformed_pos = transform * transform_pos;
-					vertex.position.x = transformed_pos.x;
-					vertex.position.z = transformed_pos.y;
-					vertex.position.y = transformed_pos.z;
-					model.vertices.push_back(vertex);
+					if (has_texture) {
+						memcpy(&vertex.uvCoord, &uv.buf.data[uv.acc.byteOffset + uv.view.byteOffset + k * uv.view.byteStride], sizeof(vertex.uvCoord));
+					}
+					else {
+						vertex.uvCoord = glm::vec2(0.f);
+					}
+					vertex.imageIndex = texture_index;
+					modelMesh.vertices[k + vertex_count] = vertex;
 				}
 			}
 
 			if (p.indices < 0) {
 				shl::logWarn("no indexed geometry!");
+				modelMesh.indices.resize(index_count + pos.acc.count);
+				for (size_t k = 0; k < pos.acc.count; ++k) {
+					modelMesh.indices[k + index_count] = k + vertex_count;
+				}
 			}
 			// Indices:
 			else {
@@ -131,7 +174,7 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 				// buffer view must target index buffer
 				assert(view.target == TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER);
 				auto buf = gltf.buffers[view.buffer];
-				model.indices.reserve(model.indices.size() + indices.count);
+				modelMesh.indices.resize(indices.count + index_count);
 				for (size_t k = 0; k < indices.count; ++k) {
 					uint32_t value;
 					int comp_type = indices.componentType;
@@ -146,8 +189,7 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 					else {
 						shl::logFatal("expected int or short for indices!");
 					}
-					value += index_offset;
-					model.indices.push_back(value);
+					modelMesh.indices[k + index_count] = value + vertex_count;
 				}
 			}
 		}
@@ -187,28 +229,38 @@ bool loadGLTF(const char* filename, tinygltf::Model* model) {
 SveModel::SveModel(const char* filename) {
 	shl::logInfo("loading file: ", filename);
 	tinygltf::Model gltf;
+	shl::Timer timer;
 	if (!loadGLTF(filename, &gltf)) {
 		shl::logError("failed to load GLTF file: ", filename);
 		return;
 	}
+	shl::logInfo("model file loading: ", timer.ellapsedMillis(), "ms");
 	shl::logInfo("constructing model...");
-	shl::Timer timer;
 	images.resize(gltf.images.size());
 	for (uint32_t i = 0; i < gltf.textures.size(); ++i) {
 		images[i].height = gltf.images[i].height;
 		images[i].width = gltf.images[i].width;
 		images[i].pixels = gltf.images[i].image;
 	}
-	uint32_t mainScene = gltf.defaultScene;
 
-	for (size_t i = 0; i < gltf.scenes[mainScene].nodes.size(); ++i) {
-		assert(gltf.scenes[mainScene].nodes[i] >= 0);
-		auto n = gltf.nodes[gltf.scenes[mainScene].nodes[i]];
+	auto& mainScene = gltf.scenes[gltf.defaultScene];
+
+	for (size_t i = 0; i < mainScene.nodes.size(); ++i) {
+		assert(mainScene.nodes[i] >= 0);
+		auto n = gltf.nodes[mainScene.nodes[i]];
 		glm::mat4 transform(1.0f);
 		parseNode(gltf, n, *this, transform);
 	}
 	double ellapsed_time = timer.ellapsedMillis();
 	shl::logInfo("finished model loading! (took: ", ellapsed_time, "ms)");
-	shl::logDebug("vertex count: ", vertices.size());
-	shl::logDebug("index count: ", indices.size());
+	size_t total_vertex_count = 0;
+	size_t total_index_count = 0;
+	shl::logInfo("Model mesh count: ", meshes.size());
+	for (size_t i = 0; i < meshes.size(); ++i) {
+		total_vertex_count += meshes[i].vertices.size();
+		total_index_count += meshes[i].indices.size();
+		shl::logInfo("Mesh: ", i, "vertex count: ", meshes[i].vertices.size(), " index count: ", meshes[i].indices.size());
+	}
+	shl::logDebug("total vertex count: ", total_vertex_count);
+	shl::logDebug("total index count: ", total_index_count);
 }

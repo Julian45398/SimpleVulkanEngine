@@ -10,6 +10,7 @@
 #include "SVE_Model.h"
 #include <unordered_map>
 
+/*
 class SveModelBuffer {
 private:
 	SveVertexBuffer<SveModelVertex> vertexBuffer;
@@ -84,32 +85,7 @@ public:
 		vkCmdDrawIndexed(commands, (uint32_t)modelRef.indices.size(), 1, 0, 0, 0);
 	}
 };
-
-struct Mesh {
-	std::vector<SveModelVertex> vertices;
-	std::vector<uint32_t> indices;
-	std::vector<glm::mat4> instanceTransforms;
-	uint32_t imageIndex;
-};
-
-struct Image {
-	uint32_t width;
-	uint32_t height;
-	std::vector<uint8_t> pixels;
-};
-
-struct Model {
-	//std::vector<Instance> instances;
-	std::vector<Mesh> meshes;
-	std::vector<Image> images;
-};
-
-struct ModelInformation {
-	uint32_t indexOffset;
-	uint32_t bertexOffset;
-	uint32_t indexCount;
-};
-
+*/
 
 inline constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
 	{0, sizeof(SveModelVertex), VK_VERTEX_INPUT_RATE_VERTEX},
@@ -211,6 +187,10 @@ public:
 		SVE::destroyImageView(texture.view);
 	}
 
+	inline size_t getAllocatedSize() {
+		return allocatedRegions.size() * REGION_SIZE;
+	}
+
 	inline void defragmentMemory() {
 		shl::logWarn("Defragmentation of image allocator memory not implemented yet!");
 	}
@@ -229,7 +209,7 @@ public:
 class SceneRenderer {
 private:
 	// Models:
-	std::vector<Model> models;
+	std::vector<SveModel> models;
 
 	// Buffers:
 	static constexpr uint32_t MAX_INSTANCE_COUNT = 2048;
@@ -278,7 +258,7 @@ private:
 	uint32_t transformCount = 0;
 	uint32_t vertexCount = 0;
 	uint32_t indexCount = 0;
-
+	size_t freeVertexBufferMemory = PAGE_SIZE - MAX_INSTANCE_COUNT * sizeof(glm::mat4);
 public:
 	inline SceneRenderer() {
 		// Vertex and Index Buffers:
@@ -361,27 +341,29 @@ public:
 	}
 
 	inline ~SceneRenderer() {
-		SVE::waitForFence(fence);
-		SVE::destroyFence(fence);
-		SVE::destroyCommandPool(commandPool);
 		if (stagingMapped != nullptr) {
+			SVE::waitForFence(fence);
 			SVE::freeMemory(stagingMemory);
 			SVE::destroyBuffer(stagingBuffer);
 		}
+		SVE::destroyFence(fence);
+		SVE::destroyCommandBuffer(commandPool, commandBuffer);
+		SVE::destroyCommandPool(commandPool);
+		
 		SVE::destroyPipelineLayout(pipelineLayout);
 		SVE::destroyPipeline(pipeline);
 
 		SVE::destroyDescriptorSetLayout(descriptorLayout);
 		SVE::destroyDescriptorPool(descriptorPool);
 
+		SVE::destroySampler(sampler);
 		SVE::destroyBuffer(vertexBuffer);
 		SVE::freeMemory(vertexDeviceMemory);
 	}
 
-	inline void addModel(const Model& model) {
+	inline void addModel(const SveModel& model) {
 		shl::logInfo("adding Model");
 		//const Model& model = *modelPtr;
-		models.push_back(model);
 		size_t total_size = 0;
 
 		// get total allocation size:
@@ -389,11 +371,24 @@ public:
 			shl::logInfo("pixel size: ", model.images[i].pixels.size());
 			total_size += model.images[i].pixels.size();
 		}
+		size_t vertex_size = 0;
 		for (size_t i = 0; i < model.meshes.size(); ++i) {
-			total_size += model.meshes[i].indices.size() * sizeof(uint32_t);
-			total_size += model.meshes[i].vertices.size() * sizeof(SveModelVertex);
+			vertex_size += model.meshes[i].indices.size() * sizeof(uint32_t);
+			vertex_size += model.meshes[i].vertices.size() * sizeof(SveModelVertex);
 			total_size += model.meshes[i].instanceTransforms.size() * sizeof(glm::mat4);
+
+			//freeVertexBufferMemory -= model.meshes[i].indices.size() * sizeof(uint32_t);
+			//freeVertexBufferMemory -= model.meshes[i].vertices.size() * sizeof(SveModelVertex);
 		}
+		if (freeVertexBufferMemory < vertex_size) {
+			shl::logError("not enough free vertex memory for model!");
+			shl::logError("failed to load model");
+			return;
+		}
+		else {
+			freeVertexBufferMemory -= vertex_size;
+		}
+		total_size += vertex_size;
 
 		stagingBuffer = SVE::createBuffer(total_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 		stagingMemory = SVE::allocateForBuffer(stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -405,7 +400,6 @@ public:
 		size_t offset = 0;
 		// Copy image data:
 		for (size_t i = 0; i < model.images.size(); ++i) {
-			shl::logDebug("copy image...");
 			total_size += model.images[i].pixels.size();
 			textures.push_back(textureAllocator.createImage(model.images[i].width, model.images[i].height));
 			auto& texture = textures.back();
@@ -439,7 +433,6 @@ public:
 			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, 1, &barrier);
 		}
-		shl::logDebug("images copied...");
 
 		// Copy mesh data:
 		for (size_t i = 0; i < model.meshes.size(); ++i) {
@@ -451,9 +444,8 @@ public:
 			instance_region.size = mesh.instanceTransforms.size() * sizeof(glm::mat4);
 			instance_region.srcOffset = offset;
 			transformCount += (uint32_t)mesh.instanceTransforms.size();
-			shl::logDebug("instance region offset: ", offset, " size: ", instance_region.size, " dst offset: ", instance_region.dstOffset);
+			//shl::logDebug("instance region offset: ", offset, " size: ", instance_region.size, " instance count: ", mesh.instanceTransforms.size(), " dst offset: ", instance_region.dstOffset);
 			memcpy(stagingMapped + offset, mesh.instanceTransforms.data(), instance_region.size);
-			shl::logDebug("instances copied...");
 			offset += instance_region.size;
 			
 			// Indices:
@@ -462,9 +454,8 @@ public:
 			index_region.dstOffset = PAGE_SIZE - indexCount * sizeof(uint32_t) - index_region.size;
 			index_region.srcOffset = offset;
 			indexCount += (uint32_t)mesh.indices.size();
-			shl::logDebug("instance region offset: ", offset, " size: ", index_region.size, " dst offset: ", index_region.dstOffset);
+			//shl::logDebug("index region offset: ", offset, " size: ", index_region.size, " index count: ", mesh.indices.size(), " dst offset: ", index_region.dstOffset);
 			memcpy(stagingMapped + offset, mesh.indices.data(), index_region.size);
-			shl::logDebug("indices copied...");
 			offset += index_region.size;
 
 			// Vertices:
@@ -473,31 +464,27 @@ public:
 			vertex_region.size = mesh.vertices.size() * sizeof(SveModelVertex);
 			vertex_region.srcOffset = offset;
 			vertexCount += (uint32_t)mesh.vertices.size();
-			shl::logDebug("vertex region offset: ", offset, " size: ", vertex_region.size, " dst offset: ", vertex_region.dstOffset);
+			//shl::logDebug("vertex region offset: ", offset, " size: ", vertex_region.size, " vertex count: ", mesh.vertices.size(), " dst offset: ", vertex_region.dstOffset);
 			memcpy(stagingMapped + offset, mesh.vertices.data(), vertex_region.size);
 			offset += vertex_region.size;
-			shl::logDebug("vertices copied...");
 
 			VkBufferCopy regions[] = {
 				instance_region, index_region, vertex_region
 			};
+
+			shl::logInfo("index ",i ," size: ", index_region.size, " index size offset : ", index_region.dstOffset," vertex size: ",vertex_region.size , " vertex offset : ", vertex_region.dstOffset);
 			vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, ARRAY_SIZE(regions), regions);
 		}
 
 		// Submitting Commands:
 		vkl::endCommandBuffer(commandBuffer);
 		vkl::submitCommands(SVE::getGraphicsQueue(), commandBuffer, fence);
-		VkResult status = vkGetFenceStatus(SVE::getDevice(), fence);
-		if (status == VK_SUCCESS) {
-			shl::logInfo("FENCE is signaled");
-		}
-		else if (status == VK_NOT_READY) {
-			shl::logInfo("FENCE is not signaled");
-		}
-		//shl::logFatal("test");
 
+		models.push_back(model);
 		shl::logInfo("Model added");
-		
+		shl::logInfo("Free vertex memory: ", freeVertexBufferMemory);
+		shl::logInfo("Total allocated image memory: ", textureAllocator.getAllocatedSize());
+		shl::logInfo("total image count: ", textures.size());
 	}
 
 	inline void draw(VkCommandBuffer commands, const glm::mat4& viewMatrix) {
@@ -521,19 +508,25 @@ public:
 		int32_t vertex_offset = 0;
 		uint32_t instance_offset = 0;
 		constexpr uint32_t max_index_offset = PAGE_SIZE / sizeof(uint32_t);
-		uint32_t index_offset = max_index_offset;
+		uint32_t first_index = max_index_offset;
+		//shl::logInfo("max index offset: ", index_offset);
+		uint32_t image_count = 0;
 		for (size_t i = 0; i < models.size(); ++i) {
-			const Model& model = models[i];
+			const SveModel& model = models[i];
 			for (size_t j = 0; j < model.meshes.size(); ++j) {
 				const Mesh& mesh = model.meshes[j];
-				index_offset -= (uint32_t)mesh.indices.size();
-				vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(mesh.imageIndex), &mesh.imageIndex);
-				vkCmdDrawIndexed(commands, (uint32_t)mesh.indices.size(), (uint32_t)mesh.instanceTransforms.size(), index_offset, vertex_offset, instance_offset);
-				//shl::logInfo("index count: ", mesh.indices.size(), " index offset: ", index_offset, " vertex offset: ", vertex_offset, " instances: ", mesh.instanceTransforms.size(), " instance_offset: ", instance_offset);
-				vertex_offset += (uint32_t)mesh.indices.size();
+				first_index -= (uint32_t)mesh.indices.size();
+				uint32_t image_offset = image_count + mesh.imageIndex;
+				vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(image_offset), &image_offset);
+				vkCmdDrawIndexed(commands, (uint32_t)mesh.indices.size(), (uint32_t)mesh.instanceTransforms.size(), first_index, vertex_offset, instance_offset);
+				//shl::logInfo("index count: ", mesh.indices.size(), " index offset: ", first_index, " vertex offset: ", vertex_offset, " instances: ", mesh.instanceTransforms.size(), " instance_offset: ", instance_offset);
+				//shl::logInfo("index ",j ," size: ", mesh.indices.size() * sizeof(mesh.indices[0]), " index size offset : ", first_index * sizeof(uint32_t), " vertex size: ", mesh.vertices.size() * sizeof(SveModelVertex), " vertex offset : ", vertex_offset * sizeof(SveModelVertex) + MAX_INSTANCE_COUNT * sizeof(glm::mat4));
+				vertex_offset += (uint32_t)mesh.vertices.size();
 				instance_offset += (uint32_t)mesh.instanceTransforms.size();
+				//break;
 			}
-
+			image_count += (uint32_t)model.images.size();
+			//shl::logFatal("helloworldhowareyou?");
 		}
 	}
 
@@ -548,13 +541,14 @@ private:
 		for (size_t i = 0; i < descriptorSets.size(); ++i) {
 			descriptorSets[i].invalidated = true;
 		}
+		shl::logInfo("descriptors invalidated!");
 	}
 
 	inline void checkTransferStatus() {
 		if (stagingMapped != nullptr) {
 			if (vkGetFenceStatus(SVE::getDevice(), fence) == VK_SUCCESS) {
 				invalidateDescriptors();
-				SVE::waitForFence(fence);
+				SVE::resetFence(fence);
 				SVE::destroyBuffer(stagingBuffer);
 				SVE::freeMemory(stagingMemory);
 				stagingMapped = nullptr;
@@ -575,7 +569,7 @@ private:
 		VkViewport viewport = { (float)SVE::getViewportOffsetX(), (float)SVE::getViewportOffsetY(), (float)SVE::getViewportWidth(), (float)SVE::getViewportHeight(), 0.0f, 1.0f };
 		VkRect2D scissor = { {SVE::getViewportOffsetX(), SVE::getViewportOffsetY()}, {SVE::getViewportWidth(), SVE::getViewportHeight()} };
 		VkPipelineViewportStateCreateInfo viewport_info = vkl::createPipelineViewportStateInfo(1, nullptr, 1, nullptr);
-		VkPipelineRasterizationStateCreateInfo rasterization = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, polygonMode, cullMode, VK_FRONT_FACE_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
+		VkPipelineRasterizationStateCreateInfo rasterization = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, polygonMode, cullMode, VK_FRONT_FACE_COUNTER_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
 		VkPipelineMultisampleStateCreateInfo multisample = vkl::createPipelineMultisampleStateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE);
 		VkPipelineDepthStencilStateCreateInfo depth_stencil = vkl::createPipelineDepthStencilStateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL, VK_FALSE, VK_FALSE);
 		VkPipelineColorBlendAttachmentState color_blend_attachement{};
@@ -616,10 +610,12 @@ private:
 			VkWriteDescriptorSet descriptor_write = vkl::createDescriptorWrite(descriptor.set, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2, 0, (uint32_t)texture_info.size(), texture_info.data());
 			vkUpdateDescriptorSets(SVE::getDevice(), 1, &descriptor_write, 0, nullptr);
 			descriptor.invalidated = false;
+			shl::logInfo("Descriptor updated");
 		}
 	}
 };
 
+/*
 class SveSceneRenderer {
 	inline static const char* VERTEX_SHADER_FILE = "resources/shaders/model.vert";
 	inline static const char* FRAGMENT_SHADER_FILE = "resources/shaders/model.frag";
@@ -683,3 +679,4 @@ public:
 		}
 	}
 };
+*/

@@ -146,9 +146,11 @@ namespace SVE {
 	inline VkFence createFence(VkFenceCreateFlags flags = VKL_FLAG_NONE) { return vkl::createFence(_private::_Logical, flags); }
 	inline void destroyFence(VkFence fence) { vkl::destroyFence(_private::_Logical, fence); }
 	inline void waitForFence(VkFence fence) { vkl::waitForFence(_private::_Logical, fence); }
+	inline void resetFence(VkFence fence) { vkl::resetFence(_private::_Logical, fence); }
 	inline bool isFenceSignaled(VkFence fence) { return vkGetFenceStatus(_private::_Logical, fence) == VK_SUCCESS; }
 	inline VkSemaphore createSemaphore() { return vkl::createSemaphore(_private::_Logical); }
 	inline void destroySemaphore(VkSemaphore semaphore) { vkl::destroySemaphore(_private::_Logical, semaphore); }
+	inline void deviceWaitIdle() { vkDeviceWaitIdle(_private::_Logical); }
 
 	// Buffers:
 	inline VkBuffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = VKL_FLAG_NONE) {
@@ -172,6 +174,12 @@ namespace SVE {
 	}
 	inline void destroyImageView(VkImageView imageView) {
 		vkl::destroyImageView(_private::_Logical, imageView);
+	}
+	inline VkSampler createSampler(VkFilter filter = VK_FILTER_NEAREST, VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE) {
+		return vkl::createSampler(_private::_Logical, filter, mipmapMode, addressMode);
+	}
+	inline void destroySampler(VkSampler sampler) {
+		vkl::destroySampler(_private::_Logical, sampler);
 	}
 	// Memory:
 	inline VkDeviceMemory allocateMemory(VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
@@ -218,6 +226,9 @@ namespace SVE {
 	}
 
 	// Descriptor Sets:
+	inline void destroyDescriptorSet(VkDescriptorPool pool, VkDescriptorSet descriptorSet) {
+		vkFreeDescriptorSets(_private::_Logical, pool, 1, &descriptorSet);
+	}
 	inline void destroyDescriptorPool(VkDescriptorPool descriptorPool) {
 		vkl::destroyDescriptorPool(_private::_Logical, descriptorPool);
 	}
@@ -281,6 +292,7 @@ namespace SVE {
 		vkl::beginCommandBuffer(_private::_ImageResources[_private::_ImageIndex].primaryCommands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 		return _private::_ImageResources[_private::_ImageIndex].primaryCommands;
 	}
+
 	inline void renderFrame(uint32_t commandCount, const VkCommandBuffer* commandBuffer) {
 		const auto& res = _private::_ImageResources[_private::_ImageIndex];
 		const auto& sync = _private::_Synchronization[_private::_InFlightIndex];

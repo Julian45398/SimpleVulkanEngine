@@ -20,6 +20,7 @@ namespace SVE {
 	inline const VkPresentModeKHR PRESENT_MODES[] = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR };
 	inline const VkFormat SURFACE_FORMATS[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
 
+	VkDescriptorPool ImGuiDescriptorPool = VK_NULL_HANDLE;
 
 #ifdef VKL_ENABLE_VALIDATION
 	VkDebugUtilsMessengerEXT DebugUtilsMessenger = VK_NULL_HANDLE;
@@ -191,7 +192,6 @@ namespace SVE {
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
 		//ImGui::StyleColorsLight();
-		VkDescriptorPool pool;
 		VkDescriptorPoolSize pool_sizes[] =
 		{
 			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
@@ -199,10 +199,10 @@ namespace SVE {
 		VkDescriptorPoolCreateInfo pool_info = {};
 		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		pool_info.maxSets = 3;
+		pool_info.maxSets = SVE::getImageCount();
 		pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
 		pool_info.pPoolSizes = pool_sizes;
-		vkCreateDescriptorPool(_Logical, &pool_info, nullptr, &pool);
+		vkCreateDescriptorPool(_Logical, &pool_info, nullptr, &ImGuiDescriptorPool);
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplGlfw_InitForVulkan(_Window, true);
@@ -213,7 +213,7 @@ namespace SVE {
 		init_info.QueueFamily = _GraphicsIndex;
 		init_info.Queue = _PresentQueue;
 		init_info.PipelineCache = VK_NULL_HANDLE;
-		init_info.DescriptorPool = pool;
+		init_info.DescriptorPool = ImGuiDescriptorPool;
 		init_info.RenderPass = _RenderPass;
 		init_info.Subpass = 0;
 		init_info.MinImageCount = 2;
@@ -230,6 +230,12 @@ namespace SVE {
 		}
 #endif
 		shl::logInfo("ImGui initialized!");
+	}
+	void terminateImGui() {
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+		destroyDescriptorPool(ImGuiDescriptorPool);
 	}
 
 	void setupVulkanInstance() {
@@ -378,7 +384,24 @@ namespace SVE {
 		shl::logInfo("backend initialized!");
 	}
 	void terminate() {
+		deviceWaitIdle();
+		shl::logDebug("terminating application");
+		//ImGui_ImplVulkan_Shutdown();
+		terminateImGui();
+		shl::logDebug("imgui vulkan deinitialized");
+		destroyPresentResources();
+		destroySynchronization();
+		shl::logInfo("destroying device...");
+		vkl::destroyDevice(_Logical);
+		shl::logInfo("Destroyed vulkan device");
+#ifdef VKL_ENABLE_VALIDATION
+		vkl::destroyDebugUtilsMessengerEXT(_Instance, DebugUtilsMessenger);
+#endif
+		vkl::destroySurface(_Instance, _Surface);
+		vkl::destroyInstance(_Instance);
+		shl::logInfo("Destroyed vulkan instance");
 		glfwDestroyWindow(_Window);
+		shl::logInfo("destroyed glfw window");
 	}
 	uint32_t addFramebufferResizeCallbackFunction(CallbackFunction callback) {
 		uint32_t index = (uint32_t)_FramebufferResizeCallbackFunctions.size();

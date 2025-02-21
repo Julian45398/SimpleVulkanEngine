@@ -3,7 +3,6 @@
 //#include "engine_core.h"
 
 #include "ui_data.h"
-#include "SceneBuffer.h"
 #include "SVE_Backend.h"
 #include "render/SVE_RenderPipeline.h"
 #include "render/SVE_StagingBuffer.h"
@@ -25,7 +24,7 @@ private:
 	//SveImageBuffer imageBuffer;
 	//SveRenderPipeline renderPipeline;
 	std::vector<SveModel> models;
-	SveSceneRenderer* renderer = nullptr;
+	//SveSceneRenderer* renderer = nullptr;
 	SceneRenderer sceneRenderer;
 	float LeftPanelWidth = 200.f;
 	float RightPanelWidth = 200.f;
@@ -36,16 +35,12 @@ private:
 	float ViewportOffsetY = 0.0f;
 	bool ViewportResized = true;
 
-
-
 	Camera ViewCamera;
 public:
-	inline SimpleVulkanEditor()
+	SimpleVulkanEditor();
 		//uniformBuffer(), sceneBuffer(), renderPipeline("resources/shaders/model.vert", "resources/shaders/model.frag", SVE_MODEL_VERTEX_INPUT_INFO, uniformBuffer, sceneBuffer.imageBuffer.getSampler(), sceneBuffer.imageBuffer.getImageView())
-	{}
-	void init();
 	void run();
-	void terminate();
+	~SimpleVulkanEditor();
 private:
 	void loadModel(const char* filename);
 	inline void BuildUi() {

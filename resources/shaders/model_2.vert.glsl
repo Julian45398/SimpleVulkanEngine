@@ -6,7 +6,7 @@ layout (set = 0, binding = 0) uniform UniformBuffer {
 } ubo;
 
 layout(location = 0) in vec3 vertexPosition;
-layout(location = 1) in uint ImageIndex;
+layout(location = 1) in uint imageIndex;
 layout(location = 2) in vec3 vertexNormal;
 layout(location = 3) in uint padding;
 layout(location = 4) in vec2 uvCoord;
@@ -17,7 +17,7 @@ layout(location = 7) in mat4 modelTransform;
 
 layout(location = 0) out vec2 fragUV;
 layout(location = 1) out float color;
-
+layout(location = 2) out uint texIndex;
 
 //vec3 positions[4] = vec3[](
     //vec3(-0.5f, 0.5f, 0.5f), 
@@ -37,5 +37,6 @@ void main() {
     fragUV = uvCoord;
     color = 0.7 + dot(normalize(vertexNormal), sunVektor) * 0.3;
     //uvFragCoord = vec2(0.5, 0.5);
+    texIndex = imageIndex;
 
 }
