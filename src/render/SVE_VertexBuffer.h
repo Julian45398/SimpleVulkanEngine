@@ -59,7 +59,7 @@ public:
 		VkCommandBuffer commands = vkl::createCommandBuffer(SVE::getDevice(), command_pool);
 		vkl::beginCommandBuffer(commands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 		VkDeviceSize total_size = vertexCount * sizeof(T) + indexCount * sizeof(uint32_t);
-		VkBuffer staging_buffer = vkl::createBuffer(SVE::getDevice(), total_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, SVE::getGraphicsQueue());
+		VkBuffer staging_buffer = SVE::createBuffer(total_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 		shl::logFatal("TODO: finish function lazyUploadVertexData for vertex buffer!");
 		//uploadVertexData(commands, )
 	}

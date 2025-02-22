@@ -2,8 +2,6 @@
 
 #include "core.h"
 #include <nfd.h>
-#include <vk_mem_alloc.h>
-
 //#define SVE_RENDER_IN_VIEWPORT
 
 namespace SVE {
@@ -39,7 +37,6 @@ namespace SVE {
 		inline uint32_t _ViewportHeight = 1;
 		inline int32_t _ViewportOffsetX = 0;
 		inline int32_t _ViewportOffsetY = 0;
-		inline VmaAllocator _Allocator = VK_NULL_HANDLE;
 #ifdef SVE_RENDER_IN_VIEWPORT
 		inline VkRenderPass _ViewportRenderPass = VK_NULL_HANDLE;
 		inline VkFramebuffer _ViewportFramebuffers[FRAMES_IN_FLIGHT] = {};
