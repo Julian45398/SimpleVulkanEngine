@@ -17,11 +17,40 @@ struct SveModelVertex {
 	uint32_t padding4;
 };
 
+struct AABB {
+	glm::vec3 min = glm::vec3(0.f, 0.f, 0.f);
+	glm::vec3 max = glm::vec3(0.f, 0.f, 0.f);
+};
+
+class Ray {
+public:
+	inline Ray(float xOrig, float yOrig, float zOrig, float xDir, float yDir, float zDir)
+	: origin(xOrig, yOrig, zOrig), direction(xDir, yDir, zDir) {}
+
+	inline Ray(const glm::vec3& orig, const glm::vec3& dir)
+	: origin(orig), direction(dir) {}
+private:
+	glm::vec3 origin;
+	glm::vec3 direction;
+
+public:
+	inline glm::vec2 intersects(const AABB& box) const {
+		glm::vec3 tMin = (box.min - origin) / direction;
+    	glm::vec3 tMax = (box.max - origin) / direction;
+    	glm::vec3 t1 = min(tMin, tMax);
+    	glm::vec3 t2 = max(tMin, tMax);
+    	float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);
+    	float tFar = glm::min(glm::min(t2.x, t2.y), t2.z);
+    	return glm::vec2(tNear, tFar);
+	}
+};
+
 struct Mesh {
 	std::vector<SveModelVertex> vertices;
 	std::vector<uint32_t> indices;
 	std::vector<glm::mat4> instanceTransforms;
 	uint32_t imageIndex;
+	AABB boundingBox;
 };
 
 struct Image {

@@ -57,7 +57,13 @@ private:
 			LeftPanelWidth = ImGui::GetWindowWidth();
 		}
 		ImGui::Text("Application average %.3f ms/frame", SVE::getFrameTime());
-		if (ImGui::Button("StandardButton")) {
+		glm::vec3 forward = ViewCamera.getForward();
+		glm::vec3 up = ViewCamera.getUp();
+		glm::vec3 right = ViewCamera.getRight();
+		ImGui::Text("Camera Forward: { %.4f, %.4f, %.4f }", forward.x, forward.y, forward.z);
+		ImGui::Text("Camera Right: { %.4f, %.4f, %.4f }", right.x, right.y, right.z);
+		ImGui::Text("Camera Up: { %.4f, %.4f, %.4f }", up.x, up.y, up.z);
+		if (ImGui::Button("Load GLTF file")) {
 			nfdu8filteritem_t filters[] = { {"GLTF files: ", "gltf,glb"} };
 			std::string filepath = SVE::openFileDialog(ARRAY_SIZE(filters), filters);
 			if (!filepath.empty()) {

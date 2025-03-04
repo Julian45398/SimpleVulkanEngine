@@ -5,6 +5,8 @@
 #include "render/UiHandler.h"
 #include "render/SVE_SceneRenderer.h"
 
+#include <thread>
+
 void SimpleVulkanEditor::loadModel(const char* filename) {
 	models.emplace_back(filename);
 	//models[0].loadFromGLTF();
@@ -19,8 +21,14 @@ void SimpleVulkanEditor::handleInput() {
 	auto pos = SVE::getCursorPos();
 	if (SVE::isMouseClicked(GLFW_MOUSE_BUTTON_2)) {
 		SVE::hideCursor();
-		const float scale_factor = 0.005f;
-		ViewCamera.rotate(0.005f * ((float)pos.x - xpos), 0.005f * ((float)pos.y - ypos));
+		const float scale_factor = 0.001f;
+		float x_amount = (float)pos.x - xpos;
+		float y_amount = (float)pos.y - ypos;
+		float rotation_amount = glm::sqrt(x_amount * x_amount + y_amount * y_amount) * scale_factor;
+		if (rotation_amount != 0.0f) {
+			ViewCamera.rotate(y_amount * scale_factor, x_amount * scale_factor);
+		}
+		shl::logDebug("rotation amount: ", rotation_amount, " x amount: ", x_amount, " y amount: ", y_amount);
 		if (SVE::isKeyPressed(GLFW_KEY_W)) {
 			ViewCamera.moveForward((float)SVE::getFrameTime() * scale_factor);
 		}
@@ -69,6 +77,7 @@ void SimpleVulkanEditor::run() {
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 
 		SVE::renderFrame(1, &secondary[SVE::getInFlightIndex()]);
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	SVE::deviceWaitIdle();
 	for (size_t i = 0; i < ARRAY_SIZE(secondary); ++i) {

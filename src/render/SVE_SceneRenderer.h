@@ -8,84 +8,8 @@
 #include "render/SVE_UniformBuffer.h"
 #include "render/Camera.h"
 #include "SVE_Model.h"
-#include <unordered_map>
 
-/*
-class SveModelBuffer {
-private:
-	SveVertexBuffer<SveModelVertex> vertexBuffer;
-	VkDescriptorPool descriptorPool;
-	VkDescriptorSet descriptor;
-	SveImageBuffer image;
-	VkSampler sampler;
-	//VkDeviceMemory imageMemory;
-	SveModel& modelRef;
-public:
-	SveModelBuffer(SveModel& model, VkDescriptorSetLayout descriptorLayout) : modelRef(model) {
-		//images.resize(model.images.size());
-		//imageViews.resize(model.images.size());
-		//descriptors.resize(model.images.size());
-		sampler = vkl::createSampler(SVE::getDevice(), VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
-		image.allocate(model.images[0].width, model.images[0].height, 1, 1);
-		vertexBuffer.allocate((uint32_t)model.vertices.size(), (uint32_t)model.indices.size());
-
-		VkCommandPool pool = SVE::createCommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-		VkCommandBuffer commands = SVE::createCommandBuffer(pool);
-		VkFence fence = SVE::createFence();
-		//VkBufferImageCopy region = { 0, 0, 0, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, {}, {model.images[0].width, model.images[0].height, 1}};
-		
-		VkBufferCopy vertex_copy;
-		vertex_copy.size = model.vertices.size() * sizeof(SveModelVertex);
-		vertex_copy.srcOffset = 0;
-		vertex_copy.dstOffset = 0;
-
-		VkBufferCopy index_copy;
-		index_copy.size = model.indices.size() * sizeof(uint32_t);
-		index_copy.srcOffset = vertex_copy.srcOffset + vertex_copy.size;
-		index_copy.dstOffset = 0;
-
-		VkBufferImageCopy image_copy;
-		image_copy.bufferImageHeight = 0;
-		image_copy.bufferRowLength = 0;
-		image_copy.imageExtent = { model.images[0].width, model.images[0].height, 1 };
-		image_copy.imageOffset = { 0, 0, 0 };
-		image_copy.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		image_copy.bufferOffset = index_copy.srcOffset + index_copy.size;
-
-		VkDeviceSize staging_buf_size = image_copy.bufferOffset + model.images[0].pixels.size();
-		VkBuffer buffer = SVE::createBuffer(staging_buf_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-		VkDeviceMemory memory = SVE::allocateForBuffer(buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		void* mapped = SVE::mapMemory(memory);
-		memcpy((uint8_t*)mapped + vertex_copy.srcOffset, model.vertices.data(), vertex_copy.size);
-		memcpy((uint8_t*)mapped + index_copy.srcOffset, model.indices.data(), index_copy.size);
-		memcpy((uint8_t*)mapped + image_copy.bufferOffset, model.images[0].pixels.data(), model.images[0].pixels.size());
-
-		vkl::beginCommandBuffer(commands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-		image.uploadChanges(commands, buffer, 1, &image_copy, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
-		vertexBuffer.uploadVertexData(commands, buffer, 1, &vertex_copy, 1, &index_copy);
-
-		vkl::endCommandBuffer(commands);
-		SVE::submitCommands(commands, fence);
-
-		VkDescriptorPoolSize pool_sizes[] = { vkl::createDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32_t)model.images.size()) };
-		descriptorPool = vkl::createDescriptorPool(SVE::getDevice(), 1, ARRAY_SIZE(pool_sizes), pool_sizes);
-		descriptor = vkl::allocateDescriptorSet(SVE::getDevice(), descriptorPool, 1, &descriptorLayout);
-
-		VkDescriptorImageInfo image_info = { sampler, image.getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-		VkWriteDescriptorSet writes[] = {
-			vkl::createDescriptorWrite(descriptor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, 0, 1, &image_info)
-		};
-		vkUpdateDescriptorSets(SVE::getDevice(), ARRAY_SIZE(writes), writes, 0, nullptr);
-
-		SVE::waitForFence(fence);
-	}
-	inline void bindAndDraw(VkCommandBuffer commands, VkPipelineLayout layout) {
-		vertexBuffer.bind(commands);
-		vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &descriptor, 0, nullptr);
-		vkCmdDrawIndexed(commands, (uint32_t)modelRef.indices.size(), 1, 0, 0, 0);
-	}
-};
-*/
+#include "SVE_ImageMemoryAllocator.h"
 
 inline constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
 	{0, sizeof(SveModelVertex), VK_VERTEX_INPUT_RATE_VERTEX},
@@ -107,105 +31,6 @@ inline constexpr VkVertexInputAttributeDescription MODEL_VERTEX_ATTRIBUTES[] = {
 inline const VkPipelineVertexInputStateCreateInfo MODEL_VERTEX_INPUT_INFO = vkl::createPipelineVertexInputStateInfo(ARRAY_SIZE(MODEL_VERTEX_BINDINGS), MODEL_VERTEX_BINDINGS,
 	ARRAY_SIZE(MODEL_VERTEX_ATTRIBUTES), MODEL_VERTEX_ATTRIBUTES);
 	
-
-struct TextureImage {
-	VkImage image;
-	VkImageView view;
-};
-class ImageMemoryAllocator {
-public:
-	static const VkDeviceSize REGION_SIZE = 16384 * 8192;
-private:
-	struct MemRegion {
-		uint32_t size;
-		uint32_t offset;
-		uint32_t regionIndex;
-	};
-	struct ImageRegion {
-		TextureImage image;
-		MemRegion region;
-	};
-	std::vector<VkDeviceMemory> allocatedRegions;
-	std::vector<MemRegion> freeRegions;
-	std::vector<ImageRegion> imageRegions;
-public:
-	inline const TextureImage createImage(uint32_t width, uint32_t height) {
-		TextureImage texture;
-		MemRegion textureRegion;
-		texture.image = SVE::createImage2D(width, height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-		auto memreq = SVE::getImageMemoryRequirements(texture.image);
-		if (memreq.size > REGION_SIZE) {
-			shl::logFatal("image memory requirement exceeds max byts size of: ", REGION_SIZE);
-		}
-		bool region_found = false;
-		for (size_t i = 0; i < freeRegions.size(); ++i) {
-			MemRegion region = freeRegions[i];
-			if (memreq.size <= region.size) {
-				region_found = true;
-				region.size = (uint32_t)memreq.size;
-				SVE::bindImageMemory(texture.image, allocatedRegions[region.regionIndex], region.offset);
-				textureRegion = region;
-				if (memreq.size != region.size) {
-					freeRegions[i].offset += (uint32_t)memreq.size;
-					freeRegions[i].size -= (uint32_t)memreq.size;
-				}
-				else {
-					freeRegions.erase(freeRegions.begin() + i);
-				}
-				break;
-			}
-		}
-		if (!region_found) {
-			uint32_t size = (uint32_t)memreq.size;
-			memreq.size = REGION_SIZE;
-			VkDeviceMemory memory = SVE::allocateMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			allocatedRegions.push_back(memory);
-			MemRegion region = { size, 0, (uint32_t)allocatedRegions.size() - 1 };
-			SVE::bindImageMemory(texture.image, memory, region.offset);
-			textureRegion = region;
-			region.offset = size;
-			region.size = (uint32_t)REGION_SIZE - size;
-			freeRegions.push_back(region);
-		}
-		texture.view = SVE::createImageView2D(texture.image, VK_FORMAT_R8G8B8A8_SRGB);
-		imageRegions.push_back({texture, textureRegion});
-
-		return imageRegions.back().image;
-	}
-
-	inline void destroyImage(const TextureImage& texture) {
-		MemRegion region;
-		for (uint32_t i = 0; i < imageRegions.size(); ++i) {
-			if (imageRegions[i].image.image ==  texture.image) {
-				region = imageRegions[i].region;
-				imageRegions.erase(imageRegions.begin() + i);
-				break;
-			}
-		}
-		freeRegions.push_back(region);
-		SVE::destroyImage(texture.image);
-		SVE::destroyImageView(texture.view);
-	}
-
-	inline size_t getAllocatedSize() {
-		return allocatedRegions.size() * REGION_SIZE;
-	}
-
-	inline void defragmentMemory() {
-		shl::logWarn("Defragmentation of image allocator memory not implemented yet!");
-	}
-
-	inline ~ImageMemoryAllocator() {
-		for (const auto& region : imageRegions) {
-			SVE::destroyImage(region.image.image);
-			SVE::destroyImageView(region.image.view);
-		}
-		for (size_t i = 0; i < allocatedRegions.size(); ++i) {
-			SVE::freeMemory(allocatedRegions[i]);
-		}
-	}
-};
-
 class SceneRenderer {
 private:
 	// Models:
@@ -483,6 +308,16 @@ public:
 		models.push_back(model);
 		shl::logInfo("Model added");
 		shl::logInfo("Free vertex memory: ", freeVertexBufferMemory);
+		uint32_t vertex_count = 0;
+		uint32_t index_count = 0;
+		for (size_t i = 0; i < models.size(); ++i) {
+			for(size_t j = 0; j < models[i].meshes.size(); ++j) {
+				vertex_count += models[i].meshes[j].vertices.size();
+				index_count += models[i].meshes[j].indices.size();
+			}
+			
+		}
+		shl::logInfo("total vertex count: ", vertex_count, " triangle count: ", index_count/3);
 		shl::logInfo("Total allocated image memory: ", textureAllocator.getAllocatedSize());
 		shl::logInfo("total image count: ", textures.size());
 	}
