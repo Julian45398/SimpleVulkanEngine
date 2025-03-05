@@ -9,7 +9,7 @@
 #include "render/SVE_UniformBuffer.h"
 #include "render/SVE_VertexBuffer.h"
 #include "render/SVE_SceneRenderer.h"
-#include "render/Camera.h"
+#include "render/CameraController.h"
 
 struct UniformData {
 	glm::mat4 transformMatrix;
@@ -34,8 +34,13 @@ private:
 	float ViewportOffsetX = 0.0f;
 	float ViewportOffsetY = 0.0f;
 	bool ViewportResized = true;
+	bool isOrthographic = false;
 
-	Camera ViewCamera;
+	float viewSize = 10.f;
+	float cameraZoom = 1.f;
+
+	//Camera ViewCamera;
+	CameraController viewCameraController;
 public:
 	SimpleVulkanEditor();
 		//uniformBuffer(), sceneBuffer(), renderPipeline("resources/shaders/model.vert", "resources/shaders/model.frag", SVE_MODEL_VERTEX_INPUT_INFO, uniformBuffer, sceneBuffer.imageBuffer.getSampler(), sceneBuffer.imageBuffer.getImageView())
@@ -57,12 +62,36 @@ private:
 			LeftPanelWidth = ImGui::GetWindowWidth();
 		}
 		ImGui::Text("Application average %.3f ms/frame", SVE::getFrameTime());
-		glm::vec3 forward = ViewCamera.getForward();
-		glm::vec3 up = ViewCamera.getUp();
-		glm::vec3 right = ViewCamera.getRight();
+		const auto cursor = SVE::getCursorPos();
+		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursor.x, cursor.y);
+		if (isOrthographic) {
+			if (ImGui::Button("Set Perspective")) {
+				isOrthographic = false;
+			}
+			else {
+				ImGui::DragFloat("Orthographic View Size: ", &viewSize, 1.f, 0.f, 2000.f);
+			}
+		}
+		else {
+			if (ImGui::Button("Set Orthographic")) {
+				isOrthographic = true;
+			}
+			else {
+				ImGui::DragFloat("Zoom: ", &cameraZoom, 0.5f, 0.f, 2000.f);
+				viewCameraController.setZoom(cameraZoom);
+			}
+		}
+		const auto& camera = viewCameraController.getCamera();
+		glm::vec3 forward = camera.getForward();
+		glm::vec3 up = camera.getUp();
+		glm::vec3 right = camera.getRight();
+		float yaw = camera.getYaw();
+		float pitch = camera.getPitch();
+		float roll = camera.getRoll();
 		ImGui::Text("Camera Forward: { %.4f, %.4f, %.4f }", forward.x, forward.y, forward.z);
 		ImGui::Text("Camera Right: { %.4f, %.4f, %.4f }", right.x, right.y, right.z);
 		ImGui::Text("Camera Up: { %.4f, %.4f, %.4f }", up.x, up.y, up.z);
+		ImGui::Text("Camera Yaw: %.4f, Pitch: %.4f, Roll: %.4f ", yaw, pitch, roll);
 		if (ImGui::Button("Load GLTF file")) {
 			nfdu8filteritem_t filters[] = { {"GLTF files: ", "gltf,glb"} };
 			std::string filepath = SVE::openFileDialog(ARRAY_SIZE(filters), filters);

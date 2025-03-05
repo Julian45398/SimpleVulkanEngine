@@ -323,7 +323,11 @@ namespace SVE {
 		if (_GraphicsIndex == UINT32_MAX || _PresentIndex == UINT32_MAX) {
 			shl::logFatal("no sufficient queue family found!");
 		}
+#ifdef VKL_ENABLE_VALIDATION
 		_Logical = vkl::createDevice(_Physical, _Surface, features, ARRAY_SIZE(device_extensions), device_extensions, queue_count, queue_infos, DebugUtilsMessenger != nullptr);
+#else
+		_Logical = vkl::createDevice(_Physical, _Surface, features, ARRAY_SIZE(device_extensions), device_extensions, queue_count, queue_infos, false);
+#endif 
 		shl::logInfo("logical device created!");
 		volkLoadDevice(_Logical);
 

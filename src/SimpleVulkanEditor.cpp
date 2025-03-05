@@ -17,36 +17,7 @@ void SimpleVulkanEditor::loadModel(const char* filename) {
 
 void SimpleVulkanEditor::handleInput() {
 	glfwPollEvents();
-	static float xpos, ypos;
-	auto pos = SVE::getCursorPos();
-	if (SVE::isMouseClicked(GLFW_MOUSE_BUTTON_2)) {
-		SVE::hideCursor();
-		const float scale_factor = 0.001f;
-		float x_amount = (float)pos.x - xpos;
-		float y_amount = (float)pos.y - ypos;
-		float rotation_amount = glm::sqrt(x_amount * x_amount + y_amount * y_amount) * scale_factor;
-		if (rotation_amount != 0.0f) {
-			ViewCamera.rotate(y_amount * scale_factor, x_amount * scale_factor);
-		}
-		shl::logDebug("rotation amount: ", rotation_amount, " x amount: ", x_amount, " y amount: ", y_amount);
-		if (SVE::isKeyPressed(GLFW_KEY_W)) {
-			ViewCamera.moveForward((float)SVE::getFrameTime() * scale_factor);
-		}
-		if (SVE::isKeyPressed(GLFW_KEY_S)) {
-			ViewCamera.moveForward(-(float)SVE::getFrameTime() * scale_factor);
-		}
-		if (SVE::isKeyPressed(GLFW_KEY_A)) {
-			ViewCamera.moveRight(-(float)SVE::getFrameTime() * scale_factor);
-		}
-		if (SVE::isKeyPressed(GLFW_KEY_D)) {
-			ViewCamera.moveRight((float)SVE::getFrameTime() * scale_factor);
-		}
-	}
-	else {
-		SVE::showCursor();
-	}
-	xpos = (float)pos.x;
-	ypos = (float)pos.y;
+	viewCameraController.updateCamera();
 }
 
 SimpleVulkanEditor::SimpleVulkanEditor()
@@ -73,11 +44,18 @@ void SimpleVulkanEditor::run() {
 		BuildUi();
 		SVE::resetCommandPool(pools[SVE::getInFlightIndex()]);
 		SVE::beginRenderCommands(secondary[SVE::getInFlightIndex()]);
-		sceneRenderer.draw(secondary[SVE::getInFlightIndex()], ViewCamera.getViewProj());
+		glm::mat4 matrix;
+		if (isOrthographic) {
+			matrix = viewCameraController.getOrthoViewMatrix(viewSize);
+		}
+		else {
+			matrix = viewCameraController.getViewProjMatrix();
+		}
+		sceneRenderer.draw(secondary[SVE::getInFlightIndex()], matrix);
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 
 		SVE::renderFrame(1, &secondary[SVE::getInFlightIndex()]);
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 	SVE::deviceWaitIdle();
 	for (size_t i = 0; i < ARRAY_SIZE(secondary); ++i) {
