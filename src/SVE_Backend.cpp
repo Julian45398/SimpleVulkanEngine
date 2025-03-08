@@ -129,6 +129,7 @@ namespace SVE {
 			}
 		}
 	}
+ 
 	void destroyPresentResources() {
 		vkl::destroySwapchain(_Logical, _Swapchain);
 		vkl::destroyRenderPass(_Logical, _RenderPass);

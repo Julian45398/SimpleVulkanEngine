@@ -215,8 +215,20 @@ namespace SVE {
 	}
 
 	// Pipeline:
+	inline VkShaderModule createShaderModule(size_t codeSize, const uint32_t* pCode) {
+		return vkl::createShaderModule(_private::_Logical, codeSize, pCode);
+	}
+	inline void destroyShaderModule(VkShaderModule shaderModule) {
+		vkl::destroyShaderModule(_private::_Logical, shaderModule);
+	}
+	inline VkPipeline createRenderPipeline(const VkGraphicsPipelineCreateInfo& createInfo) {
+		return vkl::createGraphicsPipeline(_private::_Logical, createInfo);
+	}
 	inline void destroyPipeline(VkPipeline pipeline) {
 		vkl::destroyPipeline(_private::_Logical, pipeline);
+	}
+	inline VkPipelineLayout createPipelineLayout(uint32_t setCount, const VkDescriptorSetLayout* sets, uint32_t pushConstantCount = 0, const VkPushConstantRange* ranges = nullptr) {
+		return vkl::createPipelineLayout(_private::_Logical, setCount, sets, pushConstantCount, ranges);
 	}
 	inline void destroyPipelineLayout(VkPipelineLayout pipelineLayout) {
 		vkl::destroyPipelineLayout(_private::_Logical, pipelineLayout);
@@ -228,6 +240,9 @@ namespace SVE {
 	}
 	inline void destroyDescriptorPool(VkDescriptorPool descriptorPool) {
 		vkl::destroyDescriptorPool(_private::_Logical, descriptorPool);
+	}
+	inline VkDescriptorSetLayout createDescriptorSetLayout(uint32_t bindingCount, const VkDescriptorSetLayoutBinding* pBindings) {
+		return vkl::createDescriptorSetLayout(_private::_Logical, bindingCount, pBindings);
 	}
 	inline void destroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout) {
 		vkl::destroyDescriptorSetLayout(_private::_Logical, descriptorSetLayout);
@@ -332,7 +347,7 @@ namespace SVE {
 		}
 		{
 			VkClearValue clear_values[2] = {};
-			clear_values[0].color = { {0.1f, 0.5f, 0.1f, 1.0f} };
+			clear_values[0].color = { {0.1f, 0.1f, 0.1f, 1.0f} };
 			clear_values[1].depthStencil = { 1.0f, 0 };
 		
 			VkRenderPassBeginInfo info = {};

@@ -48,13 +48,13 @@ public:
 		pos += transform[2] * amount;
 	}
 	inline void moveRight(float amount) {
-		pos -= transform[1] * amount;
+		pos += transform[1] * amount;
 	}
 	inline void moveBack(float amount) {
 		pos -= transform[0] * amount;
 	}
 	inline void moveLeft(float amount) {
-		pos += transform[1] * amount;
+		pos -= transform[1] * amount;
 	}
 	inline void moveDown(float amount) {
 		pos -= transform[2] * amount;
@@ -63,7 +63,7 @@ public:
 		return transform[0];
 	}
 	inline const glm::vec3& getRight() const {
-		return -transform[1];
+		return transform[1];
 	}
 	inline const glm::vec3 getUp() const {
 		return transform[2];

@@ -1,106 +1,103 @@
 #include "SVE_RenderPipeline.h"
+#include "SVE_Backend.h"
 
-
-void pipelineFramebufferResizeCallback(void* data) {
-	SveRenderPipeline& pipeline = *(SveRenderPipeline*)data;
-	pipeline.recreatePipeline();
+VkPipeline SveRenderPipelineBuilder::build() const {
+	return SVE::createRenderPipeline(createInfo);
 }
-
-SveRenderPipeline::SveRenderPipeline(const char* vertexFileName, const char* fragmentFileName, const VkPipelineVertexInputStateCreateInfo& vertexInfo, 
-	uint32_t layoutCount, const VkDescriptorSetLayout* descriptorLayouts, VkPolygonMode polygonMode_T, VkCullModeFlags cullMode_T, VkPrimitiveTopology primitiveTopology) :
-	vertShaderFile(vertexFileName), fragShaderFile(fragmentFileName), vertexInput(vertexInfo)
-{
-	polygonMode = polygonMode_T;
-	topology = primitiveTopology;
-	cullMode = cullMode_T;
-	if (windowResizeCallbackFunctionIndex == UINT32_MAX) {
-		windowResizeCallbackFunctionIndex = SVE::addFramebufferResizeCallbackFunction(pipelineFramebufferResizeCallback);
-	}
-	SVE::addFramebufferResizeCallbackListener(windowResizeCallbackFunctionIndex, this);
-	create(layoutCount, descriptorLayouts);
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::defaultMultisampleState() {
+	multisampleState = vkl::createPipelineMultisampleStateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE);
+	return *this;
 }
-SveRenderPipeline::~SveRenderPipeline()
-{
-	// TODO: remove callback listener!
-	destroy();
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::defaultDepthStencilState() {
+	depthStencilState = vkl::createPipelineDepthStencilStateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL, VK_FALSE, VK_FALSE);
+	return *this;
 }
-void SveRenderPipeline::create(uint32_t layoutCount, const VkDescriptorSetLayout* descriptorLayouts) {
-	/*
-	VkDescriptorPoolSize pool_sizes[] = {
-		vkl::createDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SVE::getImageCount()),
-		vkl::createDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SVE::getImageCount())
-	};
-	descriptorPool = vkl::createDescriptorPool(SVE::getDevice(), SVE::getImageCount(), ARRAY_SIZE(pool_sizes), pool_sizes);
-	VkDescriptorSetLayoutBinding bindings[]{
-		{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr},
-		{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
-	};
-	descriptorSetLayout = vkl::createDescriptorSetLayout(SVE::getDevice(), ARRAY_SIZE(bindings), bindings);
-	descriptorSets.resize(SVE::getImageCount());
-	for (uint32_t i = 0; i < SVE::getImageCount(); ++i) {
-		descriptorSets[i] = vkl::allocateDescriptorSet(SVE::getDevice(), descriptorPool, 1, &descriptorSetLayout);
-		VkDescriptorBufferInfo buf_info = { uniformBuffers[i], 0, VK_WHOLE_SIZE};
-		VkDescriptorImageInfo image_info = { imageSampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-		VkWriteDescriptorSet writes[] = {
-			vkl::createDescriptorWrite(descriptorSets[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 0, 1, &buf_info),
-			vkl::createDescriptorWrite(descriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, 0, 1, &image_info)
-		};
-		vkUpdateDescriptorSets(SVE::getDevice(), ARRAY_SIZE(writes), writes, 0, nullptr);
-	}*/
-	pipelineLayout = vkl::createPipelineLayout(SVE::getDevice(), layoutCount, descriptorLayouts);
-	createGraphicPipeline();
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::defaultRasterizationState() {
+	rasterizationState = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
+	return *this;
 }
-void SveRenderPipeline::destroy() {
-	vkl::destroyDescriptorPool(SVE::getDevice(), descriptorPool);
-	vkl::destroyDescriptorSetLayout(SVE::getDevice(), descriptorSetLayout);
-	vkl::destroyPipeline(SVE::getDevice(), pipelineHandle);
-	vkl::destroyPipelineLayout(SVE::getDevice(), pipelineLayout);
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::defaultDynamicState() {
+	dynamicStates.resize(2);
+	dynamicStates[0] = VK_DYNAMIC_STATE_VIEWPORT;
+	dynamicStates[1] = VK_DYNAMIC_STATE_SCISSOR;
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.flags = VKL_FLAG_NONE;
+	dynamicState.pNext = nullptr;
+	dynamicState.pDynamicStates = dynamicStates.data();
+	dynamicState.dynamicStateCount = (uint32_t)dynamicStates.size();
+	return *this;
 }
-void SveRenderPipeline::recreatePipeline() {
-	vkDeviceWaitIdle(SVE::getDevice());
-	vkl::destroyPipeline(SVE::getDevice(), pipelineHandle);
-	createGraphicPipeline();
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::defaultInputAssemblyState() {
+	inputAssembly = vkl::createPipelineInputAssemblyInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
+	return *this;
 }
-void SveRenderPipeline::createGraphicPipeline() {
-
-	auto vertex_data = util::readBinaryFile(vertShaderFile);
-	auto fragment_data = util::readBinaryFile(fragShaderFile);
-	VkShaderModule vertex_module = vkl::createShaderModule(SVE::getDevice(), vertex_data.size(), (const uint32_t*)vertex_data.data());
-	VkShaderModule fragment_module = vkl::createShaderModule(SVE::getDevice(), fragment_data.size(), (const uint32_t*)fragment_data.data());
-	VkPipelineShaderStageCreateInfo stages[] = {
-		vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_VERTEX_BIT, vertex_module),
-		vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragment_module)
-	};
-	VkPipelineInputAssemblyStateCreateInfo assembly_info = vkl::createPipelineInputAssemblyInfo(topology, VK_FALSE);
-	VkViewport viewport = { (float)SVE::getViewportOffsetX(), (float)SVE::getViewportOffsetY(), (float)SVE::getViewportWidth(), (float)SVE::getViewportHeight(), 0.0f, 1.0f};
-	VkRect2D scissor = { {SVE::getViewportOffsetX(), SVE::getViewportOffsetY()}, {SVE::getViewportWidth(), SVE::getViewportHeight()}};
-	VkPipelineViewportStateCreateInfo viewport_info = vkl::createPipelineViewportStateInfo(1, nullptr, 1, nullptr);
-	VkPipelineRasterizationStateCreateInfo rasterization = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, polygonMode, cullMode, VK_FRONT_FACE_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
-	VkPipelineMultisampleStateCreateInfo multisample = vkl::createPipelineMultisampleStateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE);
-	VkPipelineDepthStencilStateCreateInfo depth_stencil = vkl::createPipelineDepthStencilStateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL, VK_FALSE, VK_FALSE);
-	VkPipelineColorBlendAttachmentState color_blend_attachement{};
-	color_blend_attachement.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-#ifdef DISABLE_COLOR_BLEND
-	color_blend_attachement.blendEnable = VK_FALSE;
-#else
-	color_blend_attachement.blendEnable = VK_TRUE;
-	color_blend_attachement.colorBlendOp = VK_BLEND_OP_ADD;
-	color_blend_attachement.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	color_blend_attachement.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	color_blend_attachement.alphaBlendOp = VK_BLEND_OP_ADD;
-	color_blend_attachement.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	color_blend_attachement.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-#endif
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::defaultColorBlend() {
+	colorBlendStates.resize(1);
+	colorBlendStates[0] = {};
+	colorBlendStates[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendStates[0].blendEnable = VK_TRUE;
+	colorBlendStates[0].colorBlendOp = VK_BLEND_OP_ADD;
+	colorBlendStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorBlendStates[0].alphaBlendOp = VK_BLEND_OP_ADD;
+	colorBlendStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorBlendStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	float blend_constants[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	VkPipelineColorBlendStateCreateInfo color_blend = vkl::createPipelineColorBlendStateInfo(VK_FALSE, VK_LOGIC_OP_COPY, 1, &color_blend_attachement, blend_constants);
-	VkDynamicState dynamic_states[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
-	VkPipelineDynamicStateCreateInfo dynamic_state = vkl::createPipelineDynamiceStateCreateInfo(ARRAY_SIZE(dynamic_states), dynamic_states);
-	VkGraphicsPipelineCreateInfo info = vkl::createGraphicsPipelineInfo(ARRAY_SIZE(stages), stages, &vertexInput, &assembly_info, nullptr, &viewport_info, &rasterization, &multisample, &depth_stencil, &color_blend, &dynamic_state, pipelineLayout, SVE::getRenderPass(), 0);
+	colorBlendState = vkl::createPipelineColorBlendStateInfo(VK_FALSE, VK_LOGIC_OP_COPY, (uint32_t)colorBlendStates.size(), colorBlendStates.data(), blend_constants);
+	return *this;
+}
 
-	pipelineHandle = vkl::createGraphicsPipeline(SVE::getDevice(), info);
-	vkl::destroyShaderModule(SVE::getDevice(), vertex_module);
-	vkl::destroyShaderModule(SVE::getDevice(), fragment_module);
+SveRenderPipelineBuilder::SveRenderPipelineBuilder(const char* vertexShaderFile, const char* fragmentShaderFile, VkPipelineLayout pipelineLayout, const VkPipelineVertexInputStateCreateInfo& vertexInputState) {
+	auto vertex_data = shl::readBinaryFile(vertexShaderFile);
+	auto fragment_data = shl::readBinaryFile(fragmentShaderFile);
+	VkShaderModule vertex_module = SVE::createShaderModule(vertex_data.size(), (const uint32_t*)vertex_data.data());
+	VkShaderModule fragment_module = SVE::createShaderModule(fragment_data.size(), (const uint32_t*)fragment_data.data());
+	shaderStages[0] = vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_VERTEX_BIT, vertex_module);
+	shaderStages[1] = vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragment_module);
+	shaderStageCount = 2;
+	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	createInfo.pNext = nullptr;
+	createInfo.basePipelineHandle = nullptr;
+	createInfo.basePipelineIndex = 0;
+	createInfo.flags = VKL_FLAG_NONE;
+	createInfo.layout = pipelineLayout;
+	createInfo.pColorBlendState = &colorBlendState;
+	createInfo.pDepthStencilState = &depthStencilState;
+	createInfo.pDynamicState = &dynamicState;
+	createInfo.pInputAssemblyState = &inputAssembly;
+	createInfo.pMultisampleState = &multisampleState;
+	createInfo.pRasterizationState = &rasterizationState;
+	createInfo.pTessellationState = nullptr; //&tessellationState;
+	createInfo.pVertexInputState = &vertexInputState;
+	createInfo.pViewportState = &viewportState;
+	createInfo.pStages = shaderStages;
+	createInfo.stageCount = shaderStageCount;
+	createInfo.subpass = 0;
+	createInfo.renderPass = SVE::getRenderPass();
+	defaultColorBlend();
+	defaultDepthStencilState();
+	defaultDynamicState();
+	defaultMultisampleState();
+	defaultRasterizationState();
+	defaultInputAssemblyState();
+	viewportState = {};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.scissorCount = 1;
+	viewportState.viewportCount = 1;
+}
+SveRenderPipelineBuilder::~SveRenderPipelineBuilder() {
+	for (uint32_t i = 0; i < shaderStageCount; ++i) {
+		SVE::destroyShaderModule(shaderStages[i].module);
+	}
+}
+
+SveRenderPipelineBuilder& SveRenderPipelineBuilder::addShaderStage(const VkPipelineShaderStageCreateInfo& shaderStageInfo) {
+	if (shaderStageCount < MAX_SHADER_STAGES) {
+		shaderStages[shaderStageCount] = shaderStageInfo;
+		++shaderStageCount;
+	}
+	else {
+		shl::logWarn("Pipeline Builder: max amound of shader stages reached!");
+	}
+	return *this;
 }

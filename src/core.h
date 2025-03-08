@@ -7,6 +7,7 @@
 #endif
 #include <shl/logging.h>
 #include <shl/Timer.h>
+#include <shl/file.h>
 
 #include <volk.h>
 

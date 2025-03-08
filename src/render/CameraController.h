@@ -27,8 +27,10 @@ public:
 		auto pos = SVE::getCursorPos();
 		static bool isMouseClicked = false;
 		if (SVE::isMouseClicked(GLFW_MOUSE_BUTTON_2)) {
+			if (!isMouseClicked) {
+				SVE::hideCursor();
+			}
 			isMouseClicked = true;
-			SVE::hideCursor();
 			//const float scale_factor = 0.001f;
 			float x_amount = (mousePos.x - (float)pos.x) * xSensitivity;
 			float y_amount = ((float)pos.y - mousePos.y) * ySensitivity;

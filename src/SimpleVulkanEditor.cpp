@@ -55,7 +55,7 @@ void SimpleVulkanEditor::run() {
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 
 		SVE::renderFrame(1, &secondary[SVE::getInFlightIndex()]);
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 	SVE::deviceWaitIdle();
 	for (size_t i = 0; i < ARRAY_SIZE(secondary); ++i) {
