@@ -177,6 +177,7 @@ namespace SVE {
 		destroyPresentResources();
 		createPresentResources();
 		onFramebufferResize();
+		//displayResizeCallback(onDisplayResizePtr);
 	}
 	void vulkanCheckResult(VkResult result) {
 		VKL_CHECK(result, "ImGui error");

@@ -12,10 +12,25 @@ public:
 	~SveModelRenderer();
 	void addModel(const SveModel& model);
 	void draw(VkCommandBuffer commands, VkDescriptorSet uniformSet);
-	void changePipelineSettings(VkPolygonMode mode, VkCullModeFlags cull);
+	void changePipelineSettings(VkPolygonMode polgyonMode);
 private:
+	struct ModelDrawData {
+		struct MeshDrawData {
+			uint32_t vertexCount;
+			//uint32_t vertexOffset;
+			uint32_t indexCount;
+			//uint32_t indexOffset;
+			uint32_t imageIndex;
+			//uint32_t imageOffset;
+			uint32_t instanceCount;
+			//uint32_t instanceOffset;
+		};
+		std::vector<MeshDrawData> meshes;
+		uint32_t instanceCount;
+		uint32_t imageCount;
+	};
 	// Models:
-	std::vector<const SveModel*> models;
+	std::vector<ModelDrawData> models;
 	// Vertex buffers:
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexDeviceMemory;
@@ -40,7 +55,6 @@ private:
 	// Pipeline:
 	VkPipelineLayout pipelineLayout;
 	VkPipeline pipeline;
-	VkPolygonMode polygonMode;
 	uint32_t transformCount;
 	uint32_t vertexCount;
 	uint32_t indexCount;
@@ -49,6 +63,6 @@ private:
 
 	void invalidateDescriptors();
 	void checkTransferStatus();
-	void createPipeline();
+	void createPipeline(VkPolygonMode polygonMode);
 	void updateTextureDescriptors();
 };

@@ -42,31 +42,31 @@ public:
 		return pos;
 	}
 	inline void moveForward(float amount) {
-		pos += transform[0] * amount;
+		pos += getForward() * amount;
 	}
 	inline void moveUp(float amount) {
-		pos += transform[2] * amount;
+		pos += getUp() * amount;
 	}
 	inline void moveRight(float amount) {
-		pos += transform[1] * amount;
+		pos += getRight() * amount;
 	}
 	inline void moveBack(float amount) {
-		pos -= transform[0] * amount;
+		pos -= getForward() * amount;
 	}
 	inline void moveLeft(float amount) {
-		pos -= transform[1] * amount;
+		pos -= getRight() * amount;
 	}
 	inline void moveDown(float amount) {
-		pos -= transform[2] * amount;
+		pos -= getUp() *amount;
 	}
 	inline const glm::vec3& getForward() const {
-		return transform[0];
+		return transform[2];
 	}
 	inline const glm::vec3& getRight() const {
-		return transform[1];
+		return -transform[0];
 	}
 	inline const glm::vec3 getUp() const {
-		return transform[2];
+		return transform[1];
 	}
 	inline glm::vec3 getEuler() const {
 		return glm::vec3(yaw, pitch, roll);
@@ -102,7 +102,8 @@ public:
 	}
 	inline glm::mat4 getView() const {
 		glm::vec3 forward = getForward();
-		return glm::lookAt(pos, pos + forward, getUp());
+		//glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.5f * glm::pi<float>(), -forward);
+		return glm::lookAt(pos, pos + getForward(), getUp());
 	}
 	inline glm::mat4 getProj(float fov, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
 		glm::mat4 proj = glm::perspective(fov, aspectRatio, 0.1f, 10000.0f);
@@ -122,24 +123,24 @@ public:
 		return proj * view;
 	}
 	inline glm::mat4 getViewProj(float fovRadians, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
-		//glm::mat4 model = glm::rotate(glm::mat4(1.0f), 2.0f * roll, -forward);
 		glm::mat4 view = getView();
 		//glm::mat4 view = glm::lookAt(pos, Pos + Transform[0], glm::vec3(0.0f, 0.0f, 1.0f));
 		glm::mat4 proj = getProj(fovRadians, aspectRatio, nearClip, farClip);
 
+		glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.5f * glm::pi<float>(), -getForward());
 		//glm::mat4 rot = glm::toMat4(rotation);
-		glm::mat4 res = proj * view;
+		glm::mat4 res = proj * view;// *model;
 		return res;
 	}
 	//inline Ray createRay(float xCenter, float yCenter) {
 	//}
 	void recalculateTransform() {
-		float sin_yaw = glm::sin(yaw);
-		float cos_yaw = glm::cos(yaw);
-		float sin_pitch = glm::sin(pitch);
-		float cos_pitch = glm::cos(pitch);
-		float sin_roll = glm::sin(roll);
-		float cos_roll = glm::cos(roll);
+		float sin_yaw = glm::sin(roll);
+		float cos_yaw = glm::cos(roll);
+		float sin_pitch = glm::sin(yaw);
+		float cos_pitch = glm::cos(yaw);
+		float sin_roll = glm::sin(pitch);
+		float cos_roll = glm::cos(pitch);
 		// forward:
 		transform[0][0] = cos_pitch * cos_yaw;
 		transform[0][1] = cos_pitch * sin_yaw;

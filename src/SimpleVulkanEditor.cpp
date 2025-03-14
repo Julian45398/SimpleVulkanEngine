@@ -9,9 +9,6 @@
 
 void SimpleVulkanEditor::loadModel(const char* filename) {
 	models.emplace_back(filename);
-	//models[0].loadFromGLTF();
-	shl::logDebug("loading model finished!");
-	//renderer = new SveSceneRenderer();
 	sceneRenderer.addModel(models.back());
 }
 
@@ -24,7 +21,7 @@ SimpleVulkanEditor::SimpleVulkanEditor()
 {
 	models.emplace_back("resources/assets/models/test_car.gltf");
 	
-	sceneRenderer.addModel(models[0]);
+	sceneRenderer.addModel(models.back());
 }
 
 void SimpleVulkanEditor::run() {
@@ -37,6 +34,8 @@ void SimpleVulkanEditor::run() {
 		vkl::createCommandBuffer(SVE::getDevice(), pools[1], VK_COMMAND_BUFFER_LEVEL_SECONDARY)
 	};
 	static_assert(ARRAY_SIZE(pools) == ARRAY_SIZE(secondary));
+	const uint64_t TARGET_FRAME_TIME = 20000000; // 20 milliseconds
+	shl::Timer timer;
 	while (!SVE::shouldClose()) {
 		handleInput();
 		auto primary_commands = SVE::newFrame();
@@ -50,12 +49,16 @@ void SimpleVulkanEditor::run() {
 		}
 		else {
 			matrix = viewCameraController.getViewProjMatrix();
-		}
+		};
 		sceneRenderer.draw(secondary[SVE::getInFlightIndex()], matrix);
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 
 		SVE::renderFrame(1, &secondary[SVE::getInFlightIndex()]);
-		//std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		uint64_t current = timer.currentNanos();
+		if (current < TARGET_FRAME_TIME) {
+			std::this_thread::sleep_for(std::chrono::nanoseconds(TARGET_FRAME_TIME - current));
+		}
+		timer.reset();
 	}
 	SVE::deviceWaitIdle();
 	for (size_t i = 0; i < ARRAY_SIZE(secondary); ++i) {

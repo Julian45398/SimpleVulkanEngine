@@ -13,6 +13,10 @@ public:
 		inputAssembly.topology = topology;
 		return *this;
 	}
+	inline SveRenderPipelineBuilder& setPolygonMode(VkPolygonMode polygonMode) {
+		rasterizationState.polygonMode = polygonMode;
+		return *this;
+	}
 	inline SveRenderPipelineBuilder& setDepthTest(VkBool32 depthTestEnable) {
 		depthStencilState.depthTestEnable = depthTestEnable;
 		return *this;

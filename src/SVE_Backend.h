@@ -310,39 +310,11 @@ namespace SVE {
 		const auto& sync = _private::_Synchronization[_private::_InFlightIndex];
 		{
 			auto& imgui_commands = _private::_ImageResources[_private::_ImageIndex].imGuiCommands;
-#ifdef SVE_RENDER_IN_VIEWPORT
-
-			ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoCollapse);                          // Create a window called "Hello, world!" and append into it.
-
-			//ImGui::SetWindowPos(ImVec2(0.5f, 0.5f));
-			ImGui::Image((ImTextureID)SVE::_private::_ViewportTextureIDs[SVE::getInFlightIndex()], { (float)getFramebufferWidth(), (float)getFramebufferHeight()});
-			ImGui::End();
-			vkl::beginCommandBuffer(imgui_commands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-			{
-				VkClearValue clear_values[2] = {};
-				clear_values[0].color = { {0.1f, 0.1f, 0.1f, 1.0f} };
-				clear_values[1].depthStencil = { 1.0f, 0 };
-			
-				VkRenderPassBeginInfo info = {};
-				info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-				info.renderPass = _private::_RenderPass;
-				info.framebuffer = res.framebuffer;
-				info.renderArea.extent.width = SVE::getWindowWidth();
-				info.renderArea.extent.height = SVE::getWindowHeight();
-				info.clearValueCount = ARRAY_SIZE(clear_values);
-				info.pClearValues = clear_values;
-				vkCmdBeginRenderPass(imgui_commands, &info, VK_SUBPASS_CONTENTS_INLINE);
-			}
-#else
 			beginRenderCommands(imgui_commands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-#endif
 			ImGui::Render();
 			ImDrawData* draw_data = ImGui::GetDrawData();
 			// Record dear imgui primitives into command buffer
 			ImGui_ImplVulkan_RenderDrawData(draw_data, imgui_commands);
-#ifdef SVE_RENDER_IN_VIEWPORT
-			vkCmdEndRenderPass(imgui_commands);
-#endif
 			vkEndCommandBuffer(imgui_commands);
 		}
 		{

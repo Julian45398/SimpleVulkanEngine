@@ -42,7 +42,6 @@ SveModelRenderer::SveModelRenderer(VkDescriptorPool descriptorPool, VkDescriptor
 	descriptorLayout = VK_NULL_HANDLE;
 	pipelineLayout = VK_NULL_HANDLE;
 	pipeline = VK_NULL_HANDLE;
-	polygonMode = VK_POLYGON_MODE_FILL;
 	transformCount = 0;
 	vertexCount = 0;
 	indexCount = 0;
@@ -100,7 +99,7 @@ SveModelRenderer::SveModelRenderer(VkDescriptorPool descriptorPool, VkDescriptor
 		};
 		pipelineLayout = vkl::createPipelineLayout(SVE::getDevice(), ARRAY_SIZE(descriptor_layouts), descriptor_layouts, ARRAY_SIZE(push_constant_ranges), push_constant_ranges);
 		// Pipeline:
-		createPipeline();
+		createPipeline(VK_POLYGON_MODE_FILL);
 	}
 
 	// Transfer Objects:
@@ -248,20 +247,32 @@ void SveModelRenderer::addModel(const SveModel& model) {
 	vkl::endCommandBuffer(commandBuffer);
 	vkl::submitCommands(SVE::getGraphicsQueue(), commandBuffer, fence);
 
-	models.push_back(&model);
+	ModelDrawData drawData;
+	drawData.imageCount = model.images.size();
+	drawData.instanceCount = 1;
+	drawData.meshes.resize(model.meshes.size());
+	for(size_t i = 0; i < model.meshes.size(); ++i) {
+		drawData.meshes[i].imageIndex = model.meshes[i].imageIndex;
+		drawData.meshes[i].indexCount = (uint32_t)model.meshes[i].indices.size();
+		drawData.meshes[i].vertexCount = (uint32_t)model.meshes[i].vertices.size();
+		drawData.meshes[i].instanceCount = (uint32_t)model.meshes[i].instanceTransforms.size();
+	}
+	models.push_back(drawData);
+	//models.push_back(&model);
 	shl::logInfo("Model added. Free vertex memory: ", freeVertexBufferMemory);
 	uint32_t vertex_count = 0;
 	uint32_t index_count = 0;
 	for (size_t i = 0; i < models.size(); ++i) {
-		for(size_t j = 0; j < models[i]->meshes.size(); ++j) {
-			vertex_count += models[i]->meshes[j].vertices.size();
-			index_count += models[i]->meshes[j].indices.size();
+		for(size_t j = 0; j < models[i].meshes.size(); ++j) {
+			vertex_count += models[i].meshes[j].vertexCount;
+			index_count += models[i].meshes[j].indexCount;
 		}
 		
 	}
 	shl::logInfo("Total vertex count: ", vertex_count, " triangle count: ", index_count/3);
 	shl::logInfo("Total allocated image memory: ", textureAllocator.getAllocatedSize());
 	shl::logInfo("Total image count: ", textures.size());
+	shl::logWarn("HelloWorld");
 }
 
 void SveModelRenderer::draw(VkCommandBuffer commands, VkDescriptorSet uniformSet) {
@@ -290,24 +301,24 @@ void SveModelRenderer::draw(VkCommandBuffer commands, VkDescriptorSet uniformSet
 	uint32_t first_index = max_index_offset;
 	uint32_t image_count = 0;
 	for (size_t i = 0; i < models.size(); ++i) {
-		const SveModel& model = *models[i];
-		for (size_t j = 0; j < model.meshes.size(); ++j) {
-			const Mesh& mesh = model.meshes[j];
-			first_index -= (uint32_t)mesh.indices.size();
+		//const SveModel& model = models[i][0];
+		const ModelDrawData& drawData = models[i];
+		for (size_t j = 0; j < drawData.meshes.size(); ++j) {
+			const auto& mesh = drawData.meshes[j];
+			first_index -= mesh.indexCount;
 			uint32_t image_offset = image_count + mesh.imageIndex;
 			vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(image_offset), &image_offset);
-			vkCmdDrawIndexed(commands, (uint32_t)mesh.indices.size(), (uint32_t)mesh.instanceTransforms.size(), first_index, vertex_offset, instance_offset);
-			vertex_offset += (uint32_t)mesh.vertices.size();
-			instance_offset += (uint32_t)mesh.instanceTransforms.size();
+			vkCmdDrawIndexed(commands, mesh.indexCount, mesh.instanceCount, first_index, vertex_offset, instance_offset);
+			vertex_offset += mesh.vertexCount;
+			instance_offset += mesh.instanceCount;
 		}
-		image_count += (uint32_t)model.images.size();
+		image_count += (uint32_t)drawData.imageCount;
 	}
 }
 
-void SveModelRenderer::changePipelineSettings(VkPolygonMode mode, VkCullModeFlags cull) {
-	polygonMode = mode;
+void SveModelRenderer::changePipelineSettings(VkPolygonMode polygonMode) {
 	vkl::destroyPipeline(SVE::getDevice(), pipeline);
-	createPipeline();
+	createPipeline(polygonMode);
 }
 void SveModelRenderer::invalidateDescriptors() {
 	for (size_t i = 0; i < descriptorSets.size(); ++i) {
@@ -328,50 +339,8 @@ void SveModelRenderer::checkTransferStatus() {
 	}
 }
 
-void SveModelRenderer::createPipeline() {
-	pipeline = SveRenderPipelineBuilder(MODEL_VERTEX_SHADER_FILE, MODEL_FRAGMENT_SHADER_FILE, pipelineLayout, MODEL_VERTEX_INPUT_INFO).build();
-	/*
-	auto vertex_data = util::readBinaryFile(MODEL_VERTEX_SHADER_FILE);
-	auto fragment_data = util::readBinaryFile(MODEL_FRAGMENT_SHADER_FILE);
-	VkShaderModule vertex_module = vkl::createShaderModule(SVE::getDevice(), vertex_data.size(), (const uint32_t*)vertex_data.data());
-	VkShaderModule fragment_module = vkl::createShaderModule(SVE::getDevice(), fragment_data.size(), (const uint32_t*)fragment_data.data());
-	VkPipelineShaderStageCreateInfo stages[] = {
-		vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_VERTEX_BIT, vertex_module),
-		vkl::createPipelineShaderStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragment_module)
-	};
-	VkPipelineInputAssemblyStateCreateInfo assembly_info = vkl::createPipelineInputAssemblyInfo(primitiveTopology, VK_FALSE);
-	VkViewport viewport = { (float)SVE::getViewportOffsetX(), (float)SVE::getViewportOffsetY(), (float)SVE::getViewportWidth(), (float)SVE::getViewportHeight(), 0.0f, 1.0f };
-	VkRect2D scissor = { {SVE::getViewportOffsetX(), SVE::getViewportOffsetY()}, {SVE::getViewportWidth(), SVE::getViewportHeight()} };
-	VkPipelineViewportStateCreateInfo viewport_info = vkl::createPipelineViewportStateInfo(1, nullptr, 1, nullptr);
-	VkPipelineRasterizationStateCreateInfo rasterization = vkl::createPipelineRasterizationStateInfo(VK_FALSE, VK_FALSE, polygonMode, cullMode, VK_FRONT_FACE_COUNTER_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
-	VkPipelineMultisampleStateCreateInfo multisample = vkl::createPipelineMultisampleStateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE);
-	VkPipelineDepthStencilStateCreateInfo depth_stencil = vkl::createPipelineDepthStencilStateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL, VK_FALSE, VK_FALSE);
-	VkPipelineColorBlendAttachmentState color_blend_attachement{};
-	color_blend_attachement.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-#ifdef DISABLE_COLOR_BLEND
-	color_blend_attachement.blendEnable = VK_FALSE;
-#else
-	color_blend_attachement.blendEnable = VK_TRUE;
-	color_blend_attachement.colorBlendOp = VK_BLEND_OP_ADD;
-	color_blend_attachement.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	color_blend_attachement.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	color_blend_attachement.alphaBlendOp = VK_BLEND_OP_ADD;
-	color_blend_attachement.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	color_blend_attachement.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-#endif
-	float blend_constants[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	VkPipelineColorBlendStateCreateInfo color_blend = vkl::createPipelineColorBlendStateInfo(VK_FALSE, VK_LOGIC_OP_COPY, 1, &color_blend_attachement, blend_constants);
-	VkDynamicState dynamic_states[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
-	VkPipelineDynamicStateCreateInfo dynamic_state = vkl::createPipelineDynamiceStateCreateInfo(ARRAY_SIZE(dynamic_states), dynamic_states);
-	VkGraphicsPipelineCreateInfo info = vkl::createGraphicsPipelineInfo(ARRAY_SIZE(stages), stages, &MODEL_VERTEX_INPUT_INFO, &assembly_info, nullptr, &viewport_info, &rasterization, &multisample, &depth_stencil, &color_blend, &dynamic_state, pipelineLayout, SVE::getRenderPass(), 0);
-
-	pipeline = vkl::createGraphicsPipeline(SVE::getDevice(), info);
-	vkl::destroyShaderModule(SVE::getDevice(), vertex_module);
-	vkl::destroyShaderModule(SVE::getDevice(), fragment_module);
-	*/
+void SveModelRenderer::createPipeline(VkPolygonMode polygonMode) {
+	pipeline = SveRenderPipelineBuilder(MODEL_VERTEX_SHADER_FILE, MODEL_FRAGMENT_SHADER_FILE, pipelineLayout, MODEL_VERTEX_INPUT_INFO).setPolygonMode(polygonMode).build();
 }
 
 void SveModelRenderer::updateTextureDescriptors() {
