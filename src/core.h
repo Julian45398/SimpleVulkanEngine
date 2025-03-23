@@ -8,6 +8,7 @@
 #include <shl/logging.h>
 #include <shl/Timer.h>
 #include <shl/file.h>
+#include <shl/array_sort.h>
 
 #include <volk.h>
 

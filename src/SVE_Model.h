@@ -17,40 +17,41 @@ struct SveModelVertex {
 	uint32_t padding4;
 };
 
-struct AABB {
-	glm::vec3 min = glm::vec3(0.f, 0.f, 0.f);
-	glm::vec3 max = glm::vec3(0.f, 0.f, 0.f);
-};
-
-class Ray {
-public:
+struct Ray {
 	inline Ray(float xOrig, float yOrig, float zOrig, float xDir, float yDir, float zDir)
 	: origin(xOrig, yOrig, zOrig), direction(xDir, yDir, zDir) {}
 
 	inline Ray(const glm::vec3& orig, const glm::vec3& dir)
 	: origin(orig), direction(dir) {}
-private:
 	glm::vec3 origin;
 	glm::vec3 direction;
-
-public:
-	inline glm::vec2 intersects(const AABB& box) const {
-		glm::vec3 tMin = (box.min - origin) / direction;
-    	glm::vec3 tMax = (box.max - origin) / direction;
-    	glm::vec3 t1 = min(tMin, tMax);
-    	glm::vec3 t2 = max(tMin, tMax);
-    	float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);
-    	float tFar = glm::min(glm::min(t2.x, t2.y), t2.z);
-    	return glm::vec2(tNear, tFar);
-	}
 };
 
-struct Mesh {
+struct AABB {
+	glm::vec3 min = glm::vec3(0.f, 0.f, 0.f);
+	glm::vec3 max = glm::vec3(0.f, 0.f, 0.f);
+	void includePoint(const glm::vec3& point);
+	void setNewStartingPoint(const glm::vec3& point);
+	glm::vec2 getIntersection(const Ray& ray);
+};
+
+struct BVHNode {
+	AABB box;
+	uint32_t childIndex;
+	uint32_t startIndex;
+	uint32_t indexCount;
+};
+
+class Mesh {
+public:
 	std::vector<SveModelVertex> vertices;
 	std::vector<uint32_t> indices;
+	std::vector<BVHNode> volumeHierarchy;
 	std::vector<glm::mat4> instanceTransforms;
 	uint32_t imageIndex;
-	AABB boundingBox;
+	void buildBVH();
+private:
+	void buildBVHChildren(BVHNode parent);
 };
 
 struct Image {
@@ -88,6 +89,8 @@ class SveModel {
 public:
 	std::vector<Mesh> meshes;
 	std::vector<Image> images;
+	AABB boundingBox;
 
 	SveModel(const char* filename);
+	glm::vec2 getIntersection(const Ray& ray);
 };
