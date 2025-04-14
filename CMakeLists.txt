@@ -1,5 +1,8 @@
 ﻿cmake_minimum_required (VERSION 3.16)
 
+
+
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -20,17 +23,24 @@ include(CTest)
 
 # add all source files from the src directory
 file(GLOB_RECURSE SRC_FILES "${SRC_DIR}/*.cpp" )
+
+function(add_build_msg MESSAGE)
+	add_custom_target(
+		MESSAGE ALL
+		COMMAND ${CMAKE_COMMAND} -E echo ${MESSAGE} 
+	)
+	add_dependencies(${PROJECT_NAME} MESSAGE)
+endfunction()
     
 #create executable
 add_executable (${PROJECT_NAME} ${SRC_FILES})
 #add tests
 add_subdirectory(${TEST_DIR})
 
-#add define if building from ide
-option(RUN_IN_IDE "defines if run in IDE" OFF)
-if (RUN_IN_IDE)
-	message(STATUS "runs in IDE")
-	target_compile_definitions(${PROJECT_NAME} PRIVATE "RUN_IN_IDE")
+#add defines depending on build mode 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 #define the platform specific options
@@ -53,7 +63,7 @@ elseif(UNIX)
 	message(STATUS "building for macOS")
 	target_compile_definitions(${PROJECT_NAME} PRIVATE SVE_APPLEOS)
 else()
-	message(FATAL_ERROR "unknow OS")
+	message(FATAL_ERROR "unknown OS")
 endif()
 #add libraries
 add_subdirectory(${LIB_DIR})

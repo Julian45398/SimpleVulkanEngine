@@ -4,8 +4,8 @@
 #include "SVE_RenderPipeline.h"
 
 
-const char GRID_VERTEX_SHADER_FILE[] = "resources/shaders/grid.vert";
-const char GRID_FRAGMENT_SHADER_FILE[] = "resources/shaders/grid.frag";
+const char GRID_VERTEX_SHADER_FILE[] = "shaders/grid.vert";
+const char GRID_FRAGMENT_SHADER_FILE[] = "shaders/grid.frag";
 const VkPipelineVertexInputStateCreateInfo GRID_VERTEX_INPUT_INFO = vkl::createPipelineVertexInputStateInfo(0, nullptr, 0, nullptr);
 
 SveGridRenderer::SveGridRenderer(VkDescriptorSetLayout uniformLayout) {

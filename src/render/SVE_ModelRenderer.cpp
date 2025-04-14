@@ -5,8 +5,8 @@ constexpr uint32_t MAX_INSTANCE_COUNT = 2048;
 constexpr uint32_t VERTEX_START_BYTE_OFFSET = MAX_INSTANCE_COUNT * sizeof(glm::mat4);
 constexpr VkDeviceSize PAGE_SIZE = 2 << 27;
 constexpr uint32_t MAX_VERTICES = (PAGE_SIZE - MAX_INSTANCE_COUNT * sizeof(glm::mat4)) / sizeof(SveModelVertex);
-constexpr char MODEL_VERTEX_SHADER_FILE[] = "resources/shaders/model.vert";
-constexpr char MODEL_FRAGMENT_SHADER_FILE[] = "resources/shaders/model.frag";
+constexpr char MODEL_VERTEX_SHADER_FILE[] = "shaders/model.vert";
+constexpr char MODEL_FRAGMENT_SHADER_FILE[] = "shaders/model.frag";
 constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
 	{0, sizeof(SveModelVertex), VK_VERTEX_INPUT_RATE_VERTEX},
 	{1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE}
@@ -91,7 +91,7 @@ SveModelRenderer::SveModelRenderer(VkDescriptorPool descriptorPool, VkDescriptor
 	{
 		// Layout:
 		VkPushConstantRange push_constant_ranges[] = {
-			{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Mesh::imageIndex)}
+			{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SveModel::Mesh::imageIndex)}
 		};
 		VkDescriptorSetLayout descriptor_layouts[] = {
 			uniformLayout,
@@ -203,7 +203,7 @@ void SveModelRenderer::addModel(const SveModel& model) {
 
 	// Copy mesh data:
 	for (size_t i = 0; i < model.meshes.size(); ++i) {
-		const Mesh& mesh = model.meshes[i];
+		const SveModel::Mesh& mesh = model.meshes[i];
 
 		// Instance transforms:
 		VkBufferCopy instance_region;
@@ -267,7 +267,6 @@ void SveModelRenderer::addModel(const SveModel& model) {
 			vertex_count += models[i].meshes[j].vertexCount;
 			index_count += models[i].meshes[j].indexCount;
 		}
-		
 	}
 	shl::logInfo("Total vertex count: ", vertex_count, " triangle count: ", index_count/3);
 	shl::logInfo("Total allocated image memory: ", textureAllocator.getAllocatedSize());
