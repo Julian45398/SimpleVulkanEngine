@@ -80,7 +80,20 @@ private:
 			}
 		}
 		const auto& camera = viewCameraController.getCamera();
+		glm::vec3 pos = camera.getPos();
 		glm::vec3 forward = camera.getForward();
+		Ray center_ray(pos, forward);
+		for (size_t i = 0; i < models.size(); ++i) {
+			shl::Timer time;
+			time.reset();
+			float t = models[i].getIntersection(center_ray);
+			double ellapsed = time.ellapsedMillis();
+			if (t > 0 && t != std::numeric_limits<float>::infinity()) {
+				ImGui::Text("collision at %.4f distance. Time: %.4fms", t, ellapsed);
+			} else {
+				ImGui::Text("no collision. Time: %.4fms", ellapsed);
+			}
+		}
 		glm::vec3 up = camera.getUp();
 		glm::vec3 right = camera.getRight();
 		float yaw = camera.getYaw();
@@ -90,6 +103,7 @@ private:
 		ImGui::Text("Camera Right: { %.4f, %.4f, %.4f }", right.x, right.y, right.z);
 		ImGui::Text("Camera Up: { %.4f, %.4f, %.4f }", up.x, up.y, up.z);
 		ImGui::Text("Camera Yaw: %.4f, Pitch: %.4f, Roll: %.4f ", yaw, pitch, roll);
+
 		if (ImGui::Button("Load GLTF file")) {
 			nfdu8filteritem_t filters[] = { {"GLTF files: ", "gltf,glb"} };
 			std::string filepath = SVE::openFileDialog(ARRAY_SIZE(filters), filters);
@@ -126,7 +140,6 @@ private:
 		ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
 		ImGui::End();
 				
-			
 		SVE::setViewport((uint32_t)viewport_width, (uint32_t)viewport_height, (uint32_t)LeftPanelWidth, (uint32_t)height_offset);
 	}
 

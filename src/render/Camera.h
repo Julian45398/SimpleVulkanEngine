@@ -59,13 +59,13 @@ public:
 	inline void moveDown(float amount) {
 		pos -= getUp() *amount;
 	}
-	inline const glm::vec3& getForward() const {
+	inline glm::vec3 getForward() const {
 		return transform[2];
 	}
-	inline const glm::vec3& getRight() const {
+	inline glm::vec3 getRight() const {
 		return -transform[0];
 	}
-	inline const glm::vec3 getUp() const {
+	inline glm::vec3 getUp() const {
 		return transform[1];
 	}
 	inline glm::vec3 getEuler() const {
@@ -81,7 +81,7 @@ public:
 		return pitch;
 	}
 	inline const glm::mat3& getRotationMatrix() const {
-		transform;
+		return transform;
 	}
 	inline void setRotation(float yawRadians, float pitchRadians, float rollRadians) {
 		this->yaw = yawRadians;

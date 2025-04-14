@@ -19,12 +19,14 @@ void SimpleVulkanEditor::handleInput() {
 
 SimpleVulkanEditor::SimpleVulkanEditor()
 {
-	models.emplace_back("resources/assets/models/test_car.gltf");
+	models.emplace_back("assets/models/test_car.gltf");
 	
 	sceneRenderer.addModel(models.back());
+	shl::logInfo("editor started");
 }
 
 void SimpleVulkanEditor::run() {
+	shl::logInfo("running...");
 	VkCommandPool pools[] = {
 		vkl::createCommandPool(SVE::getDevice(), SVE::getGraphicsFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT),
 		vkl::createCommandPool(SVE::getDevice(), SVE::getGraphicsFamily(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)
@@ -39,7 +41,6 @@ void SimpleVulkanEditor::run() {
 	while (!SVE::shouldClose()) {
 		handleInput();
 		auto primary_commands = SVE::newFrame();
-
 		BuildUi();
 		SVE::resetCommandPool(pools[SVE::getInFlightIndex()]);
 		SVE::beginRenderCommands(secondary[SVE::getInFlightIndex()]);
@@ -50,6 +51,7 @@ void SimpleVulkanEditor::run() {
 		else {
 			matrix = viewCameraController.getViewProjMatrix();
 		};
+
 		sceneRenderer.draw(secondary[SVE::getInFlightIndex()], matrix);
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 

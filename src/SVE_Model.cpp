@@ -7,27 +7,23 @@
 #include <tiny_gltf.h>
 
 void AABB::includePoint(const glm::vec3& point) {
-	if (point.x < min.x)
-		min.x = point.x;
-	if (point.y < min.y)
-		min.y = point.y;
-	if (point.z < min.z)
-		min.z = point.z;
-	if (point.x > max.x)
-		min.x = point.x;
-	if (point.y > max.y)
-		min.y = point.y;
-	if (point.z > max.z)
-		min.z = point.z;
+	max.x = std::max(point.x, max.x);
+	max.y = std::max(point.y, max.y);
+	max.z = std::max(point.z, max.z);
+
+	min.x = std::min(point.x, min.x);
+	min.y = std::min(point.y, min.y);
+	min.z = std::min(point.z, min.z);
 }
 
 void AABB::setNewStartingPoint(const glm::vec3& point) {
 	min = point;
 	max = point;
 }
-glm::vec2 AABB::getIntersection(const Ray& ray) {
-	glm::vec3 tMin = (min - ray.origin) / ray.direction;
-	glm::vec3 tMax = (max - ray.origin) / ray.direction;
+
+glm::vec2 AABB::getIntersection(const Ray& ray) const {
+	glm::vec3 tMin = (min - ray.getOrig()) * ray.getInvDir();
+	glm::vec3 tMax = (max - ray.getOrig()) * ray.getInvDir();
 	glm::vec3 t1 = glm::min(tMin, tMax);
 	glm::vec3 t2 = glm::max(tMin, tMax);
 	float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);
@@ -46,6 +42,100 @@ struct GLTFData {
 		buf = model.buffers[view.buffer];
 	}
 };
+
+float SveModel::Mesh::getNodeIntersection(const BVHNode& node, const Ray& ray, float closest) {
+	assert(closest >= 0.f);
+	glm::vec2 b = node.box.getIntersection(ray);
+	if (b.x > b.y) {
+		float t = (b.x < closest && b.x >= 0.f) ? b.x : closest;
+		if (node.childIndex != 0) {
+			// descend
+			closest = getNodeIntersection(volumeHierarchy[node.childIndex], ray, closest);
+			closest = getNodeIntersection(volumeHierarchy[node.childIndex+1], ray, closest);
+		} else {
+			assert(node.indexCount % 3 == 0);
+			assert(node.startIndex % 3 == 0);
+			uint32_t end = node.startIndex + node.indexCount;
+			for (uint32_t i = node.startIndex; i < end; i += 3) {
+				t = getTriangleIntersection(i + node.startIndex, ray);
+				if (t >= 0.f && t < closest) {
+					t = closest;
+				}
+			}
+		}
+	}
+	else {
+		shl::logDebug("no collision with bounding box!");
+	}
+	return closest;
+}
+
+float SveModel::Mesh::getTriangleIntersection(uint32_t startIndex, const Ray& ray) {
+    constexpr float epsilon = std::numeric_limits<float>::epsilon();
+	constexpr float inf = std::numeric_limits<float>::infinity();
+	const glm::vec3& a = vertices[indices[startIndex]].position;
+	const glm::vec3& b = vertices[indices[startIndex+1]].position;
+	const glm::vec3& c = vertices[indices[startIndex+2]].position;
+
+    glm::vec3 edge1 = b - a;
+    glm::vec3 edge2 = c - a;
+    glm::vec3 ray_cross_e2 = glm::cross(ray.getDir(), edge2);
+    float det = glm::dot(edge1, ray_cross_e2);
+
+    if (det > -epsilon && det < epsilon)
+        return inf;    // This ray is parallel to this triangle.
+
+    float inv_det = 1.0 / det;
+    glm::vec3 s = ray.getOrig() - a;
+    float u = inv_det * glm::dot(s, ray_cross_e2);
+
+    if ((u < 0 && glm::abs(u) > epsilon) || (u > 1 && glm::abs(u-1) > epsilon))
+        return inf;
+
+    glm::vec3 s_cross_e1 = glm::cross(s, edge1);
+    float v = inv_det * glm::dot(ray.getOrig(), s_cross_e1);
+
+    if ((v < 0 && glm::abs(v) > epsilon) || (u + v > 1 && glm::abs(u + v - 1) > epsilon))
+        return inf;
+
+    // At this stage we can compute t to find out where the intersection point is on the line.
+    float t = inv_det * glm::dot(edge2, s_cross_e1);
+
+    if (t > epsilon) // ray intersection
+    {
+        return  t;
+    }
+    else // This means that there is a line intersection but not a ray intersection.
+        return inf;
+}
+
+float SveModel::Mesh::getIntersection(const Ray& ray, float closest) {
+	for (size_t i = 0; i < instanceTransforms.size(); ++i) {
+		glm::mat4 inverse = glm::inverse(instanceTransforms[i]);
+		glm::vec4 orig = inverse * glm::vec4(ray.getOrig(), 1.f);
+		glm::vec4 dir = inverse * glm::vec4(ray.getDir(), 1.f);
+		Ray inv_ray(orig.x, orig.y, orig.z, dir.x, dir.y, dir.z);
+		float g = getNodeIntersection(volumeHierarchy[0], inv_ray, closest);
+		closest = glm::min(g, closest);
+	}
+	return closest;
+}
+float SveModel::getIntersection(const Ray& ray) {
+	const auto inter = boundingBox.getIntersection(ray);
+	float t = std::numeric_limits<float>::infinity();
+	if (inter.x < inter.y) {
+		float g;
+		for (size_t i = 0; i < meshes.size(); ++i) {
+			g = meshes[i].getIntersection(ray, t);
+			t = glm::min(g, t);
+		}
+	}
+	else {
+		shl::logInfo("No model intersection! \nmax: { x:", boundingBox.max.x, " y: ", boundingBox.max.y, " z: ", boundingBox.max.z, 
+		" } \nmin: { x: ", boundingBox.min.x, " y: ", boundingBox.min.y, " z: ", boundingBox.min.z, " }");
+	}
+	return t;
+}
 
 void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& model, const glm::mat4& base_transform) {
 	glm::mat4 transform(1.0f);
@@ -108,7 +198,7 @@ void parseNode(const tinygltf::Model& gltf, const tinygltf::Node& n, SveModel& m
 
 
 		model.meshes.push_back({});
-		Mesh& modelMesh = model.meshes.back();
+		SveModel::Mesh& modelMesh = model.meshes.back();
 		modelMesh.instanceTransforms.push_back(transform);
 
 		auto mesh = gltf.meshes[n.mesh];
@@ -283,16 +373,19 @@ void printArray(std::vector<T> toPrint) {
 	std::swap(left_indices[2], right_indices[2]); \
 	} while(0)
 
-void Mesh::buildBVHChildren(BVHNode parent) {
+void SveModel::Mesh::buildBVHChildren(const BVHNode& parent, uint32_t& nodeCount) {
+	shl::logDebug("mesh indices count: ", indices.size());
+	shl::logDebug("node count: ", nodeCount);
 	shl::logDebug("index count: ", parent.indexCount);
 	shl::logDebug("start index: ", parent.startIndex);
-	BVHNode& child1 = volumeHierarchy.emplace_back();
-	BVHNode& child2 = volumeHierarchy.emplace_back();
+	shl::logDebug("max node count: ", volumeHierarchy.size());
+	assert(parent.childIndex == nodeCount);
+	assert(nodeCount <= volumeHierarchy.size());
+	
 	assert(parent.indexCount % 3 == 0);
 	assert(parent.startIndex % 3 == 0);
 
 	// find axis to split
-	shl::logDebug("find axis to split");
 	uint32_t split_axis = 0;
 	float longest_distance = 0.f;
 	for (uint32_t i = 0; i < 3; ++i) {
@@ -303,7 +396,6 @@ void Mesh::buildBVHChildren(BVHNode parent) {
 	}
 	
 	// get triangle centers: 
-	shl::logDebug("get triangle centers");
 	uint32_t triangle_count = parent.indexCount / 3;
 	std::vector<float> centers(triangle_count);
 	std::vector<float> highest(triangle_count);
@@ -316,54 +408,67 @@ void Mesh::buildBVHChildren(BVHNode parent) {
 		centers[i] = (first + second + third) * (1.f / 3.f);
 		lowest[i] = std::min(first, std::min(second, third));
 		highest[i] = std::max(first, std::max(second, third));
-		std::cout << ", " << centers[i];
+		//std::cout << ", " << centers[i];
 	}
-	std::cout << '\n';
+	//std::cout << '\n';
 	uint32_t median = triangle_count / 2;
-	shl::logDebug("median: ", median);
-
 	{
-		uint32_t sorting_point = triangle_count;
-		uint32_t last = triangle_count - 1;
-		uint32_t first = 0;
-		while (sorting_point != median) {
-			// partition algorithm:
-			size_t right = last;
-			size_t left = first;
-			size_t pivot = shl::pickPivot(centers.data(), first, last);
-			SWAP_INDICES(pivot, last);
+		// find median
+		uint32_t target = triangle_count /2;
+		uint32_t start = 0;
+		uint32_t end = triangle_count - 1;
+		uint32_t k = end;
+		while (k != median) {
+			//k = tryMedian(start, end):
+			uint32_t l = start;
+			uint32_t r = end - 1;
+			const float& pivot = centers[end];
+			//shl::logInfo("pivot value: ", pivot);
+			//shl::logInfo("center count: ", centers.size());
+			//shl::logInfo("start: ", start, " end: ", end);
 			while (true) {
-				while (left < right && centers[right] > centers[pivot]) {
-					--right;
-				}
-				while (left < right && centers[left] < centers[pivot]) {
-					++left;
-				}
-
-				if (left < right) {
-					shl::logDebug("swapping", left, ", ", right);
-					// swap left - right:
-					SWAP_INDICES(left, right);
-				}
-				else {
-					// swap left - last:
-					SWAP_INDICES(left, last);
+				while (centers[l] < pivot)
+					l++;
+				while (l < r && centers[r] >= pivot)
+					r--;
+				if (l < r) {
+					//shl::logInfo("Values: ", centers[l], ", ", centers[r]);
+					//shl::logInfo("Positions: ", l, ", ", r);
+					assert(centers[l] > centers[r]);
+					SWAP_INDICES(l, r);
+					--r;
+					++l;
+				} else {
+					assert(l <= end);
+					//shl::logInfo("BREAKING....");
+					//shl::logInfo("Positions: ", l, ", ", r);
+					//shl::logInfo("Values: ", centers[l], ", ", pivot);
+					assert(pivot <= centers[l]);
+					if (l < end) {
+						SWAP_INDICES(l, end);
+					}
+					k = l;
+					if (k < target) {
+						start = k+1;
+					} else
+						end = k-1;
 					break;
 				}
 			}
-			sorting_point = left;
-			if (sorting_point < median)
-				first = sorting_point;
-			else
-				last = sorting_point;
-
-			shl::logDebug("sorting point: ", sorting_point, " median: ", median, " first: ", first, " last: ", last);
 		}
 	}
 	// child1: 
+	BVHNode& child1 = volumeHierarchy[nodeCount];
+	BVHNode& child2 = volumeHierarchy[nodeCount+1];
+	nodeCount += 2;
 	child1.startIndex = parent.startIndex;
 	child1.indexCount = median * 3;
-	child1.childIndex = volumeHierarchy.size();
+	child1.childIndex = 0;
+	child2.startIndex = child1.startIndex + child1.indexCount;
+	child2.indexCount = parent.indexCount - child1.indexCount;
+	child2.childIndex = 0;
+
+	// child1 box:
 	shl::logDebug("child1: { start index: ", child1.startIndex, ", index count: ", child1.indexCount, ", child index: ", child1.childIndex, '}');
 	for (uint32_t i = child1.startIndex; i < child1.startIndex + child1.indexCount; ++i) {
 		child1.box.max.x = std::max(vertices[indices[i]].position.x, child1.box.max.x);
@@ -373,15 +478,9 @@ void Mesh::buildBVHChildren(BVHNode parent) {
 		child1.box.min.y = std::min(vertices[indices[i]].position.y, child1.box.min.y);
 		child1.box.min.z = std::min(vertices[indices[i]].position.z, child1.box.min.z);
 	}
-	if (MAX_LEAF_TRIANGLES * 3 < child1.indexCount) {
-		buildBVHChildren(child1);
-	}
 
-	// child2:
-	child2.startIndex = parent.startIndex + median * 3;
-	child2.indexCount = parent.indexCount - median * 3;
-	child2.childIndex = volumeHierarchy.size();
-	shl::logDebug("child2: { start index: ", child1.startIndex, ", index count: ", child1.indexCount, ", child index: ", child1.childIndex, '}');
+	// child2 box:
+	shl::logDebug("child2: { start index: ", child2.startIndex, ", index count: ", child2.indexCount, ", child index: ", child2.childIndex, '}');
 	for (uint32_t i = child2.startIndex; i < child2.startIndex + child2.indexCount; ++i) {
 		child2.box.max.x = std::max(vertices[indices[i]].position.x, child2.box.max.x);
 		child2.box.max.y = std::max(vertices[indices[i]].position.y, child2.box.max.y);
@@ -390,33 +489,37 @@ void Mesh::buildBVHChildren(BVHNode parent) {
 		child2.box.min.y = std::min(vertices[indices[i]].position.y, child2.box.min.y);
 		child2.box.min.z = std::min(vertices[indices[i]].position.z, child2.box.min.z);
 	}
-
-	if (MAX_LEAF_TRIANGLES * 3 < child2.indexCount) {
-		buildBVHChildren(child2);
+	if (MAX_LEAF_TRIANGLES * 3 < child1.indexCount) {
+		shl::logDebug("first child");
+		child1.childIndex = nodeCount;
+		buildBVHChildren(child1, nodeCount);
+		child2.childIndex = nodeCount;
+		shl::logDebug("second child");
+		buildBVHChildren(child2, nodeCount);
 	}
 }
 
-void Mesh::buildBVH() {
+void SveModel::Mesh::buildBVH() {
 	assert(indices.size() % 3 == 0);
 	uint32_t triangle_count = indices.size() / 3;
 	//uint32_t node_count = triangle_count / 6;
-	uint32_t layer_count = 0;
 	uint32_t triangles = triangle_count;
 	// getLayerCount:
-	while (MAX_LEAF_TRIANGLES < triangles) {
+	uint32_t max_node_count = 1;
+	for (uint32_t i = 1; MAX_LEAF_TRIANGLES < triangles; ++i) {
 		triangles = triangles / 2;
-		layer_count++;
+		max_node_count += (1 << i);
 	}
-	uint32_t node_count = (1 << layer_count) + 1;
+	//uint32_t max_node_count = (1 << layer_count) + 1;
 	shl::logInfo("Triangle count: ", triangle_count);
-	shl::logInfo("layer count: ", layer_count);
-	shl::logInfo("node count: ", node_count);
-	volumeHierarchy.reserve(node_count);
-	BVHNode& root = volumeHierarchy.emplace_back();
+	shl::logInfo("node count: ", max_node_count);
+	volumeHierarchy.resize(max_node_count);
+	BVHNode& root = volumeHierarchy[0];
 
 	root.childIndex = 1;
 	root.indexCount = (uint32_t)indices.size();
 	root.startIndex = 0;
+	uint32_t node_count = 1;
 
 	shl::logInfo("index count: ", root.indexCount);
 	shl::logInfo("start index: ", root.startIndex);
@@ -429,7 +532,11 @@ void Mesh::buildBVH() {
 		root.box.min.y = std::min(vertices[indices[i]].position.y, root.box.min.y);
 		root.box.min.z = std::min(vertices[indices[i]].position.z, root.box.min.z);
 	}
-	buildBVHChildren(root);
+	if (max_node_count > 1) {
+		buildBVHChildren(root, node_count);
+	} else {
+		root.childIndex = 0;
+	}
 }
 
 bool loadGLTF(const char* filename, tinygltf::Model* model) {
@@ -459,16 +566,6 @@ bool loadGLTF(const char* filename, tinygltf::Model* model) {
 }
 
 SveModel::SveModel(const char* filename) {
-	shl::logInfo("TEST: ");
-	shl::logInfo("Before sorting: ");
-	printArray(TEST_ARRAY);
-	size_t median = shl::quickMedian(TEST_ARRAY, 5);
-	shl::logInfo("estimated median: ", TEST_ARRAY[median], " at position: ", median, " array size: ", TEST_ARRAY.size());
-	shl::logInfo("After median: ");
-	printArray(TEST_ARRAY);
-	shl::quickSort(TEST_ARRAY);
-	shl::logInfo("After sorting: ");
-	printArray(TEST_ARRAY);
 	shl::logInfo("loading file: ", filename);
 	tinygltf::Model gltf;
 	shl::Timer timer;
@@ -498,8 +595,18 @@ SveModel::SveModel(const char* filename) {
 	size_t total_vertex_count = 0;
 	size_t total_index_count = 0;
 	shl::logInfo("Model mesh count: ", meshes.size());
+
+	glm::vec4 p = meshes[0].instanceTransforms[0] * glm::vec4(meshes[0].vertices[0].position, 1.f);
+	boundingBox.setNewStartingPoint(meshes[0].vertices[0].position);
+	boundingBox.setNewStartingPoint(glm::vec3(p.x, p.y, p.z));
 	for (size_t i = 0; i < meshes.size(); ++i) {
 		meshes[i].buildBVH();
+		for (size_t j = 0; j < meshes[i].instanceTransforms.size(); ++j) {
+			for (size_t k = 0; k < meshes[k].vertices.size(); ++k) {
+				glm::vec4 p = meshes[i].instanceTransforms[j] * glm::vec4(meshes[i].vertices[k].position, 1.f);
+				boundingBox.includePoint(glm::vec3(p.x, p.y, p.z));
+			}
+		}
 		total_vertex_count += meshes[i].vertices.size();
 		total_index_count += meshes[i].indices.size();
 		shl::logInfo("Mesh: ", i, "vertex count: ", meshes[i].vertices.size(), " index count: ", meshes[i].indices.size());
