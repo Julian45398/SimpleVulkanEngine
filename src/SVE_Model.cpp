@@ -364,7 +364,7 @@ void SveModel::Mesh::buildBVHChildren(const BVHNode& parent, uint32_t& nodeCount
 	shl::logDebug("start index: ", parent.startIndex);
 	shl::logDebug("max node count: ", volumeHierarchy.size());
 	assert(parent.childIndex == nodeCount);
-	assert(nodeCount <= volumeHierarchy.size());
+	assert(nodeCount <= volumeHierarchy.size()-1);
 	
 	assert(parent.indexCount % 3 == 0);
 	assert(parent.startIndex % 3 == 0);
@@ -586,7 +586,7 @@ SveModel::SveModel(const char* filename) {
 	for (size_t i = 0; i < meshes.size(); ++i) {
 		meshes[i].buildBVH();
 		for (size_t j = 0; j < meshes[i].instanceTransforms.size(); ++j) {
-			for (size_t k = 0; k < meshes[k].vertices.size(); ++k) {
+			for (size_t k = 0; k < meshes[i].vertices.size(); ++k) {
 				glm::vec4 p = meshes[i].instanceTransforms[j] * glm::vec4(meshes[i].vertices[k].position, 1.f);
 				boundingBox.addPoint(glm::vec3(p.x, p.y, p.z));
 			}

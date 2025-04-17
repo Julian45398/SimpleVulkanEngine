@@ -1,8 +1,12 @@
 #include "SimpleVulkanEditor.h"
 
+#include <filesystem>
 
 int main() {
-	shl::logInfo("Version: ", PROJECT_VERSION);
+
+	std::filesystem::path currentPath = std::filesystem::current_path();
+	shl::logDebug("Launching in: ", currentPath);
+	shl::logDebug("Version: ", PROJECT_VERSION);
 	SVE::init(1280, 720);
 	SimpleVulkanEditor* App = new SimpleVulkanEditor();
 	App->run();
