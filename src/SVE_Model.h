@@ -6,6 +6,8 @@
 #include "render/SVE_VertexBuffer.h"
 #include "render/SVE_RenderPipeline.h"
 #include "render/SVE_StagingBuffer.h"
+#include "SVE_AABB.h"
+#include "SVE_Ray.h"
 
 struct SveModelVertex {
 	alignas(16) glm::vec3 position;
@@ -15,35 +17,6 @@ struct SveModelVertex {
 	alignas(16) glm::vec2 uvCoord;
 	uint32_t padding3;
 	uint32_t padding4;
-};
-
-class Ray {
-public:
-	inline Ray(float xOrig, float yOrig, float zOrig, float xDir, float yDir, float zDir)
-	: origin(xOrig, yOrig, zOrig), direction(glm::normalize(glm::vec3(xDir, yDir, zDir))), invDir(1.f/direction) {}
-
-	inline Ray(const glm::vec3& orig, const glm::vec3& dir)
-	: origin(orig), direction(glm::normalize(dir)) {
-	}
-	inline void setDir(const glm::vec3& dir) {
-		direction = glm::normalize(dir);
-		invDir = 1.f / direction;
-	}
-	inline const glm::vec3& getOrig() const {return origin;}
-	inline const glm::vec3& getDir() const {return direction;}
-	inline const glm::vec3& getInvDir() const {return invDir;}
-private:
-	glm::vec3 origin;
-	glm::vec3 direction;
-	glm::vec3 invDir;
-};
-
-struct AABB {
-	glm::vec3 min = glm::vec3(0.f, 0.f, 0.f);
-	glm::vec3 max = glm::vec3(0.f, 0.f, 0.f);
-	void includePoint(const glm::vec3& point);
-	void setNewStartingPoint(const glm::vec3& point);
-	glm::vec2 getIntersection(const Ray& ray) const;
 };
 
 struct Image {
@@ -80,7 +53,7 @@ class SveModel {
 	//std::vector<SveImage> images;
 public:
 	struct BVHNode {
-		AABB box;
+		SveAABB box;
 		uint32_t childIndex;
 		uint32_t startIndex;
 		uint32_t indexCount;
@@ -95,18 +68,18 @@ public:
 		uint32_t imageIndex;
 		uint32_t nodeCount;
 		void buildBVH();
-		float getIntersection(const Ray& ray, float closest);
+		float getIntersection(const SveRay& ray, float closest);
 	private:
-		float getNodeIntersection(const BVHNode& node, const Ray& ray, float closest);
-		float getTriangleIntersection(uint32_t startIndex, const Ray& ray);
+		float getNodeIntersection(const BVHNode& node, const SveRay& ray, float closest);
+		float getTriangleIntersection(uint32_t startIndex, const SveRay& ray);
 		void buildBVHChildren(const BVHNode& parent, uint32_t& nodeCount);
 	};
 
 
 	std::vector<Mesh> meshes;
 	std::vector<Image> images;
-	AABB boundingBox;
+	SveAABB boundingBox;
 
 	SveModel(const char* filename);
-	float getIntersection(const Ray& ray);
+	float getIntersection(const SveRay& ray);
 };

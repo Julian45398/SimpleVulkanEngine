@@ -10,6 +10,7 @@
 #include "render/SVE_VertexBuffer.h"
 #include "render/SVE_SceneRenderer.h"
 #include "render/CameraController.h"
+#include "SVE_AABB.h"
 
 struct UniformData {
 	glm::mat4 transformMatrix;
@@ -82,7 +83,7 @@ private:
 		const auto& camera = viewCameraController.getCamera();
 		glm::vec3 pos = camera.getPos();
 		glm::vec3 forward = camera.getForward();
-		Ray center_ray(pos, forward);
+		SveRay center_ray(pos, forward);
 		for (size_t i = 0; i < models.size(); ++i) {
 			shl::Timer time;
 			time.reset();

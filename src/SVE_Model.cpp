@@ -6,31 +6,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tiny_gltf.h>
 
-void AABB::includePoint(const glm::vec3& point) {
-	max.x = std::max(point.x, max.x);
-	max.y = std::max(point.y, max.y);
-	max.z = std::max(point.z, max.z);
-
-	min.x = std::min(point.x, min.x);
-	min.y = std::min(point.y, min.y);
-	min.z = std::min(point.z, min.z);
-}
-
-void AABB::setNewStartingPoint(const glm::vec3& point) {
-	min = point;
-	max = point;
-}
-
-glm::vec2 AABB::getIntersection(const Ray& ray) const {
-	glm::vec3 tMin = (min - ray.getOrig()) * ray.getInvDir();
-	glm::vec3 tMax = (max - ray.getOrig()) * ray.getInvDir();
-	glm::vec3 t1 = glm::min(tMin, tMax);
-	glm::vec3 t2 = glm::max(tMin, tMax);
-	float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);
-	float tFar = glm::min(glm::min(t2.x, t2.y), t2.z);
-	return glm::vec2(tNear, tFar);
-}
-
 struct GLTFData {
 	tinygltf::Accessor acc;
 	tinygltf::BufferView view;
@@ -43,23 +18,22 @@ struct GLTFData {
 	}
 };
 
-float SveModel::Mesh::getNodeIntersection(const BVHNode& node, const Ray& ray, float closest) {
+float SveModel::Mesh::getNodeIntersection(const BVHNode& node, const SveRay& ray, float closest) {
 	assert(closest >= 0.f);
-	glm::vec2 b = node.box.getIntersection(ray);
-	if (b.x > b.y) {
-		float t = (b.x < closest && b.x >= 0.f) ? b.x : closest;
+	if (node.box.hasIntersection(ray)) {
 		if (node.childIndex != 0) {
 			// descend
 			closest = getNodeIntersection(volumeHierarchy[node.childIndex], ray, closest);
 			closest = getNodeIntersection(volumeHierarchy[node.childIndex+1], ray, closest);
 		} else {
+			// is root node -> get closest triangle intersection
 			assert(node.indexCount % 3 == 0);
 			assert(node.startIndex % 3 == 0);
 			uint32_t end = node.startIndex + node.indexCount;
 			for (uint32_t i = node.startIndex; i < end; i += 3) {
-				t = getTriangleIntersection(i + node.startIndex, ray);
+				float t = getTriangleIntersection(i + node.startIndex, ray);
 				if (t >= 0.f && t < closest) {
-					t = closest;
+					closest = t;
 				}
 			}
 		}
@@ -70,7 +44,7 @@ float SveModel::Mesh::getNodeIntersection(const BVHNode& node, const Ray& ray, f
 	return closest;
 }
 
-float SveModel::Mesh::getTriangleIntersection(uint32_t startIndex, const Ray& ray) {
+float SveModel::Mesh::getTriangleIntersection(uint32_t startIndex, const SveRay& ray) {
     constexpr float epsilon = std::numeric_limits<float>::epsilon();
 	constexpr float inf = std::numeric_limits<float>::infinity();
 	const glm::vec3& a = vertices[indices[startIndex]].position;
@@ -86,14 +60,14 @@ float SveModel::Mesh::getTriangleIntersection(uint32_t startIndex, const Ray& ra
         return inf;    // This ray is parallel to this triangle.
 
     float inv_det = 1.0 / det;
-    glm::vec3 s = ray.getOrig() - a;
+    glm::vec3 s = ray.getOrigin() - a;
     float u = inv_det * glm::dot(s, ray_cross_e2);
 
     if ((u < 0 && glm::abs(u) > epsilon) || (u > 1 && glm::abs(u-1) > epsilon))
         return inf;
 
     glm::vec3 s_cross_e1 = glm::cross(s, edge1);
-    float v = inv_det * glm::dot(ray.getOrig(), s_cross_e1);
+    float v = inv_det * glm::dot(ray.getOrigin(), s_cross_e1);
 
     if ((v < 0 && glm::abs(v) > epsilon) || (u + v > 1 && glm::abs(u + v - 1) > epsilon))
         return inf;
@@ -109,21 +83,31 @@ float SveModel::Mesh::getTriangleIntersection(uint32_t startIndex, const Ray& ra
         return inf;
 }
 
-float SveModel::Mesh::getIntersection(const Ray& ray, float closest) {
+float SveModel::Mesh::getIntersection(const SveRay& ray, float closest) {
 	for (size_t i = 0; i < instanceTransforms.size(); ++i) {
 		glm::mat4 inverse = glm::inverse(instanceTransforms[i]);
-		glm::vec4 orig = inverse * glm::vec4(ray.getOrig(), 1.f);
+		glm::vec4 orig = inverse * glm::vec4(ray.getOrigin(), 1.f);
 		glm::vec4 dir = inverse * glm::vec4(ray.getDir(), 1.f);
-		Ray inv_ray(orig.x, orig.y, orig.z, dir.x, dir.y, dir.z);
+		SveRay inv_ray(glm::vec3(orig.x, orig.y, orig.z), glm::vec3(dir.x, dir.y, dir.z));
 		float g = getNodeIntersection(volumeHierarchy[0], inv_ray, closest);
 		closest = glm::min(g, closest);
 	}
 	return closest;
 }
-float SveModel::getIntersection(const Ray& ray) {
+float SveModel::getIntersection(const SveRay& ray) {
 	const auto inter = boundingBox.getIntersection(ray);
+	return inter;
+	shl::logInfo("Ray: \ndir: { ", ray.getDir().x, ", ", ray.getDir().y, ", ", ray.getDir().z, 
+	" }\ninvDir: { ", ray.getInvDir().x, ", ", ray.getInvDir().y, ", ", ray.getInvDir().z,
+	" }\nmin: { ", ray.getOrigin().x, ", ", ray.getOrigin().y, ", ", ray.getOrigin().z, " }");
+	
+	shl::logInfo("Model Bounding box: \nmax { ", boundingBox.max.x, ", ", boundingBox.max.y, ", ", boundingBox.max.z, 
+	" }\nmin: { ", boundingBox.min.x, ", ", boundingBox.min.y, ", ", boundingBox.min.z, " }");
 	float t = std::numeric_limits<float>::infinity();
-	if (inter.x < inter.y) {
+	if (boundingBox.hasIntersection(ray)) {
+		shl::logWarn("has intersection!!");
+	}
+	if (inter < 0.0f) {
 		float g;
 		for (size_t i = 0; i < meshes.size(); ++i) {
 			g = meshes[i].getIntersection(ray, t);
@@ -597,14 +581,14 @@ SveModel::SveModel(const char* filename) {
 	shl::logInfo("Model mesh count: ", meshes.size());
 
 	glm::vec4 p = meshes[0].instanceTransforms[0] * glm::vec4(meshes[0].vertices[0].position, 1.f);
-	boundingBox.setNewStartingPoint(meshes[0].vertices[0].position);
-	boundingBox.setNewStartingPoint(glm::vec3(p.x, p.y, p.z));
+	boundingBox.set(meshes[0].vertices[0].position);
+	boundingBox.set(glm::vec3(p.x, p.y, p.z));
 	for (size_t i = 0; i < meshes.size(); ++i) {
 		meshes[i].buildBVH();
 		for (size_t j = 0; j < meshes[i].instanceTransforms.size(); ++j) {
 			for (size_t k = 0; k < meshes[k].vertices.size(); ++k) {
 				glm::vec4 p = meshes[i].instanceTransforms[j] * glm::vec4(meshes[i].vertices[k].position, 1.f);
-				boundingBox.includePoint(glm::vec3(p.x, p.y, p.z));
+				boundingBox.addPoint(glm::vec3(p.x, p.y, p.z));
 			}
 		}
 		total_vertex_count += meshes[i].vertices.size();

@@ -5,6 +5,7 @@
 #include "SVE_Model.h"
 
 
+
 class SveModelRenderer {
 public:
 	static constexpr uint32_t MAX_TEXTURE_COUNT = 128;

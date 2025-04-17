@@ -4,6 +4,7 @@
 #include "SVE_Backend.h"
 #include "render/UiHandler.h"
 #include "render/SVE_SceneRenderer.h"
+#include "SVE_AABB.h"
 
 #include <thread>
 
@@ -19,6 +20,16 @@ void SimpleVulkanEditor::handleInput() {
 
 SimpleVulkanEditor::SimpleVulkanEditor()
 {
+	/*
+		shl::logError("Box should have intersection!");
+	}
+	float t = box.getIntersection(ray);
+	if (t != 3.f) {
+		shl::logFatal("Expected a distance of one! Returned distance: ", t);
+	} else {
+		shl::logFatal("Returned distance: ", t);
+	}
+	*/
 	models.emplace_back("assets/models/test_car.gltf");
 	
 	sceneRenderer.addModel(models.back());
