@@ -19,7 +19,7 @@ public:
 	void addSignalSemaphore(VkSemaphore semaphore);
 	void addFence(VkFence fence);
 	void startRecording();
-	void getCommandBuffer();
+	VkCommandBuffer getCommandBuffer();
 	void endRecording();
 	void submit(VkQueue queue);
 };

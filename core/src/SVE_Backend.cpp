@@ -147,9 +147,6 @@ namespace SVE {
 			_Synchronization[i].fence = vkl::createFence(_Logical, VK_FENCE_CREATE_SIGNALED_BIT);
 			_Synchronization[i].imageAvailable = vkl::createSemaphore(_Logical);
 			_Synchronization[i].renderFinished = vkl::createSemaphore(_Logical);
-#ifdef SVE_RENDER_IN_VIEWPORT
-			_Synchronization[i].viewportRenderFinished = vkl::createSemaphore(_Logical);
-#endif
 		}
 	}
 	void destroySynchronization() {
@@ -280,7 +277,7 @@ namespace SVE {
 		shl::logInfo("Vulkan instance created!");
 	#else
 		_Instance = vkl::createInstance(VK_VERSION_1_0, extensions.size(), extensions.data());
-		volkLoadInstanceOnly(_Instance);
+		volkLoadInstance(_Instance);
 	#endif
 		assert(_Instance != VK_NULL_HANDLE);
 	}

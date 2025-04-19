@@ -17,11 +17,20 @@ public:
 		return buffer;
 	}
 	inline void allocate(VkDeviceSize stagingSize) {
+		assert(memory == VK_NULL_HANDLE);
+		assert(buffer == VK_NULL_HANDLE);
+		assert(mappedMemory == nullptr);
+		assert(maxSize == 0);
+		assert(offset == 0);
 		maxSize = stagingSize;
-		buffer = vkl::createBuffer(SVE::getDevice(), stagingSize * SVE::FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, SVE::getGraphicsFamily());
-		memory = vkl::allocateForBuffer(SVE::getDevice(), SVE::getPhysicalDevice(), buffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		buffer = SVE::createBuffer(stagingSize * SVE::FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, SVE::getGraphicsFamily());
+		memory = SVE::allocateForBuffer(buffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		mappedMemory = (uint8_t*)vkl::mapMemory(SVE::getDevice(), memory, VK_WHOLE_SIZE, 0);
 		offset = 0;
+	}
+	inline SveStagingBuffer() {}
+	inline SveStagingBuffer(VkDeviceSize stagingSize) {
+		allocate(stagingSize);
 	}
 	inline VkDeviceSize addToTransfer(VkDeviceSize size, void* data) {
 		assert(size + offset < maxSize);
@@ -30,12 +39,20 @@ public:
 		offset += size;
 		return data_offset;
 	}
+	inline void transferToBuffer(VkCommandBuffer commands, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize dstOffset, void* data) {
+		VkBufferCopy region;
+		region.srcOffset = addToTransfer(size, data);
+		region.size = size;
+		region.dstOffset = dstOffset;
+		vkCmdCopyBuffer(commands, buffer, dstBuffer, 1, &region);
+	}
+
 	inline void clear() {
 		offset = 0;
 	}
 	inline void free() {
-		vkl::destroyBuffer(SVE::getDevice(), buffer);
-		vkl::freeMemory(SVE::getDevice(), memory);
+		SVE::destroyBuffer(buffer);
+		SVE::freeMemory(memory);
 		memory = VK_NULL_HANDLE;
 		buffer = VK_NULL_HANDLE;
 		mappedMemory = nullptr;

@@ -1,8 +1,5 @@
 ﻿cmake_minimum_required (VERSION 3.16)
 
-
-
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -22,18 +19,20 @@ set(TEST_TARGET Tests)
 include(CTest)
 
 # add all source files from the src directory
-file(GLOB_RECURSE SRC_FILES "${SRC_DIR}/*.cpp" )
+option(BUILD_RUNTIME OFF)
 
-function(add_build_msg MESSAGE)
-	add_custom_target(
-		MESSAGE ALL
-		COMMAND ${CMAKE_COMMAND} -E echo ${MESSAGE} 
-	)
-	add_dependencies(${PROJECT_NAME} MESSAGE)
-endfunction()
-    
+if (BUILD_RUNTIME)
+	message(STATUS "building runtime")
+	set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/core/src" "${CMAKE_SOURCE_DIR}/runtime/src")
+	file(GLOB_RECURSE SRC_FILES "${CMAKE_SOURCE_DIR}/core/src/*.cpp" "${CMAKE_SOURCE_DIR}/runtime/src/*.cpp")
+else()
+	message(STATUS "building editor")
+	set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/core/src" "${CMAKE_SOURCE_DIR}/editor/src")
+	file(GLOB_RECURSE SRC_FILES "${CMAKE_SOURCE_DIR}/core/src/*.cpp" "${CMAKE_SOURCE_DIR}/editor/src/*.cpp")
+endif()
+
 #create executable
-add_executable (${PROJECT_NAME} ${SRC_FILES})
+add_executable(${PROJECT_NAME} ${SRC_FILES})
 #add tests
 add_subdirectory(${TEST_DIR})
 
@@ -76,6 +75,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE PROJECT_VERSION_PATCH="${PROJ
 target_sources(${PROJECT_NAME} PUBLIC ${PLATFORM_FILES})
 target_sources(${TEST_TARGET} PUBLIC ${PLATFORM_FILES})
 
+target_include_directories(${PROJECT_NAME} PUBLIC ${INCLUDE_DIR})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${SRC_DIR})
 target_include_directories(${TEST_TARGET} PUBLIC ${SRC_DIR})

@@ -37,16 +37,7 @@ namespace SVE {
 		inline uint32_t _ViewportHeight = 1;
 		inline int32_t _ViewportOffsetX = 0;
 		inline int32_t _ViewportOffsetY = 0;
-#ifdef SVE_RENDER_IN_VIEWPORT
-		inline VkRenderPass _ViewportRenderPass = VK_NULL_HANDLE;
-		inline VkFramebuffer _ViewportFramebuffers[FRAMES_IN_FLIGHT] = {};
-		inline VkImage _ViewportImages[FRAMES_IN_FLIGHT] = {};
-		inline VkImageView _ViewportImageViews[FRAMES_IN_FLIGHT] = {};
-		inline VkImage _ViewportDepthImage = VK_NULL_HANDLE;
-		inline VkImageView _ViewportDepthImageView = VK_NULL_HANDLE;
-		inline VkDescriptorSet _ViewportTextureIDs[FRAMES_IN_FLIGHT] = {};
-		inline VkSampler _ViewportSampler = VK_NULL_HANDLE;
-#endif
+
 		struct ImageResource {
 			VkImage image;
 			VkImageView imageView;
@@ -60,9 +51,6 @@ namespace SVE {
 			VkFence fence;
 			VkSemaphore imageAvailable;
 			VkSemaphore renderFinished;
-#ifdef SVE_RENDER_IN_VIEWPORT
-			VkSemaphore viewportRenderFinished;
-#endif
 		};
 		inline InFlightSynchronization _Synchronization[FRAMES_IN_FLIGHT] = {};
 		inline uint32_t _ImageIndex = 0;
@@ -187,6 +175,9 @@ namespace SVE {
 	}
 	inline VkMemoryRequirements getImageMemoryRequirements(VkImage image) {
 		return vkl::getImageMemoryRequirements(_private::_Logical, image);
+	}
+	inline VkDeviceMemory allocateAndBind(uint32_t bufferCount, const VkBuffer* pBuffers, uint32_t imageCount, const VkImage* pImages, VkMemoryPropertyFlags properties) {
+		return vkl::allocateAndBind(_private::_Logical, _private::_Physical, bufferCount, pBuffers, imageCount, pImages, properties);
 	}
 	inline VkDeviceMemory allocateForStagingBuffer(VkBuffer buffer) {
 		return vkl::allocateForBuffer(_private::_Logical, _private::_Physical, buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -333,17 +324,10 @@ namespace SVE {
 			vkCmdBeginRenderPass(res.primaryCommands, &info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 		}
 		vkCmdExecuteCommands(res.primaryCommands, commandCount, commandBuffer);
-#ifndef SVE_RENDER_IN_VIEWPORT
 		vkCmdExecuteCommands(res.primaryCommands, 1, &res.imGuiCommands);
-#endif // !SVE_RENDER_IN_VIEWPORT:w
 		vkCmdEndRenderPass(res.primaryCommands);
 		vkl::endCommandBuffer(res.primaryCommands);
-#ifdef SVE_RENDER_IN_VIEWPORT
-		vkl::submitCommands(_private::_GraphicsQueue, res.primaryCommands, sync.imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, sync.viewportRenderFinished, VK_NULL_HANDLE);
-		vkl::submitCommands(_private::_GraphicsQueue, res.imGuiCommands, sync.viewportRenderFinished, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, sync.renderFinished, sync.fence);
-#else
 		vkl::submitCommands(_private::_GraphicsQueue, res.primaryCommands, sync.imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, sync.renderFinished, sync.fence);
-#endif
 		vkl::presentSwapchain(_private::_PresentQueue, _private::_Swapchain, _private::_ImageIndex, 1, &sync.renderFinished);
 		_private::_InFlightIndex = (_private::_InFlightIndex + 1) % FRAMES_IN_FLIGHT;
 	}

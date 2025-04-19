@@ -5,32 +5,62 @@
 
 #include "SVE_Backend.h"
 
+class SveDeviceMemory {
+private:
+	VkDeviceMemory memory = VK_NULL_HANDLE;
+	VkDeviceSize memoryCapacity = 0;
+
+public:
+	inline SveDeviceMemory(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount) {
+	}
+	inline SveDeviceMemory(const VkMemoryRequirements& memReq) {
+		memory = SVE::allocateMemory(memReq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		memoryCapacity = memReq.size;
+	}
+	inline ~SveDeviceMemory() { SVE::freeMemory(memory); }
+	inline operator VkDeviceMemory() { return memory; }
+};
 
 template<typename T>
 class SveVertexBuffer {
 private:
-	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 	VkBuffer vertexBuffer = VK_NULL_HANDLE;
-	VkBuffer indexBuffer = VK_NULL_HANDLE;
-	uint32_t maxVertexCount = 0;
-	uint32_t maxIndexCount = 0;
-	VkDeviceSize indexOffset = 0;
+	VkDeviceSize memorySize = VK_NULL_HANDLE;
+	uint32_t maxVertexCapacity = 0;
+	uint32_t maxIndexCapacity = 0;
+	uint32_t vertexCount = 0;
+	uint32_t indexCount = 0;
 public:
+	inline operator VkBuffer() { return vertexBuffer; }
+	inline VkDeviceSize getMemorySize() const { return memorySize; }
+	inline uint32_t getVertexCount() const { return vertexCount; }
+	inline uint32_t getIndexCount() const { return indexCount; }
 	inline void allocate(uint32_t maxVertices, uint32_t maxIndices) {
+		assert(vertexBuffer == VK_NULL_HANDLE);
+		assert(memorySize == 0);
+		assert(maxVertexCapacity == 0);
+		assert(maxIndexCapacity == 0);
+		assert(vertexCount == 0);
+		assert(indexCount == 0);
 		maxVertexCount = maxVertices;
 		maxIndexCount = maxIndices;
-		vertexBuffer = vkl::createBuffer(SVE::getDevice(), sizeof(T) * maxVertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, SVE::getGraphicsFamily());
-		indexBuffer = vkl::createBuffer(SVE::getDevice(), sizeof(uint32_t) * maxIndices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, SVE::getGraphicsFamily());
-		auto req = vkl::getBufferMemoryRequirements(SVE::getDevice(), vertexBuffer);
-		auto index_req = vkl::getBufferMemoryRequirements(SVE::getDevice(), indexBuffer);
-		indexOffset = req.size;
-		uint32_t padding = static_cast<uint32_t>(req.alignment - (index_req.size % req.alignment));
+		memorySize = sizeof(T) * maxVertices + sizeof(uint32_t) * maxIndices;
+		vertexBuffer = SVE::createBuffer(memorySize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, SVE::getGraphicsFamily());
+		auto req = SVE::getBufferMemoryRequirements(vertexBuffer);
+		uint32_t padding = req - memorySize;
 		maxIndexCount += padding / sizeof(uint32_t);
-		req.size += index_req.size + padding;
-		req.memoryTypeBits |= index_req.memoryTypeBits;
-		deviceMemory = vkl::allocateMemory(SVE::getDevice(), SVE::getPhysicalDevice(), req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		vkl::bindBufferMemory(SVE::getDevice(), vertexBuffer, deviceMemory, 0);
-		vkl::bindBufferMemory(SVE::getDevice(), indexBuffer, deviceMemory, indexOffset);
+		memorySize = req.size;
+		deviceMemory = SVE::allocateMemory(req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	}
+	inline VkMemoryRequirements getMemoryRequirements() const {
+		return SVE::getBufferMemoryRequirements(vertexBuffer);
+	}
+	inline void bindMemory(const VkDeviceMemory memory, VkDeviceSize memoryOffset) {
+		SVE::bindBufferMemory(vertexBuffer, deviceMemory, memoryOffset);
+		SVE::bindBufferMemory(indexBuffer, deviceMemory, indexOffset + memoryOffset);
+	}
+	inline SveVertexBuffer(uint32_t maxVertices, uint32_t maxIndices, VkDeviceMemory memory, VkDeviceSize memoryOffset) {
+		allocate(maxVertices, maxIndices);
 	}
 	
 	inline void uploadVertexData(VkCommandBuffer commands, VkBuffer srcBuffer, uint32_t vertexRegionCount, const VkBufferCopy* pVertexRegions, uint32_t indexRegionCount, const VkBufferCopy* pIndexRegions) {
