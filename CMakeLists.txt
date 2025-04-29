@@ -27,7 +27,7 @@ if (BUILD_RUNTIME)
 	file(GLOB_RECURSE SRC_FILES "${CMAKE_SOURCE_DIR}/core/src/*.cpp" "${CMAKE_SOURCE_DIR}/runtime/src/*.cpp")
 else()
 	message(STATUS "building editor")
-	set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/core/src" "${CMAKE_SOURCE_DIR}/editor/src")
+	set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/core/src" "${CMAKE_SOURCE_DIR}/editor/src" "${CMAKE_SOURCE_DIR}/core/include")
 	file(GLOB_RECURSE SRC_FILES "${CMAKE_SOURCE_DIR}/core/src/*.cpp" "${CMAKE_SOURCE_DIR}/editor/src/*.cpp")
 endif()
 
@@ -36,10 +36,22 @@ add_executable(${PROJECT_NAME} ${SRC_FILES})
 #add tests
 add_subdirectory(${TEST_DIR})
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_SINGLE_GPU)
 #add defines depending on build mode 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SVE_LOG_ALL)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE VKL_ENABLE_VALIDATION)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_LOG_ALL)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_LOG_TERMINAL)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_ENABLE_VALIDATION)
 elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SVE_LOG_ALL)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE VKL_ENABLE_VALIDATION)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_LOG_ALL)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_LOG_TERMINAL)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SGF_ENABLE_VALIDATION)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SVE_LOG_FATAL)
 endif()
 
 #define the platform specific options

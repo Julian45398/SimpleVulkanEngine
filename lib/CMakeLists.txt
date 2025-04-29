@@ -43,7 +43,6 @@ set(HEADER_DIRS PUBLIC
 	"tinygltf"
 	"volk"
 	"Vulkan-Headers/include"
-	"VulkanMemoryAllocator/include"
 )
 #adding header libraries:
 target_include_directories(${PROJECT_NAME} PUBLIC ${HEADER_DIRS})
@@ -62,6 +61,5 @@ if (BUILD_TESTING)
 		"tinygltf"
 		"volk"
 		"Vulkan-Headers/include"
-		"VulkanMemoryAllocator/include"
 	)
 endif()

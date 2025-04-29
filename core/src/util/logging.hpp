@@ -23,7 +23,7 @@
 #elif defined(SVE_LOG_ERROR)
 #define SVE_LOG_LEVEL SVE_LOG_LEVEL_ERROR
 #else
-#error Please define a log level that needs to be logged
+#pragma message("All log messages are disabled!")
 #endif
 
 #define CHECK_LOG_LEVEL(X) SVE_LOG_LEVEL <= X

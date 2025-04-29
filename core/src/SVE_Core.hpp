@@ -18,7 +18,20 @@
 #include "util/logging.hpp"
 #include "util/SVE_Timer.hpp"
 
+#ifndef SVE_FRAMES_IN_FLIGHT
+#define SVE_FRAMES_IN_FLIGHT 2
+#endif
+
 namespace SVE {
+	/*
+	inline const uint32_t FRAMES_IN_FLIGHT = SVE_FRAMES_IN_FLIGHT;
+	inline VkAllocationCallbacks* VulkanAllocationCallback = nullptr;
+	inline SVE_Display Display;
+	inline SVE_Device GPU;
+	inline SVE_Logger Log;
+	inline SVE_Allocator Mem;
+	inline SVE_Event Evt;
+*/
 	void init();
 	void terminate();
 }

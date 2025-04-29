@@ -1,5 +1,5 @@
 #pragma once
-
+/*
 
 #include "core.h"
 
@@ -42,22 +42,22 @@ public:
 		assert(maxIndexCapacity == 0);
 		assert(vertexCount == 0);
 		assert(indexCount == 0);
-		maxVertexCount = maxVertices;
-		maxIndexCount = maxIndices;
+		maxVertexCount = maxVertexCapacity;
+		maxIndexCount = maxIndexCapacity;
 		memorySize = sizeof(T) * maxVertices + sizeof(uint32_t) * maxIndices;
 		vertexBuffer = SVE::createBuffer(memorySize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, SVE::getGraphicsFamily());
 		auto req = SVE::getBufferMemoryRequirements(vertexBuffer);
 		uint32_t padding = req - memorySize;
 		maxIndexCount += padding / sizeof(uint32_t);
 		memorySize = req.size;
-		deviceMemory = SVE::allocateMemory(req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		//deviceMemory = SVE::allocateMemory(req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
 	inline VkMemoryRequirements getMemoryRequirements() const {
 		return SVE::getBufferMemoryRequirements(vertexBuffer);
 	}
 	inline void bindMemory(const VkDeviceMemory memory, VkDeviceSize memoryOffset) {
-		SVE::bindBufferMemory(vertexBuffer, deviceMemory, memoryOffset);
-		SVE::bindBufferMemory(indexBuffer, deviceMemory, indexOffset + memoryOffset);
+		SVE::bindBufferMemory(vertexBuffer, memory, memoryOffset);
+		SVE::bindBufferMemory(indexBuffer, memory, sizeof(T) * maxVertexCapacity + memoryOffset);
 	}
 	inline SveVertexBuffer(uint32_t maxVertices, uint32_t maxIndices, VkDeviceMemory memory, VkDeviceSize memoryOffset) {
 		allocate(maxVertices, maxIndices);
@@ -100,13 +100,14 @@ public:
 	}
 	inline void free() {
 		vkl::destroyBuffer(SVE::getDevice(), vertexBuffer);
-		vkl::destroyBuffer(SVE::getDevice(), indexBuffer);
-		vkl::freeMemory(SVE::getDevice(), deviceMemory);
+		//vkl::destroyBuffer(SVE::getDevice(), indexBuffer);
+		//vkl::freeMemory(SVE::getDevice(), deviceMemory);
 		deviceMemory = VK_NULL_HANDLE;
 		vertexBuffer = VK_NULL_HANDLE;
 		indexBuffer = VK_NULL_HANDLE;
-		maxVertexCount = 0;
-		maxIndexCount = 0;
-		indexOffset = 0;
+		maxVertexCapacity = 0;
+		maxIndexCapacity = 0;
+		//indexOffset = 0;
 	}
 };
+*/

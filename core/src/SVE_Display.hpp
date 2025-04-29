@@ -43,5 +43,5 @@ public:
 	void setWindowed(uint32_t width, uint32_t height);
 	void toggleFullscreen();
 	void resizeWindow(uint32_t width, uint32_t height);
-	void bindDevice(const SVE_Device& device, VkPresentModeKHR presentMode);
+	void bindDevice(SVE_Device& device, VkPresentModeKHR presentMode);
 };
