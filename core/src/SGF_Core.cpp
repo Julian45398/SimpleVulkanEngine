@@ -152,4 +152,7 @@ namespace SGF {
 		_LogFile.close();
 #endif
     }
+	bool isInitialized() {
+		return VulkanInstance != VK_NULL_HANDLE;
+	}
 }
