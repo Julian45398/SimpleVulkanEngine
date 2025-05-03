@@ -8,5 +8,16 @@ namespace SGF {
     class Buffer;
     class Image;
     class ImageView;
+
+    // Events: 
+    class Event;
+    class HandleableEvent;
+    class WindowResizeEvent;
+    class WindowCloseEvent;
+    class WindowMinimizeEvent;
+    class CursorMoveEvent;
+    class MouseButtonEvent;
+    class KeyPressedEvent;
+    class CharTypedEvent;
 }
 

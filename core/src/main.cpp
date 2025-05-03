@@ -4,25 +4,29 @@
 
 #include "SGF.hpp"
 
+using namespace SGF;
+
+
+void onEvent(SGF::WindowResizeEvent&, SGF::Device* device) {
+	SGF::info("Hello world: ", device->getName());
+}
+
 int main() {
 	if (true) {
 		SGF::init();
 		{
-			SGF::Window window("Hello world!", 600, 400, false);
+			SGF::Window window("Hello world!", 600, 400, SGF::WINDOW_FLAG_RESIZABLE);
 			SGF::Device device = SGF::Device::Builder().bindWindow(&window).graphicQueues(1).computeQueues(0).transferQueues(1)
 				.requireFeature(SGF::DEVICE_FEATURE_GEOMETRY_SHADER).build();
-			if (device.isFeatureEnabled(SGF::DEVICE_FEATURE_GEOMETRY_SHADER)) {
-				SGF::info("Geometry shader is enabled!");
-			} else {
-				SGF::info("Geometry shader is disabled!");
-			}
+			
+			//SGF::WindowEvents.subscribe(onEvent, &window);
 			while (!window.shouldClose()) {
 				window.onUpdate();
 			}
 		}
 		SGF::terminate();
 	}
-	if (true) {
+	if (false) {
 		shl::logDebug("Version: ", PROJECT_VERSION);
 		SVE::init(1280, 720);
 		SVE::run();

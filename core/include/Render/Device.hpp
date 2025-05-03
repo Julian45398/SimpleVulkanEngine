@@ -214,10 +214,11 @@ namespace SGF {
         inline Image::Builder image(uint32_t width, uint32_t height, uint32_t depth) { return Image::Builder(*this, width, height, depth); }
         inline ImageView::Builder imageView(const Image& image) { return ImageView::Builder(*this, image); }
         // Queue functions:
-        uint32_t graphicsIndex();
-        uint32_t computeIndex();
-        uint32_t transferIndex();
-        uint32_t presentIndex();
+        inline uint32_t graphicsFamily() { return graphicsFamilyIndex; }
+        inline uint32_t computeFamily() { return computeFamilyIndex; }
+        inline uint32_t transferFamily() { return transferFamilyIndex; }
+        inline uint32_t presentFamily() { return presentFamilyIndex; }
+
         VkQueue graphicsQueue(uint32_t index);
         VkQueue computeQueue(uint32_t index);
         VkQueue transferQueue(uint32_t index);
@@ -225,6 +226,11 @@ namespace SGF {
         VkFence fence();
         VkFence fenceSignaled();
         VkSemaphore semaphore();
+
+        /*
+        inline void onWindowMinimize(WindowResizeEvent& event) {
+            SGF::info("on window minimize from device: ", name);
+        }*/
 
         Buffer buffer(VkDeviceSize size, VkBufferUsageFlags usage);
         Image image(const VkImageCreateInfo& info);
@@ -343,13 +349,13 @@ namespace SGF {
         friend Builder;
         VkDevice logical = VK_NULL_HANDLE;
         VkPhysicalDevice physical = VK_NULL_HANDLE;
-        uint32_t presentFamily = UINT32_MAX;
+        uint32_t presentFamilyIndex = UINT32_MAX;
         uint32_t presentCount = 0;
-        uint32_t graphicsFamily = UINT32_MAX;
+        uint32_t graphicsFamilyIndex = UINT32_MAX;
         uint32_t graphicsCount = 0;
-        uint32_t transferFamily = UINT32_MAX;
+        uint32_t transferFamilyIndex = UINT32_MAX;
         uint32_t transferCount = 0;
-        uint32_t computeFamily = UINT32_MAX;
+        uint32_t computeFamilyIndex = UINT32_MAX;
         uint32_t computeCount = 0;
         uint64_t enabledFeatures = 0;
         char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};

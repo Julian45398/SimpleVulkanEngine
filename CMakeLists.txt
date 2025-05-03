@@ -22,7 +22,7 @@ option(BUILD_RUNTIME OFF)
 
 if (BUILD_RUNTIME)
 	message(STATUS "building runtime")
-	set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/core/src" "${CMAKE_SOURCE_DIR}/runtime/src")
+	set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/core/src" "${CMAKE_SOURCE_DIR}/core/include" "${CMAKE_SOURCE_DIR}/runtime/src")
 	file(GLOB_RECURSE SRC_FILES "${CMAKE_SOURCE_DIR}/core/src/*.cpp" "${CMAKE_SOURCE_DIR}/runtime/src/*.cpp")
 else()
 	message(STATUS "building editor")

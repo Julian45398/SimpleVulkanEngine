@@ -17,22 +17,27 @@ namespace SGF {
 }
 
 #include "SGF_Types.hpp"
-#include "log/Logger.hpp"
-#include "log/ErrorCodes.hpp"
+#include "Logging/Logger.hpp"
+#include "Logging/ErrorCodes.hpp"
 
 #include <assert.h>
 #include <algorithm>
 #include <limits>
 #include <vector>
 #include <set>
-#ifndef VK_NO_PROTOTYPES
-#define VK_NO_PROTOTYPES
-#endif
-#include <vulkan/vulkan.h>
+#include <stack>
+#include <type_traits>
+
+#include <volk.h>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+
 #define BIT(X) (1<<X)
+#define CHECK_BIT(X, BIT_POSITION) (X & BIT(BIT_POSITION))
 #define ARRAY_SIZE(X) (sizeof(X)/sizeof(X[0]))

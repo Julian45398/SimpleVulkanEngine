@@ -3,20 +3,38 @@
 #include <stdint.h>
 
 #ifdef SGF_LOG_MSG
-#define SGF_ERROR(CODE,NAME,MSG) inline const char SGF_ERROR_##NAME[] = MSG
+#define SGF_ERROR(CODE,NAME,MSG) inline const char ERROR_##NAME[] = MSG
 #else
-#define SGF_ERROR(CODE,NAME,MSG) inline const uint32_t SGF_ERROR_##NAME = CODE
+#define SGF_ERROR(CODE,NAME,MSG) inline const uint32_t ERROR_##NAME = CODE
 #endif
 
 namespace SGF {
     SGF_ERROR(1420, DEVICE_MEM_ALLOCATION, "failed to allocate device memory!");
     SGF_ERROR(1421, BIND_DEVICE_MEMORY, "failed to bind device memory!");
+
     SGF_ERROR(1422, UNSUPPORTED_MEMORY_TYPE, "unsupported memory type!");
     SGF_ERROR(1012, CREATE_BUFFER, "failed to create buffer");
     SGF_ERROR(1013, CREATE_IMAGE, "failed to create image");
     SGF_ERROR(1013, CREATE_IMAGE_VIEW, "failed to create image view");
     SGF_ERROR(1114, CREATE_RENDER_PASS, "failed to create render pass");
     SGF_ERROR(1015, CREATE_FRAMEBUFFER, "failed to create framebuffer");
-    SGF_ERROR(1114, CREATE_LOGICAL_DEVICE, "failed to create logical device");
-    SGF_ERROR(1115, FIND_PHYSICAL_DEVICE, "failed to create logical device");
+
+    SGF_ERROR(1114, CREATE_PIPELINE_LAYOUT, "failed to create render pipeline");
+    SGF_ERROR(1114, CREATE_RENDER_PIPELINE, "failed to create render pipeline");
+    SGF_ERROR(1114, CREATE_COMPUTE_PIPELINE, "failed to create compute pipeline");
+
+    SGF_ERROR(1114, CREATE_DESCRIPTOR_POOL, "failed to create descriptor pool");
+    SGF_ERROR(1114, CREATE_DESCRIPTOR_LAYOUT, "failed to create descriptor layout");
+
+    SGF_ERROR(1114, CREATE_COMMAND_POOL, "failed to create command pool");
+
+    SGF_ERROR(1006, CREATE_SWAPCHAIN, "failed to create swapchain");
+
+    SGF_ERROR(1005, CREATE_LOGICAL_DEVICE, "failed to create logical device");
+    SGF_ERROR(1004, FIND_PHYSICAL_DEVICE, "failed to suitable graphics device");
+
+    SGF_ERROR(1003, CREATE_SURFACE, "failed to create window surface");
+    SGF_ERROR(1013, DEVICE_NO_SURFACE_SUPPORT, "device is missing surface support");
+    SGF_ERROR(1002, CREATE_WINDOW, "failed to create window");
+    SGF_ERROR(1001, CREATE_VULKAN_INSTANCE, "failed to create vulkan instance");
 }

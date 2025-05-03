@@ -1,6 +1,6 @@
-#include "Image.hpp"
+#include "Render/Image.hpp"
 
-#include "Device.hpp"
+#include "Render/Device.hpp"
 
 namespace SGF {
     Image Image::Builder::build() {
@@ -8,22 +8,22 @@ namespace SGF {
         return pDevice->image(info);
     }
     Image::Builder& Image::Builder::graphics() { 
-        indices[info.queueFamilyIndexCount] = pDevice->graphicsIndex(); 
+        indices[info.queueFamilyIndexCount] = pDevice->graphicsFamily(); 
         info.queueFamilyIndexCount++; 
         return *this;
     }
     Image::Builder& Image::Builder::compute() { 
-        indices[info.queueFamilyIndexCount] = pDevice->computeIndex(); 
+        indices[info.queueFamilyIndexCount] = pDevice->computeFamily(); 
         info.queueFamilyIndexCount++; 
         return *this; 
     }
     Image::Builder& Image::Builder::transfer() { 
-        indices[info.queueFamilyIndexCount] = pDevice->transferIndex(); 
+        indices[info.queueFamilyIndexCount] = pDevice->transferFamily(); 
         info.queueFamilyIndexCount++; 
         return *this; 
     }
     Image::Builder& Image::Builder::present() { 
-        indices[info.queueFamilyIndexCount] = pDevice->presentIndex(); 
+        indices[info.queueFamilyIndexCount] = pDevice->presentFamily(); 
         for(uint32_t i = 0;i < info.queueFamilyIndexCount; ++i) {
             if(indices[i]==indices[info.queueFamilyIndexCount]) 
                 return *this;

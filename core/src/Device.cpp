@@ -197,15 +197,15 @@ namespace SGF {
                     hasPresent = true;
                 }
             }
-            if (!hasGraphics && properties[i].queueFlags & graphicsQueueFlags == graphicsQueueFlags && properties[i].queueCount >= graphicsCount) {
+            if (!hasGraphics && (properties[i].queueFlags & graphicsQueueFlags) == graphicsQueueFlags && properties[i].queueCount >= graphicsCount) {
                 hasGraphics = true;
                 continue;
             }
-            if (!hasCompute && properties[i].queueFlags & computeQueueFlags == computeQueueFlags && properties[i].queueCount >= computeCount) {
+            if (!hasCompute && (properties[i].queueFlags & computeQueueFlags) == computeQueueFlags && properties[i].queueCount >= computeCount) {
                 hasCompute = true;
                 continue;
             }
-            if (!hasTransfer && properties[i].queueFlags & transferQueueFlags == transferQueueFlags && properties[i].queueCount >= computeCount) {
+            if (!hasTransfer && (properties[i].queueFlags & transferQueueFlags) == transferQueueFlags && properties[i].queueCount >= computeCount) {
                 hasTransfer = true;
                 continue;
             }
@@ -311,22 +311,22 @@ namespace SGF {
         }
         uint32_t uniqueQueueIndexCount = 0;
         if (hasGraphics) { 
-            graphicsFamily = graphicsInfo.queueFamilyIndex;
+            graphicsFamilyIndex = graphicsInfo.queueFamilyIndex;
             pQueueCreateInfos[uniqueQueueIndexCount] = graphicsInfo;
             uniqueQueueIndexCount++; 
         }
         if (hasCompute) { 
-            computeFamily = computeInfo.queueFamilyIndex;
+            computeFamilyIndex = computeInfo.queueFamilyIndex;
             pQueueCreateInfos[uniqueQueueIndexCount] = computeInfo;
             uniqueQueueIndexCount++; 
         }
         if (hasTransfer) {
-            transferFamily = transferInfo.queueFamilyIndex;
+            transferFamilyIndex = transferInfo.queueFamilyIndex;
             pQueueCreateInfos[uniqueQueueIndexCount] = transferInfo;
             uniqueQueueIndexCount++; 
         }
         if (hasPresent) {
-            presentFamily = presentInfo.queueFamilyIndex;
+            presentFamilyIndex = presentInfo.queueFamilyIndex;
             presentCount = 1;
             if (presentInfo.queueFamilyIndex != graphicsInfo.queueFamilyIndex && presentInfo.queueFamilyIndex != computeInfo.queueFamilyIndex &&
                     presentInfo.queueFamilyIndex != transferInfo.queueFamilyIndex) {
@@ -373,7 +373,7 @@ namespace SGF {
             }
         }
         if (picked == VK_NULL_HANDLE) {
-            SGF::fatal(SGF_ERROR_FIND_PHYSICAL_DEVICE);
+            SGF::fatal(ERROR_FIND_PHYSICAL_DEVICE);
         }
         physical = picked;
     }
@@ -403,7 +403,7 @@ namespace SGF {
         info.ppEnabledLayerNames = nullptr;
     #endif
         if (vkCreateDevice(physical, &info, SGF::VulkanAllocator, &logical) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_CREATE_LOGICAL_DEVICE);
+            SGF::fatal(ERROR_CREATE_LOGICAL_DEVICE);
         }
     #ifdef SGF_SINGLE_GPU
         volkLoadDevice(logical);
@@ -426,7 +426,7 @@ namespace SGF {
                 physical = physical_devices[deviceIndex];
                 if (!checkPhysicalDeviceRequirements(physical, extensionCount, pExtensions, requiredFeatures, minLimits,
                         surface, g, c, t)) {
-                    SGF::error("device at specified index does not suit the requirements!");
+                    SGF::info("physical device at index: ", deviceIndex, " not suitable!");
                     physical = VK_NULL_HANDLE;
                 }
             }
@@ -467,13 +467,13 @@ namespace SGF {
             vkDestroyDevice(logical, SGF::VulkanAllocator);
             logical = VK_NULL_HANDLE;
             physical = VK_NULL_HANDLE;
-            presentFamily = UINT32_MAX;
+            presentFamilyIndex = UINT32_MAX;
             presentCount = 0;
-            graphicsFamily = UINT32_MAX;
+            graphicsFamilyIndex = UINT32_MAX;
             graphicsCount = 0;
-            transferFamily = UINT32_MAX;
+            transferFamilyIndex = UINT32_MAX;
             transferCount = 0;
-            computeFamily = UINT32_MAX;
+            computeFamilyIndex = UINT32_MAX;
             computeCount = 0;
         }
     }
@@ -482,23 +482,23 @@ namespace SGF {
         SGF::info("Moved device!");
         logical = other.logical;
         physical = other.physical;
-        presentFamily = other.presentFamily;
+        presentFamilyIndex = other.presentFamilyIndex;
         presentCount = other.presentCount;
-        graphicsFamily = other.graphicsFamily;
+        graphicsFamilyIndex = other.graphicsFamilyIndex;
         graphicsCount = other.graphicsCount;
-        transferFamily = other.transferFamily;
+        transferFamilyIndex = other.transferFamilyIndex;
         transferCount = other.transferCount;
-        computeFamily = other.computeFamily;
+        computeFamilyIndex = other.computeFamilyIndex;
         computeCount = other.computeCount;
         other.logical = VK_NULL_HANDLE;
         other.physical = VK_NULL_HANDLE;
-        other.presentFamily = UINT32_MAX;
+        other.presentFamilyIndex = UINT32_MAX;
         other.presentCount = 0;
-        other.graphicsFamily = UINT32_MAX;
+        other.graphicsFamilyIndex = UINT32_MAX;
         other.graphicsCount = 0;
-        other.transferFamily = UINT32_MAX;
+        other.transferFamilyIndex = UINT32_MAX;
         other.transferCount = 0;
-        other.computeFamily = UINT32_MAX;
+        other.computeFamilyIndex = UINT32_MAX;
         other.computeCount = 0;
     }
 #pragma endregion DEVICE_CREATION
@@ -638,7 +638,7 @@ Device Device::Builder::build() {
                 return i;
             }
         }
-        SGF::error(SGF_ERROR_UNSUPPORTED_MEMORY_TYPE);
+        SGF::error(ERROR_UNSUPPORTED_MEMORY_TYPE);
         return UINT32_MAX;
     }
 
@@ -646,7 +646,7 @@ Device Device::Builder::build() {
         DeviceMemory mem;
         mem.memorySize = info.allocationSize;
         if (vkAllocateMemory(logical, &info, SGF::VulkanAllocator, &mem.handle) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_DEVICE_MEM_ALLOCATION);
+            SGF::fatal(ERROR_DEVICE_MEM_ALLOCATION);
         }
         return mem;
     }
@@ -666,7 +666,7 @@ Device Device::Builder::build() {
         vkGetBufferMemoryRequirements(logical, buffer, &req);
         DeviceMemory mem = allocate(req, flags);
         if (vkBindBufferMemory(logical, buffer, mem, 0) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_BIND_DEVICE_MEMORY);
+            SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
         }
         return mem;
     }
@@ -689,7 +689,7 @@ Device Device::Builder::build() {
         DeviceMemory mem = allocate(req, flags);
         for (uint32_t i = 0; i < bufferCount; ++i) {
             if (vkBindBufferMemory(logical, pBuffers[i], mem, offsets[i]) != VK_SUCCESS) {
-                SGF::fatal(SGF_ERROR_BIND_DEVICE_MEMORY);
+                SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
             }
         }
         delete[] offsets;
@@ -701,7 +701,7 @@ Device Device::Builder::build() {
         vkGetImageMemoryRequirements(logical, image, &req);
         DeviceMemory mem = allocate(req, flags);
         if (vkBindImageMemory(logical, image, mem, 0) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_BIND_DEVICE_MEMORY);
+            SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
         }
         return mem;
     }
@@ -724,7 +724,7 @@ Device Device::Builder::build() {
         DeviceMemory mem = allocate(req, flags);
         for (uint32_t i = 0; i < imageCount; ++i) {
             if (vkBindImageMemory(logical, pImages[i], mem, offsets[i]) != VK_SUCCESS) {
-                SGF::fatal(SGF_ERROR_BIND_DEVICE_MEMORY);
+                SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
             }
         }
         delete[] offsets;
@@ -759,12 +759,12 @@ Device Device::Builder::build() {
         DeviceMemory mem = allocate(req, flags);
         for (uint32_t i = 0; i < bufferCount; ++i) {
             if (vkBindBufferMemory(logical, pBuffers[i], mem, offsets[i]) != VK_SUCCESS) {
-                SGF::fatal(SGF_ERROR_BIND_DEVICE_MEMORY);
+                SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
             }
         }
         for (uint32_t i = bufferCount; i < imageCount + bufferCount; ++i) {
             if (vkBindImageMemory(logical, pImages[i], mem, offsets[i]) != VK_SUCCESS) {
-                SGF::fatal(SGF_ERROR_BIND_DEVICE_MEMORY);
+                SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
             }
         }
         delete[] offsets;
@@ -783,7 +783,7 @@ Device Device::Builder::build() {
         assert(info.pQueueFamilyIndices != nullptr);
         Image image;
         if (vkCreateImage(logical, &info, SGF::VulkanAllocator, &image.handle) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_CREATE_IMAGE);
+            SGF::fatal(ERROR_CREATE_IMAGE);
         }
         image.arraySize = info.arrayLayers;
         image.width = info.extent.width;
@@ -805,7 +805,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_1D;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.pQueueFamilyIndices = &graphicsFamily;
+        info.pQueueFamilyIndices = &graphicsFamilyIndex;
         info.queueFamilyIndexCount = 1;
         info.samples = samples;
         info.usage = usage;
@@ -824,7 +824,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_2D;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.pQueueFamilyIndices = &graphicsFamily;
+        info.pQueueFamilyIndices = &graphicsFamilyIndex;
         info.queueFamilyIndexCount = 1;
         info.samples = samples;
         info.usage = usage;
@@ -843,7 +843,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_3D;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.pQueueFamilyIndices = &graphicsFamily;
+        info.pQueueFamilyIndices = &graphicsFamilyIndex;
         info.queueFamilyIndexCount = 1;
         info.samples = samples;
         info.usage = usage;
@@ -861,7 +861,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_1D;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.pQueueFamilyIndices = &graphicsFamily;
+        info.pQueueFamilyIndices = &graphicsFamilyIndex;
         info.queueFamilyIndexCount = 1;
         info.samples = samples;
         info.usage = usage;
@@ -879,7 +879,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_2D;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.pQueueFamilyIndices = &graphicsFamily;
+        info.pQueueFamilyIndices = &graphicsFamilyIndex;
         info.queueFamilyIndexCount = 1;
         info.samples = samples;
         info.usage = usage;
@@ -897,7 +897,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_3D;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        info.pQueueFamilyIndices = &graphicsFamily;
+        info.pQueueFamilyIndices = &graphicsFamilyIndex;
         info.queueFamilyIndexCount = 1;
         info.samples = samples;
         info.usage = usage;
@@ -913,7 +913,7 @@ Device Device::Builder::build() {
         ImageView view;
         assert(info.sType == VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
         if (!vkCreateImageView(logical, &info, SGF::VulkanAllocator, &view.handle) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_CREATE_IMAGE_VIEW);
+            SGF::fatal(ERROR_CREATE_IMAGE_VIEW);
         }
         return view;
     }
@@ -964,7 +964,7 @@ Device Device::Builder::build() {
         info.layers = layerCount;
         VkFramebuffer framebuffer;
         if (vkCreateFramebuffer(logical, &info, SGF::VulkanAllocator, &framebuffer) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_CREATE_FRAMEBUFFER);
+            SGF::fatal(ERROR_CREATE_FRAMEBUFFER);
         }
         return framebuffer;
     }
@@ -982,7 +982,7 @@ Device Device::Builder::build() {
         info.pDependencies = pDependencies;
         VkRenderPass renderPass;
         if (!vkCreateRenderPass(logical, &info, SGF::VulkanAllocator, &renderPass) != VK_SUCCESS) {
-            SGF::fatal(SGF_ERROR_CREATE_RENDER_PASS);
+            SGF::fatal(ERROR_CREATE_RENDER_PASS);
         }
         return renderPass;
     }
