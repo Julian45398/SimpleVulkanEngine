@@ -3,98 +3,75 @@
 #include "SGF_Core.hpp"
 
 namespace SGF {
-    class Event {};
-
-    class HandleableEvent : Event {
-    public:
-        HandleableEvent() = default;
-        inline void setHandled() { handled = true; }
-        inline bool isHandled() { return handled; }
-    private:
-        bool handled = false;
-    };
-
-    template<typename T>
-    class EventMessenger {
-    public:
-        static_assert(std::is_base_of<Event, T>::value, "Event must be derived from the base event-class!");
-        EventMessenger() = default;
-        template<typename USER>
-        inline bool subscribeEvent(void(*func)(const T&, USER*), USER* user) {
-            FunctionUserPair obs{ (EventFunction)func, (void*)user };
-            listeners.insert(obs);
-            return true;
-        }
-        template<typename USER>
-        inline bool unsubscribe(void(*func)(const T&, USER*), USER* user) {
-            FunctionUserPair obs{ (EventFunction)func, (void*)user };
-            listeners.erase(obs);
-        }
-        inline void dispatch(const T& event) {
-            for (auto obs : listeners) {
-                obs.func(event, obs.user);
+    namespace EventManager {
+        template<typename EVENT_TYPE>
+        class EventHandler {
+        public:
+            template<typename USER>
+            inline static void addListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+                FunctionUserPair obs{ (EventFunction)func, (void*)user };
+                getListeners().push_back(obs);
             }
-        }
-        inline void clear() {
-            listeners.clear();
-        }
-    private:
-        typedef void (*EventFunction)(const T& evt, void* data);
-        struct FunctionUserPair {
-            EventFunction func;
-            void* user;
-            bool operator<(const FunctionUserPair& other) {
-                if (func == other.func) {
-                    return user < other.user;
+            template<typename USER>
+            inline static bool removeListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+                FunctionUserPair obs{ (EventFunction)func, (void*)user };
+                auto& listeners = getListeners();
+                for (size_t i = 0; i < listeners.size(); ++i) {
+                    if (obs == listeners[i]) {
+                        listeners.erase(listeners.begin() + i);
+                        return true;
+                    }
                 }
-                else {
-                    return func < other.func;
+                return false;
+            }
+            inline static void clearListeners() {
+                auto& listeners = getListeners();
+                listeners.clear();
+                listeners.shrink_to_fit();
+            }
+            inline static void dispatch(const EVENT_TYPE& event) {
+                for (auto& listener : getListeners()) {
+                    listener.func(event, listener.user);
                 }
             }
-            bool operator==(const FunctionUserPair& other) {
-                return func == other.func && user == other.user;
+        private:
+            using EventFunction = void(*)(const EVENT_TYPE&, void*);
+            struct FunctionUserPair {
+                EventFunction func;
+                void* user;
+                inline bool operator<(const FunctionUserPair& other) {
+                    if (func == other.func) {
+                        return user < other.user;
+                    }
+                    else {
+                        return func < other.func;
+                    }
+                }
+                inline bool operator==(const FunctionUserPair& other) {
+                    return func == other.func && user == other.user;
+                }
+            };
+            inline static std::vector<FunctionUserPair>& getListeners() {
+                static std::vector<FunctionUserPair> listeners;
+                return listeners;
             }
         };
-        std::set<FunctionUserPair> listeners;
-    };
-
-    template<typename T>
-    class EventMessengerStack {
-        static_assert(std::is_base_of<Event, T>::value, "Event must be derived from the base event-class!");
-    public:
-        EventMessengerStack() = default;
-        template<typename USER>
-        inline void pushListener(void(*func)(T&, USER*), USER* user) {
-            FunctionUserPair obs{ (EventFunction)func, (void*)user };
-            listeners.push(obs);
+        //==========================================
+        template<typename EVENT_TYPE, typename USER>
+        inline void addListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            EventHandler<EVENT_TYPE>::addListener(func, user);
         }
-        inline void popListener() {
-            listeners.pop();
+        template<typename EVENT_TYPE>
+        inline void dispatch(const EVENT_TYPE& event) {
+            EventHandler<EVENT_TYPE>::dispatch(event);
         }
-        inline void dispatch(T& event) {
-            for (auto obs : listeners) {
-                obs.func(event, obs.user);
-            }
-        }
-        inline void reversDispatch(T& event) {
-            //static_assert(std::is_baseof<Event, T>);
-            for (size_t i = listeners.size() - 1; i >= 0; --i) {
-                listeners[i].func(event, listeners[i].user);
-            }
-        }
+        template<typename EVENT_TYPE>
         inline void clear() {
-            listeners.clear();
-            listeners.shrink_to_fit();
+            EventHandler<EVENT_TYPE>::clearListeners();
         }
-    private:
-        typedef void (*EventFunction)(T& evt, void* data);
-        struct FunctionUserPair {
-            EventFunction func;
-            void* user;
-            bool operator==(const FunctionUserPair& other) {
-                return func == other.func && user == other.user;
-            }
-        };
-        std::stack<FunctionUserPair> listeners;
-    };
+        template<typename EVENT_TYPE, typename USER>
+        inline bool removeListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            return EventHandler<EVENT_TYPE>::removeListener(func, user);
+        }
+    }
 }

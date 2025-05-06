@@ -26,6 +26,7 @@ namespace SGF {
 #include <vector>
 #include <set>
 #include <stack>
+#include <string>
 #include <type_traits>
 
 #include <volk.h>

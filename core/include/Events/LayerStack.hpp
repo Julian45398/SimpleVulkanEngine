@@ -3,33 +3,33 @@
 #include "SGF_Core.hpp"
 #include "Event.hpp"
 #include "WindowEvents.hpp"
-#include <type_traits>
+#include "Layer.hpp"
 
 namespace SGF {
     class LayerStack {
     public:
-        typedef void(*OnAttachFn)(void*);
-        typedef void(*OnDetachFn)(void*);
-        template<typename T>
-        inline void pushOverlay(T& layer) {
-        }
-        inline void popOverlay() {
-        }
-        template<typename T>
-        inline void pushLayer(T& layer) {
-        }
-        template<typename T>
-        inline void popLayer() {
+        static void push(Layer& layer);
+        static void pop();
+        static void pushOverlay(Layer& layer);
+        static void popOverlay();
+        static void insert(Layer& layer, size_t index);
+        static void erase(Layer& layer);
+        static void clear();
 
-        }
+        // Events:
+        static void onEvent(const RenderEvent& event);
+        static void onEvent(const UpdateEvent& event);
+        static void onEvent(const KeyPressedEvent& event);
+        static void onEvent(const KeyReleasedEvent& event);
+        static void onEvent(const KeyRepeatEvent& event);
+        static void onEvent(const KeyTypedEvent& event);
+        static void onEvent(const MousePressedEvent& event);
+        static void onEvent(const MouseReleasedEvent& event);
+        static void onEvent(const MouseMovedEvent& event);
+        static void onEvent(const MouseScrollEvent& event);
     private:
-        EventMessengerStack<KeyPressedEvent> keyPressed;
-        EventMessengerStack<KeyReleasedEvent> keyReleased;
-        EventMessengerStack<KeyRepeatEvent> keyRepeat;
-        EventMessengerStack<KeyTypedEvent> keyTyped;
-        EventMessengerStack<MousePressedEvent> mousePressed;
-        EventMessengerStack<MouseReleasedEvent> mouseRepeat;
-        EventMessengerStack<MouseScrollEvent> mouseScroll;
-        EventMessengerStack<MouseMovedEvent> mouseMove;
+        friend Layer;
+        inline static std::vector<Layer*> layers;
+        static size_t layerCount;
     };
 }

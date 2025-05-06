@@ -4,6 +4,7 @@
 #include "Events/Event.hpp"
 
 namespace SGF {
+	class Event {};
 	class WindowEvent : Event {
 	public:
 		inline WindowEvent(Window& window) : windowHandle(window) {};
@@ -97,39 +98,5 @@ namespace SGF {
 	class KeyRepeatEvent : public KeyEvent {
 	public:
 		inline KeyRepeatEvent(Window& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
-	};
-
-	class WindowEventManager {
-	public:
-		WindowEventManager() = default;
-		template<typename TYPE>
-		inline void subscribe(void(*func)(WindowMinimizeEvent&, TYPE*), TYPE* data) { onMinimize.subscribeEvent(func, data); }
-		template<typename TYPE>
-		inline void subscribe(void(*func)(WindowResizeEvent&, TYPE*), TYPE* data) { onResize.subscribeEvent(func, data); }
-		template<typename TYPE>
-		inline void subscribe(void(*func)(WindowCloseEvent&, TYPE*), TYPE* data) { onClose.subscribeEvent(func, data); }
-
-		template<typename TYPE>
-		inline void unsubscribe(void(*func)(WindowMinimizeEvent&, TYPE*), TYPE* data) { onClose.unsubscribe(func, data); }
-		template<typename TYPE>
-		inline void unsubscribe(void(*func)(WindowResizeEvent&, TYPE*), TYPE* data) { onClose.unsubscribe(func, data); }
-		template<typename TYPE>
-		inline void unsubscribe(void(*func)(WindowCloseEvent&, TYPE*), TYPE* data) { onClose.unsubscribe(func, data); }
-
-		inline void dispatch(const WindowResizeEvent& event) { onResize.dispatch(event); }
-		inline void dispatch(const WindowCloseEvent& event) { onClose.dispatch(event); }
-		inline void dispatch(const WindowMinimizeEvent& event) { onMinimize.dispatch(event); }
-		inline void clear() {
-			onResize.clear();
-			onMinimize.clear();
-			onClose.clear();
-		}
-	private:
-		EventMessenger<WindowResizeEvent> onResize;
-		EventMessenger<WindowCloseEvent> onClose;
-		EventMessenger<WindowMinimizeEvent> onMinimize;
-		EventMessengerStack<KeyPressedEvent> keyPressed;
-		EventMessengerStack<KeyReleasedEvent> keyReleased;
-		EventMessengerStack<KeyRepeatEvent> keyRepeat;
 	};
 }

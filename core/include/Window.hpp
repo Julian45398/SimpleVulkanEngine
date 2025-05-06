@@ -12,7 +12,7 @@ namespace SGF {
         WINDOW_FLAG_MAXIMIZED = BIT(3)
     };
 
-    inline WindowEventManager WindowEvents;
+    //inline WindowEventManager WindowEvents;
 
     class Window {
     public:

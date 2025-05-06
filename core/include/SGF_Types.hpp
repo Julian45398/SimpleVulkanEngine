@@ -10,14 +10,14 @@ namespace SGF {
     class ImageView;
 
     // Events: 
-    class Event;
-    class HandleableEvent;
     class WindowResizeEvent;
     class WindowCloseEvent;
     class WindowMinimizeEvent;
-    class CursorMoveEvent;
+    class MouseMovedEvent;
     class MouseButtonEvent;
     class KeyPressedEvent;
-    class CharTypedEvent;
+    class KeyTypedEvent;
+    class Layer;
+    class LayerStack;
 }
 

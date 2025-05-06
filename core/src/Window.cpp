@@ -3,6 +3,8 @@
 #include "Render/Device.hpp"
 #include <assert.h>
 
+#include "Events/Event.hpp"
+
 namespace SGF {
     extern VkInstance VulkanInstance;
     extern VkAllocationCallbacks* VulkanAllocator;
@@ -67,14 +69,14 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
             Window& win = *(Window*)glfwGetWindowUserPointer(window);
             WindowResizeEvent event(win, width, height);
             onResize(event);
-            WindowEvents.dispatch(event);
+            //WindowEvents.dispatch(event);
 		});
 
 		glfwSetWindowCloseCallback(window, [](GLFWwindow* window)
 		{
 			Window& win = *(Window*)glfwGetWindowUserPointer(window);
 			WindowCloseEvent event(win);
-			WindowEvents.dispatch(event);
+			//WindowEvents.dispatch(event);
             onClose(event);
 		});
 
@@ -86,19 +88,19 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
 			case GLFW_PRESS:
 			{
 				KeyPressedEvent event(win, key, mods);
-				WindowEvents.dispatch(event);
+				//WindowEvents.dispatch(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				KeyReleasedEvent event(win, key, mods);
-				WindowEvents.dispatch(event);
+				//WindowEvents.dispatch(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
 				KeyRepeatEvent event(win, key, mods);
-				WindowEvents.dispatch(event);
+				//WindowEvents.dispatch(event);
 				break;
 			}
 			}
@@ -109,7 +111,7 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
                 Window& win = *(Window*)glfwGetWindowUserPointer(window);
 
                 KeyTypedEvent event(win, codepoint);
-                WindowEvents.dispatch(event);
+                //WindowEvents.dispatch(event);
             });
 
         glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods)
@@ -121,13 +123,13 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
                 case GLFW_PRESS:
                 {
                     MousePressedEvent event(win, button);
-                    WindowEvents.dispatch(event);
+                    //WindowEvents.dispatch(event);
                     break;
                 }
                 case GLFW_RELEASE:
                 {
                     MouseReleasedEvent event(win, button);
-                    WindowEvents.dispatch(event);
+                    //WindowEvents.dispatch(event);
                     break;
                 }
                 }
@@ -138,14 +140,14 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
                 Window& win = *(Window*)glfwGetWindowUserPointer(window);
 
                 MouseScrollEvent event(win, xOffset, yOffset);
-                LayerStack.dispatch(event);
+                //LayerStack.dispatch(event);
             });
         glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xPos, double yPos)
             {
                 Window& win = *(Window*)glfwGetWindowUserPointer(window);
 
                 MouseMovedEvent event(win, xPos, yPos);
-                LayerStack.dispatch(event);
+                //LayerStack.dispatch(event);
             });
     }
     void Window::close() {
@@ -258,6 +260,12 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
         //createRenderPass();
         createSwapchain();
         //createResources();
+    }
+
+    void Window::unbindDevice() {
+        assert(pDevice != nullptr);
+        destroySwapchain();
+        pDevice = nullptr;
     }
 
     void Window::onUpdate() {
