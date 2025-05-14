@@ -25,9 +25,12 @@ namespace SGF {
 	public:
 		inline WindowCloseEvent(Window& window) : WindowEvent(window) {}
 	};
-	class WindowMinimizeEvent : WindowEvent {
+	class WindowMinimizeEvent : public WindowEvent {
 	public:
-		inline WindowMinimizeEvent(Window& window) : WindowEvent(window) {}
+		inline WindowMinimizeEvent(Window& window, bool wasMinimized) : WindowEvent(window) {}
+		inline bool wasMinimized() { return minimized; }
+	private:
+		bool minimized;
 	};
 
 	class InputEvent : public WindowEvent {

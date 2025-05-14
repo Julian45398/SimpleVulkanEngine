@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SGF_Core.hpp"
-#include "WindowEvents.hpp"
+#include "Events/Inputevents.hpp"
 
 namespace SGF {
     class RenderEvent {

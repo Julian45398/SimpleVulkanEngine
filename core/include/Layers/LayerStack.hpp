@@ -1,9 +1,9 @@
 #pragma once
 
 #include "SGF_Core.hpp"
-#include "Event.hpp"
-#include "WindowEvents.hpp"
-#include "Layer.hpp"
+#include "Events/Event.hpp"
+#include "Events/InputEvents.hpp"
+#include "Layers/Layer.hpp"
 
 namespace SGF {
     class LayerStack {

@@ -138,11 +138,11 @@ namespace SGF {
     }
 
     void init() {
-        glfwInit();
-        initVulkan();
 #ifdef SGF_LOG_FILE
 		_LogFile.open(SGF_LOG_FILE);
 #endif
+        glfwInit();
+        initVulkan();
     }
     void terminate() {
         glfwTerminate();

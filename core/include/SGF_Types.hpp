@@ -1,7 +1,10 @@
 #pragma once
 
+#include <stdint.h>
 
 namespace SGF {
+    typedef uint32_t Flags;
+    inline constexpr Flags FLAG_NONE = 0;
     class Window;
     class Device;
     class DeviceMemory;
@@ -17,6 +20,8 @@ namespace SGF {
     class MouseButtonEvent;
     class KeyPressedEvent;
     class KeyTypedEvent;
+    class DeviceDestroyEvent;
+    // Layer:
     class Layer;
     class LayerStack;
 }

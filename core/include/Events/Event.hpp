@@ -30,8 +30,10 @@ namespace SGF {
                 listeners.shrink_to_fit();
             }
             inline static void dispatch(const EVENT_TYPE& event) {
-                for (auto& listener : getListeners()) {
-                    listener.func(event, listener.user);
+                auto& listeners = getListeners();
+                for (size_t i = listeners.size(); i > 0; --i) {
+                    SGF::debug("dispatching event: index ", i);
+                    listeners[i-1].func(event, listeners[i-1].user);
                 }
             }
         private:
@@ -55,11 +57,19 @@ namespace SGF {
                 static std::vector<FunctionUserPair> listeners;
                 return listeners;
             }
+            inline static size_t& getRemovalCount() {
+                static size_t removalCount;
+                return removalCount;
+            }
         };
         //==========================================
         template<typename EVENT_TYPE, typename USER>
         inline void addListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
             EventHandler<EVENT_TYPE>::addListener(func, user);
+        }
+        template<typename EVENT_TYPE, typename USER>
+        inline bool removeListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            return EventHandler<EVENT_TYPE>::removeListener(func, user);
         }
         template<typename EVENT_TYPE>
         inline void dispatch(const EVENT_TYPE& event) {
@@ -69,9 +79,6 @@ namespace SGF {
         inline void clear() {
             EventHandler<EVENT_TYPE>::clearListeners();
         }
-        template<typename EVENT_TYPE, typename USER>
-        inline bool removeListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
-            return EventHandler<EVENT_TYPE>::removeListener(func, user);
-        }
+        
     }
 }

@@ -8,14 +8,8 @@
 #ifndef SGF_RENDER_PASS_MAX_SUBPASSES
 #define SGF_RENDER_PASS_MAX_SUBPASSES 4
 #endif
-#ifndef SGF_PIPELINE_MAX_DYNAMIC_STATES 
-#define SGF_PIPELINE_MAX_DYNAMIC_STATES 32
-#endif
-#ifndef SGF_PIPELINE_MAX_PIPELINE_STAGES 
-#define SGF_PIPELINE_MAX_PIPELINE_STAGES 4
-#endif
-
 #include "Image.hpp"
+#include "GraphicsPipeline.hpp"
 
 namespace SGF {
     enum DeviceFeature {
@@ -77,8 +71,12 @@ namespace SGF {
         DEVICE_FEATURE_MAX_ENUM
     };
 
-
-    #include "Image.hpp"
+    enum QueueFamilyFlags {
+        QUEUE_FAMILY_GRAPHICS = BIT(0),
+        QUEUE_FAMILY_COMPUTE = BIT(1),
+        QUEUE_FAMILY_TRANSFER = BIT(2),
+        QUEUE_FAMILY_PRESENT = BIT(3)
+    };
 
     class Device {
     public:
@@ -151,89 +149,59 @@ namespace SGF {
         Device(Device&& other) noexcept;
         Device(const Device& other) = delete;
         Device(Device& other) = delete;
-        inline bool isFeatureEnabled(DeviceFeature feature) { return ((enabledFeatures >> (uint32_t)feature) & 1); }
-        void waitIdle();
-        void waitFence(VkFence fence);
-        void waitFences(const VkFence* pFences, uint32_t count);
+        inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
+        void waitIdle() const;
+        void waitFence(VkFence fence) const;
+        void waitFences(const VkFence* pFences, uint32_t count) const;
 
-        const char* getName();
-        bool isCreated();
+        const char* getName() const;
+        bool isCreated() const;
         void destroy();
         void create(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
             const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
             uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
     public:
-        class GraphicsPipelineBuilder {
-        public:
-            VkPipeline build();
-            inline GraphicsPipelineBuilder& layout(VkPipelineLayout layout) { info.layout = layout; return *this; }
-            inline GraphicsPipelineBuilder& layout(VkRenderPass renderPass, uint32_t subpass = 0) { info.renderPass = renderPass; info.subpass = subpass; return *this; }
-            GraphicsPipelineBuilder& geometryShader(const char* filename);
-            GraphicsPipelineBuilder& fragmentShader(const char* filename);
-            GraphicsPipelineBuilder& vertexShader(const char* filename);
-            inline GraphicsPipelineBuilder& vertexInput(const VkPipelineVertexInputStateCreateInfo& inputState) { info.pVertexInputState = &inputState; return *this; }
-            inline GraphicsPipelineBuilder& polygonMode(VkPolygonMode mode) { rasterizationState.polygonMode = mode; return *this; }
-            inline GraphicsPipelineBuilder& topology(VkPrimitiveTopology topology) { inputAssemblyState.topology = topology; return *this; }
-            inline GraphicsPipelineBuilder& depth(bool test, bool write, VkCompareOp op = VK_COMPARE_OP_LESS) {depthStencilState.depthWriteEnable = (VkBool32)write; depthStencilState.depthTestEnable = (VkBool32)test; depthStencilState.depthCompareOp = op; return*this; }
-            inline GraphicsPipelineBuilder& dynamicState(VkDynamicState state) {dynamicStates[dynamicStateInfo.dynamicStateCount] = state; dynamicStateInfo.dynamicStateCount++; return *this; }
-            ~GraphicsPipelineBuilder();
-        private:
-            GraphicsPipelineBuilder(Device* device);
-            friend Device;
-            VkGraphicsPipelineCreateInfo info;
-            VkPipelineShaderStageCreateInfo pipelineStages[SGF_PIPELINE_MAX_PIPELINE_STAGES];
-            //VkPipelineVertexInputStateCreateInfo vertexInputState;
-            VkPipelineInputAssemblyStateCreateInfo inputAssemblyState;
-            VkPipelineTessellationStateCreateInfo tessellationState;
-            VkPipelineViewportStateCreateInfo viewportState;
-            VkPipelineRasterizationStateCreateInfo rasterizationState;
-            VkPipelineMultisampleStateCreateInfo multisampleState;
-            VkPipelineDepthStencilStateCreateInfo depthStencilState;
-            VkPipelineColorBlendStateCreateInfo colorBlendState;
-            VkPipelineDynamicStateCreateInfo dynamicStateInfo;
-            VkPipelineColorBlendAttachmentState colorBlendAttachmentState;
-            VkViewport viewport;
-            VkRect2D scissor;
-            VkDynamicState dynamicStates[SGF_PIPELINE_MAX_DYNAMIC_STATES];
-            Device* device;
-        };
+        
         
         class RenderPassBuilder {
         public:
             inline VkRenderPass build() {return pDevice->renderPass(info);}
         private:
             VkRenderPassCreateInfo info;
-            VkSubpassDescription subpasses[8];
+            VkSubpassDescription subpasses[SGF_RENDER_PASS_MAX_SUBPASSES];
             Device* pDevice;
         };
-        friend GraphicsPipelineBuilder;
+        friend GraphicsPipeline::Builder;
         // builder functions:
-        inline GraphicsPipelineBuilder graphicsPipeline() { return GraphicsPipelineBuilder(this); };
+        inline GraphicsPipeline::Builder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) { return GraphicsPipeline::Builder(this, layout, renderPass, subpass); };
+
         inline Image::Builder image(uint32_t length) { return Image::Builder(*this, length); }
         inline Image::Builder image(uint32_t width, uint32_t height) { return Image::Builder(*this, width, height); }
         inline Image::Builder image(uint32_t width, uint32_t height, uint32_t depth) { return Image::Builder(*this, width, height, depth); }
         inline ImageView::Builder imageView(const Image& image) { return ImageView::Builder(*this, image); }
         // Queue functions:
-        inline uint32_t graphicsFamily() { return graphicsFamilyIndex; }
-        inline uint32_t computeFamily() { return computeFamilyIndex; }
-        inline uint32_t transferFamily() { return transferFamilyIndex; }
-        inline uint32_t presentFamily() { return presentFamilyIndex; }
+        inline uint32_t graphicsFamily() const { return graphicsFamilyIndex; }
+        inline uint32_t computeFamily() const { return computeFamilyIndex; }
+        inline uint32_t transferFamily() const { return transferFamilyIndex; }
+        inline uint32_t presentFamily() const { return presentFamilyIndex; }
 
-        VkQueue graphicsQueue(uint32_t index);
-        VkQueue computeQueue(uint32_t index);
-        VkQueue transferQueue(uint32_t index);
+        inline uint32_t graphicsQueueCount() const { return graphicsCount; }
+        inline uint32_t computeQueueCount() const { return computeCount; }
+        inline uint32_t transferQueueCount() const { return transferCount; }
+        inline uint32_t presentQueueCount() const { return presentCount; }
 
-        VkFence fence();
-        VkFence fenceSignaled();
-        VkSemaphore semaphore();
+        VkQueue graphicsQueue(uint32_t index) const;
+        VkQueue computeQueue(uint32_t index) const;
+        VkQueue transferQueue(uint32_t index) const;
+        VkQueue presentQueue() const;
 
-        /*
-        inline void onWindowMinimize(WindowResizeEvent& event) {
-            SGF::info("on window minimize from device: ", name);
-        }*/
-
-        Buffer buffer(VkDeviceSize size, VkBufferUsageFlags usage);
-        Image image(const VkImageCreateInfo& info);
+        VkFence fence() const;
+        VkFence fenceSignaled() const;
+        VkSemaphore semaphore() const;
+        Buffer buffer(const VkBufferCreateInfo& info) const;
+        Buffer buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = 0) const;
+        Buffer buffer(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags flags, VkBufferCreateFlags createFlags = 0) const;
+        Image image(const VkImageCreateInfo& info) const;
         /**
          * @brief creates an 1D-image for use with the graphics queue-family
          * 
@@ -241,34 +209,42 @@ namespace SGF {
          * 
          * @return 1D-image
          */
-        Image image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0);
-        Image image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0);
-        Image image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0);
-        Image imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0);
-        Image imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0);
-        Image imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0);
-        ImageView imageView(const VkImageViewCreateInfo& info);
-        ImageView imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0);
-        ImageView imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0);
-        ImageView imageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0);
-        ImageView imageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0);
-        ImageView imageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1);
-        ImageView imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1);
-        ImageView imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1);
+        Image image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
+        Image image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
+        Image image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
+        Image imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
+        Image imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
+        Image imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
 
-        DeviceMemory allocate(const VkMemoryAllocateInfo& info);
+        Image image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        
+        ImageView imageView(const VkImageViewCreateInfo& info) const;
+        ImageView imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        ImageView imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        ImageView imageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        ImageView imageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        ImageView imageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
+        ImageView imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
+        ImageView imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
+
+        DeviceMemory allocate(const VkMemoryAllocateInfo& info) const;
         /**
          * @brief allocates device-memory for the given requirements.
          * 
          * @return allocated memory with the required memory-size
          */
-        DeviceMemory allocate(const VkMemoryRequirements& memReq, VkMemoryPropertyFlags flags);
+        DeviceMemory allocate(const VkMemoryRequirements& memReq, VkMemoryPropertyFlags flags) const;
         /**
          * @brief allocates device-memory for the given buffer and binds the buffer to it.
          * 
          * @return allocated memory with the required memory-size for the buffer
          */
-        DeviceMemory allocate(VkBuffer buffer, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        DeviceMemory allocate(VkBuffer buffer, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
         /**
          * @brief allocates device-memory for all given buffers and binds them to it.
          * 
@@ -276,13 +252,13 @@ namespace SGF {
          * 
          * @return allocated memory with the required memory-size for all buffers.
          */
-        DeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        DeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
         /**
          * @brief allocates device-memory for the given image and binds them.
          * 
          * @return allocated memory with required size for the image.
          */
-        DeviceMemory allocate(VkImage image, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        DeviceMemory allocate(VkImage image, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
         /**
          * @brief allocates device-memory for all given images and binds them to it.
          * 
@@ -290,7 +266,7 @@ namespace SGF {
          * 
          * @return allocated memory with the required memory-size for all images.
          */
-        DeviceMemory allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        DeviceMemory allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
         /**
          * @brief allocates device-memory for all given buffers and images and binds them to it.
          * 
@@ -299,44 +275,49 @@ namespace SGF {
          * 
          * @return allocated memory with the required memory-size for all buffers and images.
          */
-        DeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        DeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
 
-        VkSwapchainKHR swapchain(const VkSwapchainCreateInfoKHR& info);
+        VkShaderModule shaderModule(const char* filename) const;
+        VkShaderModule shaderModule(const VkShaderModuleCreateInfo& info) const;
+        VkPipelineLayout pipelineLayout(const VkPipelineLayoutCreateInfo& info) const;
+        VkPipelineLayout pipelineLayout(uint32_t descriptorLayoutCount, const VkDescriptorSetLayout* pLayouts, uint32_t pushConstantCount = 0, const VkPushConstantRange* pPushConstantRanges = nullptr) const;
+        VkPipeline pipeline(const VkGraphicsPipelineCreateInfo& info) const;
+        VkPipeline pipeline(const VkComputePipelineCreateInfo& info) const;
+        VkSwapchainKHR swapchain(const VkSwapchainCreateInfoKHR& info) const;
 
-        VkFramebuffer framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount);
+        VkFramebuffer framebuffer(const VkFramebufferCreateInfo& info) const;
+        VkFramebuffer framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const;
 
-        VkRenderPass renderPass(const VkRenderPassCreateInfo& info);
-        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependenfyCount);
-        //VkSwapchainKHR swapchain(const Window window, VkPresentModeKHR presentMode);
+        VkRenderPass renderPass(const VkRenderPassCreateInfo& info) const;
+        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependenfyCount) const;
         /**
          * @brief gets the first supported format for the requested feature and tiling from supplied candidates.
          * 
          * @return first supported candidate or VK_FORMAT_MAX_ENUM when none are supported.
          */
-        VkFormat getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
+        VkFormat getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL) const;
     private:
-        uint32_t findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags);
-        void destroyType(VkFence fence);
-        void destroyType(VkSemaphore semaphore);
-        void destroyType(VkBuffer buffer);
-        void destroyType(VkImage image);
-        void destroyType(VkImageView imageView);
-        void destroyType(VkFramebuffer framebuffer);
-        void destroyType(VkRenderPass renderPass);
-        void destroyType(VkPipeline pipeline);
-        void destroyType(VkPipelineLayout pipelineLayout);
-        void destroyType(VkDescriptorSetLayout descriptorSetLayout);
-        void destroyType(VkDescriptorSet descriptorSet);
-        void destroyType(VkDescriptorPool descriptorPool);
-        void destroyType(VkDeviceMemory memory);
-        void destroyType(VkCommandPool commandPool);
-        void destroyType(VkSampler sampler);
+        uint32_t findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const;
     public:
-        template<typename T>
-        inline void destroy(T type) { destroyType(type); }
+        void destroy(VkFence fence) const;
+        void destroy(VkSemaphore semaphore) const;
+        void destroy(VkBuffer buffer) const;
+        void destroy(VkImage image) const;
+        void destroy(VkImageView imageView) const;
+        void destroy(VkFramebuffer framebuffer) const;
+        void destroy(VkRenderPass renderPass) const;
+        void destroy(VkPipeline pipeline) const;
+        void destroy(VkPipelineLayout pipelineLayout) const;
+        void destroy(VkDescriptorSetLayout descriptorSetLayout) const;
+        void destroy(VkDescriptorPool descriptorPool) const;
+        void destroy(VkDeviceMemory memory) const;
+        void destroy(VkCommandPool commandPool) const;
+        void destroy(VkSampler sampler) const;
+        void destroy(VkSwapchainKHR swapchain) const;
+        inline void destroy() const {}
         template<typename T, typename ...Args>
-        inline void destroy(T type, Args... args) {
-            destroyType(type);
+        inline void destroy(T type, Args... args) const {
+            destroy(type);
             destroy(args...);
         }
     private:
@@ -359,8 +340,14 @@ namespace SGF {
         uint32_t computeCount = 0;
         uint64_t enabledFeatures = 0;
         char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};
-        static DeviceDescructionCallback destroyFunc;
-        static DeviceCreationCallback createFunc;
+    };
+
+    class DeviceDestroyEvent {
+    public:
+        inline DeviceDestroyEvent(Device* dev) : device(dev) {}
+        inline Device* getDevice() const { return device; }
+    private:
+        Device* device;
     };
     inline constexpr uint32_t DeviceSize = sizeof(Device);
     inline constexpr uint32_t DeviceBuilderSize = sizeof(Device::Builder);

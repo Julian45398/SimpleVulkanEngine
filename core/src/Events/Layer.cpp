@@ -1,5 +1,5 @@
-#include "Events/Layer.hpp"
-#include "Events/LayerStack.hpp"
+#include "Layers/Layer.hpp"
+#include "Layers/LayerStack.hpp"
 
 
 namespace SGF {
