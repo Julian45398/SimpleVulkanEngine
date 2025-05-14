@@ -5,11 +5,10 @@
 #ifndef SGF_MAX_DEVICE_EXTENSION_COUNT
 #define SGF_MAX_DEVICE_EXTENSION_COUNT 32
 #endif
-#ifndef SGF_RENDER_PASS_MAX_SUBPASSES
-#define SGF_RENDER_PASS_MAX_SUBPASSES 4
-#endif
+
 #include "Image.hpp"
 #include "GraphicsPipeline.hpp"
+#include "RenderPass.hpp"
 
 namespace SGF {
     enum DeviceFeature {
@@ -162,15 +161,7 @@ namespace SGF {
             uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
     public:
         
-        
-        class RenderPassBuilder {
-        public:
-            inline VkRenderPass build() {return pDevice->renderPass(info);}
-        private:
-            VkRenderPassCreateInfo info;
-            VkSubpassDescription subpasses[SGF_RENDER_PASS_MAX_SUBPASSES];
-            Device* pDevice;
-        };
+        friend RenderPass::Builder;
         friend GraphicsPipeline::Builder;
         // builder functions:
         inline GraphicsPipeline::Builder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) { return GraphicsPipeline::Builder(this, layout, renderPass, subpass); };
