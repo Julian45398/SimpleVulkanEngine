@@ -50,12 +50,12 @@ namespace SGF {
             inline Builder& next(const void* pNext) { info.pNext = pNext; return *this; }
         private:
             friend Device;
-            Builder(Device& device, uint32_t length);
-            Builder(Device& device, uint32_t width, uint32_t height);
-            Builder(Device& device, uint32_t width, uint32_t height, uint32_t depth);
+            Builder(const Device* device, uint32_t length);
+            Builder(const Device* device, uint32_t width, uint32_t height);
+            Builder(const Device* device, uint32_t width, uint32_t height, uint32_t depth);
             VkImageCreateInfo info = {};
             uint32_t indices[4] = {UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX};
-            Device* pDevice;
+            const Device* pDevice;
         };
     };
     class ImageView {
@@ -91,11 +91,11 @@ namespace SGF {
             inline Builder& view1DArray(uint32_t baseLayer = 0, uint32_t arraySize = 1) { info.viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;info.subresourceRange.baseArrayLayer = baseLayer; info.subresourceRange.layerCount = arraySize; return *this; }
             inline Builder& view2DArray(uint32_t baseLayer = 0, uint32_t arraySize = 1) { info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;info.subresourceRange.baseArrayLayer = baseLayer; info.subresourceRange.layerCount = arraySize; return *this; }
             inline Builder& viewCubeArray(uint32_t baseLayer = 0, uint32_t arraySize = 1) { info.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;info.subresourceRange.baseArrayLayer = baseLayer; info.subresourceRange.layerCount = arraySize; return *this; }
-            Builder(Device& device, const Image& image, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
+            Builder(const Device* device, const Image& image, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
         private:
             friend Device;
             VkImageViewCreateInfo info;
-            Device* pDevice;
+            const Device* pDevice;
         };
     };
     class Buffer {

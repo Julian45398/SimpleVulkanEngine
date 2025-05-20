@@ -31,7 +31,7 @@ namespace SGF {
         info.queueFamilyIndexCount++; 
         return *this; 
     }
-    Image::Builder::Builder(Device& device, uint32_t length) : pDevice(&device) {
+    Image::Builder::Builder(const Device* device, uint32_t length) : pDevice(device) {
         info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         info.format = VK_FORMAT_R8G8B8A8_SRGB;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -44,7 +44,7 @@ namespace SGF {
         info.pNext = nullptr;
         info.flags = 0; 
     }
-    Image::Builder::Builder(Device& device, uint32_t width, uint32_t height) : pDevice(&device) {
+    Image::Builder::Builder(const Device* device, uint32_t width, uint32_t height) : pDevice(device) {
         info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         info.format = VK_FORMAT_R8G8B8A8_SRGB;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -57,7 +57,7 @@ namespace SGF {
         info.pNext = nullptr;
         info.flags = 0; 
     }
-    Image::Builder::Builder(Device& device, uint32_t width, uint32_t height, uint32_t depth) : pDevice(&device) {
+    Image::Builder::Builder(const Device* device, uint32_t width, uint32_t height, uint32_t depth) : pDevice(device) {
         info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         info.format = VK_FORMAT_R8G8B8A8_SRGB;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -74,8 +74,7 @@ namespace SGF {
     ImageView ImageView::Builder::build() { 
         return pDevice->imageView(info); 
     }
-    ImageView::Builder::Builder(Device& device, const Image& image, VkImageViewType viewType) {
-        pDevice = &device;
+    ImageView::Builder::Builder(const Device* device, const Image& image, VkImageViewType viewType) : pDevice(device) {
         info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         info.image = image.handle;
         info.pNext = nullptr;

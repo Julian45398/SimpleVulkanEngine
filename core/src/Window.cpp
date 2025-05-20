@@ -30,24 +30,7 @@ namespace SGF {
 
 constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
 
-    VkSurfaceFormatKHR pickSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat) {
-        uint32_t format_count;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &format_count, nullptr);
-        std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
-        if (format_count != 0) {
-            vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &format_count, surface_formats.data());
-        }
-        else {
-            SGF::fatal(ERROR_DEVICE_NO_SURFACE_SUPPORT);
-        }
-        for (const auto& available_format : surface_formats) {
-            if (available_format.format == surfaceFormat.format && available_format.colorSpace == surfaceFormat.colorSpace)
-            {
-                return available_format;
-            }
-        }
-        return surface_formats[0];
-    }
+    
 
 #pragma endregion SWAPCHAIN_HELPER_FUNCTIONS
 
@@ -55,7 +38,8 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
         Window& win = event.getWindow();
         win.width = event.getWidth();
         win.height = event.getHeight();
-        win.createSwapchain();
+        //win.createSwapchain();
+        //win.createResources();
     }
     void Window::open(const char* name, uint32_t newWidth, uint32_t newHeight, WindowCreateFlags flags) {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -86,7 +70,7 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
             SGF::fatal(ERROR_CREATE_SURFACE);
         }
         // Set GLFW callbacks
-        glfwSetWindowSizeCallback((GLFWwindow*)window, [](GLFWwindow* window, int width, int height) {
+        glfwSetFramebufferSizeCallback((GLFWwindow*)window, [](GLFWwindow* window, int width, int height) {
             Window& win = *(Window*)glfwGetWindowUserPointer(window);
             if (width == 0 || height == 0) {
                 SGF::info("window is minimized!");
@@ -195,14 +179,10 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
             });
     }
     void Window::close() {
-        if (pDevice != nullptr) {
-            pDevice->destroy(swapchain);
-        }
         vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
         glfwDestroyWindow((GLFWwindow*)window);
         window = nullptr;
         surface = nullptr;
-        pDevice = nullptr;
     }
     Window::Window(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags) {
         open(name, width, height, flags);
@@ -215,142 +195,17 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
         return glfwGetWindowTitle((GLFWwindow*)window);
     }
 
-    
-    void Window::createSwapchain() {
-        SGF::debug("creating swapchain");
-        assert(pDevice != nullptr);
-        assert(pDevice->presentCount != 0);
-        VkSwapchainCreateInfoKHR info{};
-        info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        VkSurfaceCapabilitiesKHR capabilities;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pDevice->physical, surface, &capabilities);
-        imageCount = capabilities.minImageCount + 1;
-        if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
-            imageCount = capabilities.maxImageCount;
-        }
-        width = std::min(capabilities.maxImageExtent.width, std::max(width, capabilities.minImageExtent.width));
-        height = std::min(capabilities.maxImageExtent.height, std::max(height, capabilities.minImageExtent.height));
-        info.oldSwapchain = swapchain;
-        info.surface = surface;
-        info.minImageCount = imageCount;
-        info.imageFormat = surfaceFormat.format;
-        info.imageColorSpace = surfaceFormat.colorSpace;
-        info.imageExtent = { width, height };
-        info.imageArrayLayers = 1;
-        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        if (pDevice->presentFamilyIndex != pDevice->graphicsFamilyIndex) {
-            uint32_t queueFamilyIndices[] = { pDevice->graphicsFamilyIndex, pDevice->presentFamilyIndex };
-            info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            info.queueFamilyIndexCount = 2;
-            info.pQueueFamilyIndices = queueFamilyIndices;
-        }
-        else {
-            info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        }
-        info.preTransform = capabilities.currentTransform;
-        info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        info.presentMode = presentMode;
-        info.clipped = VK_TRUE;
-
-        if (vkCreateSwapchainKHR(pDevice->logical, &info, SGF::VulkanAllocator, &swapchain) != VK_SUCCESS) {
-            SGF::fatal(ERROR_CREATE_SWAPCHAIN);
-        }
-    }
-    void Window::onDeviceDestroy(const DeviceDestroyEvent& event, Window* window) {
-        assert(window != nullptr);
-        assert(window->pDevice != nullptr);
-        if (event.getDevice() == window->pDevice) {
-            window->unbindDevice();
-        }
-    }
-    void Window::bindDevice(Device& device) {
-        SGF::info("device bound to window: ");
-        if (pDevice != nullptr) {
-            unbindDevice();
-        }
-        //WindowEvents.subscribe(Device::onWindowMinimize, &device);
-        //Device* pDevice = &device;
-        pDevice = &device;
-        assert(swapchain == VK_NULL_HANDLE);
-        surfaceFormat = pickSurfaceFormat(pDevice->physical, surface, { VK_FORMAT_B8G8R8A8_SRGB, VK_COLORSPACE_SRGB_NONLINEAR_KHR });
-
-        //depthFormat = pDevice->getSupportedFormat(POSSIBLE_DEPTH_FORMATS, ARRAY_SIZE(POSSIBLE_DEPTH_FORMATS), VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_TILING_OPTIMAL);
-
-        //createRenderPass();
-        createSwapchain();
-        EventManager::addListener(onDeviceDestroy, this);
-        //createResources();
-    }
-
-    void Window::unbindDevice() {
-        assert(pDevice != nullptr);
-        pDevice->destroy(swapchain);
-        pDevice = nullptr;
-        EventManager::removeListener(onDeviceDestroy, this);
-    }
-
-    void Window::onUpdate() {
-        glfwPollEvents();
-    }
-    void Window::nextImage(VkSemaphore signalSemaphore, VkFence fence) {
-        if (vkAcquireNextImageKHR(pDevice->logical, swapchain, 2000000000, signalSemaphore, fence, &imageIndex) != VK_SUCCESS) {
-            fatal(ERROR_ACQUIRE_NEXT_IMAGE);
-        }
-    }
-    void Window::presentImage(VkSemaphore waitSemaphore, VkFence fence) const {
-        VkPresentInfoKHR info;
-        info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        info.pNext = nullptr;
-        info.pImageIndices = &imageIndex;
-        info.swapchainCount = 1;
-        info.pSwapchains = &swapchain;
-        info.waitSemaphoreCount = 1;
-        info.pWaitSemaphores = &waitSemaphore;
-        if (vkQueuePresentKHR(presentQueue, &info) != VK_SUCCESS) {
-            fatal(ERROR_PRESENT_IMAGE);
-        }
-    }
     bool Window::isFullscreen() const {
         return glfwGetWindowMonitor((GLFWwindow*)window) != nullptr;
     }
     bool Window::isMinimized() {
         return (width == 0 && height == 0);
     }
-    void Window::enableVsync() {
-        if (presentMode != VK_PRESENT_MODE_FIFO_KHR) {
-            presentMode = VK_PRESENT_MODE_FIFO_KHR;
-            createSwapchain();
-        }
-    }
-    void Window::disableVsync() {
-        // find present modes: 
-        if (presentMode == VK_PRESENT_MODE_FIFO_KHR) {
-			uint32_t presentCount;
-			vkGetPhysicalDeviceSurfacePresentModesKHR(pDevice->physical, surface, &presentCount, nullptr);
-			if (presentCount != 0 && presentMode != VK_PRESENT_MODE_MAILBOX_KHR) {
-				std::vector<VkPresentModeKHR> available(presentCount);
-				vkGetPhysicalDeviceSurfacePresentModesKHR(pDevice->physical, surface, &presentCount, available.data());
-				for (const auto& mode : available) {
-					if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-						presentMode = mode;
-						createSwapchain();
-						break;
-					}
-				}
-			}
-        }
-    }
     void Window::setFullscreen() {
         if (glfwGetWindowMonitor((GLFWwindow*)window) != nullptr) {
             GLFWmonitor* monitor = glfwGetPrimaryMonitor();
             const auto mode = glfwGetVideoMode(monitor);
             glfwSetWindowMonitor((GLFWwindow*)window, monitor, 0, 0, mode->width, mode->height, GLFW_DONT_CARE);
-        }
-    }
-    void Window::setFullscreenKeepResolution() {
-        if (glfwGetWindowMonitor((GLFWwindow*)window) != nullptr) {
-            GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-            glfwSetWindowMonitor((GLFWwindow*)window, monitor, 0, 0, width, height, GLFW_DONT_CARE);
         }
     }
     void Window::setWindowed(uint32_t newWidth, uint32_t newHeight) {
@@ -382,6 +237,9 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
         glm::dvec2 pos;
         glfwGetCursorPos((GLFWwindow*)window, &pos.x, &pos.y);
         return pos;
+    }
+    void Window::onUpdate() {
+        glfwPollEvents();
     }
 
     std::string Window::openFileDialog(const FileFilter& filter) const {

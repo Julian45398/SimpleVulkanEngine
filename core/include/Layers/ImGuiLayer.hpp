@@ -5,6 +5,5 @@
 
 namespace SGF {
 	class ImGuiLayer : public Layer {
-
 	};
 }

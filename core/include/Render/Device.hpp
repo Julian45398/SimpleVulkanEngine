@@ -9,6 +9,8 @@
 #include "Image.hpp"
 #include "GraphicsPipeline.hpp"
 #include "RenderPass.hpp"
+#include "Swapchain.hpp"
+//#include "Display.hpp"
 
 namespace SGF {
     enum DeviceFeature {
@@ -80,44 +82,9 @@ namespace SGF {
     class Device {
     public:
         static uint32_t getSupportedDeviceCount(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures, Window* windowSupport, uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-    public:
-        class Builder {
-        public:
-            Builder();
-            Device build();
-            inline Builder& requireExtension(const char* deviceExtension) { deviceExtensions[deviceExtensionCount] = deviceExtension; ++deviceExtensionCount; return *this; }
-            inline Builder& requireFeature(DeviceFeature feature) { VkBool32* feat = (VkBool32*)&features; feat[(uint32_t)feature] = VK_TRUE; return *this; }
-            inline Builder& optionalFeature(DeviceFeature feature) { VkBool32* feat = (VkBool32*)&optional; feat[(uint32_t)feature] = VK_TRUE; return *this; }
-            inline Builder& graphicQueues(uint32_t count) { graphicsQueueCount = count; return *this; }
-            inline Builder& transferQueues(uint32_t count) { transferQueueCount = count; return *this; }
-            inline Builder& computeQueues(uint32_t count) { computeQueueCount = count; return *this; }
-            inline Builder& bindWindow(Window* window) { pWindow = window; requireExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME); return *this; }
-            inline Builder& requireImageSize1D(uint32_t size) { limits.maxImageDimension1D = size; return *this; }
-            inline Builder& requireImageSize2D(uint32_t size) { limits.maxImageDimension2D = size; return *this; }
-            inline Builder& requireImageSize3D(uint32_t size) { limits.maxImageDimension3D = size; return *this; }
-            inline Builder& requireImageSizeCube(uint32_t size) { limits.maxImageDimensionCube = size; return *this; }
-            inline Builder& requireImageArraySize(uint32_t size) { limits.maxImageArrayLayers = size; return *this; }
-            inline Builder& requireUniformBufferSize(uint32_t size) { limits.maxUniformBufferRange = size; return *this; }
-            inline Builder& requireStorageBufferSize(uint32_t size) { limits.maxStorageBufferRange = size; return *this; }
-            inline Builder& requirePushConstantSize(uint32_t size) { limits.maxPushConstantsSize = size; return *this; }
-            inline Builder& requireMemoryAllocationCount(uint32_t count) { limits.maxMemoryAllocationCount = count; return *this; }
-            inline Builder& requireSampleAllocationCount(uint32_t count) { limits.maxSamplerAllocationCount = count; return *this; }
-            inline Builder& requireBoundDescriptorSets(uint32_t count) { limits.maxBoundDescriptorSets = count; return *this; }
-        private:
-            const char* deviceExtensions[SGF_MAX_DEVICE_EXTENSION_COUNT] = {};
-            VkPhysicalDeviceLimits* pLimits = nullptr;
-            VkPhysicalDeviceLimits limits = {};
-            VkPhysicalDeviceFeatures* pFeatures = nullptr; 
-            VkPhysicalDeviceFeatures features = {};
-            VkPhysicalDeviceFeatures* pOptional = nullptr;
-            VkPhysicalDeviceFeatures optional = {};
-            uint32_t graphicsQueueCount = 0;
-            uint32_t transferQueueCount = 0;
-            uint32_t computeQueueCount = 0;
-            uint32_t deviceExtensionCount = 0;
-            Window* pWindow;
-        };
-
+        inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
+    private:
+        class Builder;
         /**
          * @brief Creates the device at the specified device index returned by vkEnumeratePhysicalDevices if it matches the requirements
          * 
@@ -132,44 +99,25 @@ namespace SGF {
          * @param computeQueueCount - the number of device queues with compute support - ideally from a unused queue index
          * @param window - window to bind device to 
          */
-        Device(uint32_t deviceIndex, uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* pRequiredFeatures,
-            const VkPhysicalDeviceFeatures* pOptionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-
-        Device(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* pRequiredFeatures,
-            const VkPhysicalDeviceFeatures* pOptionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount = 1, uint32_t computeQueueCount = 0, uint32_t transferQueueCount = 0);
-        
         typedef void (*DeviceDescructionCallback)(Device& device);
         typedef void (*DeviceCreationCallback)(Device& device);
         void setDestructionCallback(DeviceDescructionCallback func);
-        inline ~Device() { destroy(); }
-
-        Device(Device&& other) noexcept;
-        Device(const Device& other) = delete;
-        Device(Device& other) = delete;
-        inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
+    public:
+        inline ~Device() { shutdown(); }
         void waitIdle() const;
         void waitFence(VkFence fence) const;
         void waitFences(const VkFence* pFences, uint32_t count) const;
 
         const char* getName() const;
         bool isCreated() const;
-        void destroy();
-        void create(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
     public:
-        
-        friend RenderPass::Builder;
-        friend GraphicsPipeline::Builder;
         // builder functions:
-        inline GraphicsPipeline::Builder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) { return GraphicsPipeline::Builder(this, layout, renderPass, subpass); };
+        inline GraphicsPipeline::Builder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) const { return GraphicsPipeline::Builder(this, layout, renderPass, subpass); };
 
-        inline Image::Builder image(uint32_t length) { return Image::Builder(*this, length); }
-        inline Image::Builder image(uint32_t width, uint32_t height) { return Image::Builder(*this, width, height); }
-        inline Image::Builder image(uint32_t width, uint32_t height, uint32_t depth) { return Image::Builder(*this, width, height, depth); }
-        inline ImageView::Builder imageView(const Image& image) { return ImageView::Builder(*this, image); }
+        inline Image::Builder image(uint32_t length) const { return Image::Builder(this, length); }
+        inline Image::Builder image(uint32_t width, uint32_t height) const { return Image::Builder(this, width, height); }
+        inline Image::Builder image(uint32_t width, uint32_t height, uint32_t depth) const { return Image::Builder(this, width, height, depth); }
+        inline ImageView::Builder imageView(const Image& image) const { return ImageView::Builder(this, image); }
         // Queue functions:
         inline uint32_t graphicsFamily() const { return graphicsFamilyIndex; }
         inline uint32_t computeFamily() const { return computeFamilyIndex; }
@@ -207,13 +155,13 @@ namespace SGF {
         Image imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
         Image imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, VkImageCreateFlags flags = 0) const;
 
-        Image image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        Image image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        Image image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        Image imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        Image imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        Image imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        
+        Image image1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image image2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image image3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        Image imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+
         ImageView imageView(const VkImageViewCreateInfo& info) const;
         ImageView imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
         ImageView imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
@@ -276,48 +224,84 @@ namespace SGF {
         VkPipeline pipeline(const VkComputePipelineCreateInfo& info) const;
         VkSwapchainKHR swapchain(const VkSwapchainCreateInfoKHR& info) const;
 
+        inline Swapchain swapchain(const Window& window, VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR,
+            const VkAttachmentDescription* pAttachments = nullptr, uint32_t attachmentCount = 0, const VkSubpassDescription* pSubpasses = nullptr, uint32_t subpassCount = 0) const {
+            SGF::debug("creating swapchain!");
+            return Swapchain(*this, window, presentMode, pAttachments, attachmentCount, pSubpasses, subpassCount);
+        }
+
         VkFramebuffer framebuffer(const VkFramebufferCreateInfo& info) const;
         VkFramebuffer framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const;
 
         VkRenderPass renderPass(const VkRenderPassCreateInfo& info) const;
-        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependenfyCount) const;
+        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies = nullptr, uint32_t dependencyCount = 0) const;
+
+        VkCommandPool commandPool(const VkCommandPoolCreateInfo& info) const;
+        VkCommandPool commandPool(uint32_t queueIndex, VkCommandPoolCreateFlags flags = FLAG_NONE) const;
+        VkCommandBuffer commandBuffer(VkCommandPool pool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const;
+        void commandBuffers(const VkCommandBufferAllocateInfo& info, VkCommandBuffer* pBuffers) const;
+        void commandBuffers(VkCommandPool pool, VkCommandBufferLevel level, uint32_t allocationCount, VkCommandBuffer* pBuffers) const;
         /**
          * @brief gets the first supported format for the requested feature and tiling from supplied candidates.
          * 
          * @return first supported candidate or VK_FORMAT_MAX_ENUM when none are supported.
          */
         VkFormat getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL) const;
+        VkFormat getSwapchainFormat(VkSurfaceKHR surface) const;
+        VkSurfaceFormatKHR pickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR preference) const;
+        VkPresentModeKHR pickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const;
     private:
         uint32_t findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const;
+        inline void destroyType() const {}
     public:
-        void destroy(VkFence fence) const;
-        void destroy(VkSemaphore semaphore) const;
-        void destroy(VkBuffer buffer) const;
-        void destroy(VkImage image) const;
-        void destroy(VkImageView imageView) const;
-        void destroy(VkFramebuffer framebuffer) const;
-        void destroy(VkRenderPass renderPass) const;
-        void destroy(VkPipeline pipeline) const;
-        void destroy(VkPipelineLayout pipelineLayout) const;
-        void destroy(VkDescriptorSetLayout descriptorSetLayout) const;
-        void destroy(VkDescriptorPool descriptorPool) const;
-        void destroy(VkDeviceMemory memory) const;
-        void destroy(VkCommandPool commandPool) const;
-        void destroy(VkSampler sampler) const;
-        void destroy(VkSwapchainKHR swapchain) const;
-        inline void destroy() const {}
+        void shutdown();
+        void destroyType(VkFence fence) const;
+        void destroyType(VkSemaphore semaphore) const;
+        void destroyType(VkBuffer buffer) const;
+        void destroyType(VkImage image) const;
+        void destroyType(VkImageView imageView) const;
+        void destroyType(VkFramebuffer framebuffer) const;
+        void destroyType(VkRenderPass renderPass) const;
+        void destroyType(VkPipeline pipeline) const;
+        void destroyType(VkPipelineLayout pipelineLayout) const;
+        void destroyType(VkDescriptorSetLayout descriptorSetLayout) const;
+        void destroyType(VkDescriptorPool descriptorPool) const;
+        void destroyType(VkDeviceMemory memory) const;
+        void destroyType(VkCommandPool commandPool) const;
+        void destroyType(VkSampler sampler) const;
+        void destroyType(VkSwapchainKHR swapchain) const;
+        void destroyType(VkShaderModule shaderModule) const;
+        template<typename T>
+        inline void destroy(T type) const {
+            destroyType(type);
+        }
         template<typename T, typename ...Args>
         inline void destroy(T type, Args... args) const {
-            destroy(type);
+            destroyType(type);
             destroy(args...);
         }
     private:
+        inline Device() {};
+        Device(Device&& other) noexcept;
+        Device(const Device& other) = delete;
+        Device(Device& other) = delete;
+        Device(uint32_t deviceIndex, uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* pRequiredFeatures,
+            const VkPhysicalDeviceFeatures* pOptionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
+            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
+        Device(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* pRequiredFeatures,
+            const VkPhysicalDeviceFeatures* pOptionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
+            uint32_t graphicsQueueCount = 1, uint32_t computeQueueCount = 0, uint32_t transferQueueCount = 0);
+        void createNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
+            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
+        inline Builder createNew() { return Builder(); }
         void getQueueCreateInfos(VkPhysicalDevice device, VkSurfaceKHR surface, uint32_t* pIndexCount, VkDeviceQueueCreateInfo* pQueueCreateInfos, float* pQueuePriorityBuffer);
         void pickPhysicalDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
             const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface);
         void createLogicalDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
             const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface);
         friend Window;
+        friend Swapchain;
         friend Builder;
         VkDevice logical = VK_NULL_HANDLE;
         VkPhysicalDevice physical = VK_NULL_HANDLE;
@@ -331,15 +315,62 @@ namespace SGF {
         uint32_t computeCount = 0;
         uint64_t enabledFeatures = 0;
         char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};
+        class Builder {
+        public:
+            Builder();
+            void build();
+            inline Builder& requireExtension(const char* deviceExtension) { deviceExtensions[deviceExtensionCount] = deviceExtension; ++deviceExtensionCount; return *this; }
+            inline Builder& requireFeature(DeviceFeature feature) { VkBool32* feat = (VkBool32*)&features; feat[(uint32_t)feature] = VK_TRUE; return *this; }
+            inline Builder& optionalFeature(DeviceFeature feature) { VkBool32* feat = (VkBool32*)&optional; feat[(uint32_t)feature] = VK_TRUE; return *this; }
+            inline Builder& graphicQueues(uint32_t count) { graphicsQueueCount = count; return *this; }
+            inline Builder& transferQueues(uint32_t count) { transferQueueCount = count; return *this; }
+            inline Builder& computeQueues(uint32_t count) { computeQueueCount = count; return *this; }
+            inline Builder& forWindow(Window& window) { pWindow = &window; requireExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME); return *this; }
+            inline Builder& requireImageSize1D(uint32_t size) { limits.maxImageDimension1D = size; return *this; }
+            inline Builder& requireImageSize2D(uint32_t size) { limits.maxImageDimension2D = size; return *this; }
+            inline Builder& requireImageSize3D(uint32_t size) { limits.maxImageDimension3D = size; return *this; }
+            inline Builder& requireImageSizeCube(uint32_t size) { limits.maxImageDimensionCube = size; return *this; }
+            inline Builder& requireImageArraySize(uint32_t size) { limits.maxImageArrayLayers = size; return *this; }
+            inline Builder& requireUniformBufferSize(uint32_t size) { limits.maxUniformBufferRange = size; return *this; }
+            inline Builder& requireStorageBufferSize(uint32_t size) { limits.maxStorageBufferRange = size; return *this; }
+            inline Builder& requirePushConstantSize(uint32_t size) { limits.maxPushConstantsSize = size; return *this; }
+            inline Builder& requireMemoryAllocationCount(uint32_t count) { limits.maxMemoryAllocationCount = count; return *this; }
+            inline Builder& requireSampleAllocationCount(uint32_t count) { limits.maxSamplerAllocationCount = count; return *this; }
+            inline Builder& requireBoundDescriptorSets(uint32_t count) { limits.maxBoundDescriptorSets = count; return *this; }
+        private:
+            const char* deviceExtensions[SGF_MAX_DEVICE_EXTENSION_COUNT] = {};
+            VkPhysicalDeviceLimits* pLimits = nullptr;
+            VkPhysicalDeviceLimits limits = {};
+            VkPhysicalDeviceFeatures* pFeatures = nullptr; 
+            VkPhysicalDeviceFeatures features = {};
+            VkPhysicalDeviceFeatures* pOptional = nullptr;
+            VkPhysicalDeviceFeatures optional = {};
+            uint32_t graphicsQueueCount = 0;
+            uint32_t transferQueueCount = 0;
+            uint32_t computeQueueCount = 0;
+            uint32_t deviceExtensionCount = 0;
+            Window* pWindow = nullptr;
+        };
+        friend const Device& getDevice();
+        friend void shutdownDevice();
+        friend Builder pickDevice();
+        friend void pickDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
+            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
+        static Device Instance;
     };
+    const Device& getDevice();
+    void shutdownDevice();
+    void pickDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+        const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
+        uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
 
     class DeviceDestroyEvent {
     public:
-        inline DeviceDestroyEvent(Device* dev) : device(dev) {}
-        inline Device* getDevice() const { return device; }
+        inline DeviceDestroyEvent(const Device& d) : device(d) {}
+        inline const Device& getDevice() const { return device; }
     private:
-        Device* device;
+        const Device& device;
     };
-    inline constexpr uint32_t DeviceSize = sizeof(Device);
-    inline constexpr uint32_t DeviceBuilderSize = sizeof(Device::Builder);
+    Device::Builder pickDevice();
 }

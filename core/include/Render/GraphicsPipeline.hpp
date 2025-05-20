@@ -14,9 +14,11 @@ namespace SGF {
 	class GraphicsPipeline {
 	public:
         inline static const VkPipelineVertexInputStateCreateInfo VERTEX_INPUT_NONE = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO, nullptr, FLAG_NONE, 0, nullptr, 0, nullptr };
+        inline operator VkPipeline() { return handle; }
+        inline VkPipeline getHandle() { return handle; }
         class Builder {
         public:
-            VkPipeline build();
+            GraphicsPipeline build();
             inline Builder& layout(VkPipelineLayout layout) { info.layout = layout; return *this; }
             inline Builder& layout(VkRenderPass renderPass, uint32_t subpass = 0) { info.renderPass = renderPass; info.subpass = subpass; return *this; }
             Builder& geometryShader(const char* filename);
@@ -55,6 +57,8 @@ namespace SGF {
             const Device* pDevice;
         };
 	private:
+        inline GraphicsPipeline(VkPipeline pipeline) : handle(pipeline) {}
+        friend Device;
 		VkPipeline handle;
 	};
 }

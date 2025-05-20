@@ -15,6 +15,69 @@ namespace SGF {
     extern VkDebugUtilsMessengerEXT VulkanMessenger;
     extern VkDebugUtilsMessengerEXT createDebugUtilsMessengerEXT(const VkInstance instance, PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
 #endif
+#ifdef SGF_LOG_VULKAN_DEVICE_OBJECTS
+    int32_t _TRACK_RENDER_PASS = 0;
+#define TRACK_RENDER_PASS(COUNT) do { _TRACK_RENDER_PASS += COUNT;if (COUNT < 0) {SGF::debug("Destroying Renderpasses: ", _TRACK_RENDER_PASS);} else{SGF::debug("creating Renderpasses: ", _TRACK_RENDER_PASS);} } while(0)
+    int32_t _TRACK_FENCE = 0;
+#define TRACK_FENCE(COUNT) do{_TRACK_FENCE += COUNT; if (COUNT < 0){SGF::debug("destroying fences: ", _TRACK_FENCE);}else{SGF::debug("creating fences: ", _TRACK_FENCE);}  }while(0)
+    int32_t _TRACK_SEMAPHORE = 0;
+#define TRACK_SEMAPHORE(COUNT) do{ _TRACK_SEMAPHORE += COUNT;if(COUNT<0){SGF::debug("destroying semaphore: ", _TRACK_SEMAPHORE);}else{SGF::debug("creating semaphore: ", _TRACK_SEMAPHORE);} }while(0)
+    int32_t _TRACK_BUFFER = 0;
+#define TRACK_BUFFER(COUNT) do{ _TRACK_BUFFER += COUNT;if(COUNT<0){SGF::debug("destroying buffer: ", _TRACK_BUFFER);}else{SGF::debug("creating buffer: ", _TRACK_BUFFER);} }while(0)
+    int32_t _TRACK_IMAGE = 0;
+#define TRACK_IMAGE(COUNT) do{ _TRACK_IMAGE += COUNT;if(COUNT<0){SGF::debug("destroying image: ", _TRACK_IMAGE);}else{SGF::debug("creating image: ", _TRACK_IMAGE);} }while(0)
+    int32_t _TRACK_IMAGE_VIEW = 0;
+#define TRACK_IMAGE_VIEW(COUNT) do{ _TRACK_IMAGE_VIEW += COUNT;if(COUNT<0){SGF::debug("destroying image view: ", _TRACK_IMAGE_VIEW);}else{SGF::debug("creating image view: ", _TRACK_IMAGE_VIEW);} }while(0)
+    int32_t _TRACK_DEVICE_MEMORY = 0;
+#define TRACK_DEVICE_MEMORY(COUNT) do{ _TRACK_DEVICE_MEMORY += COUNT;if(COUNT<0){SGF::debug("destroying device memory: ", _TRACK_DEVICE_MEMORY);}else{SGF::debug("creating device memory: ", _TRACK_DEVICE_MEMORY);} }while(0)
+    int32_t _TRACK_COMMAND_POOL = 0;
+#define TRACK_COMMAND_POOL(COUNT) do{ _TRACK_COMMAND_POOL += COUNT;if(COUNT<0){SGF::debug("destroying command pool: ", _TRACK_COMMAND_POOL);}else{SGF::debug("creating command pool: ", _TRACK_COMMAND_POOL);} }while(0)
+    int32_t _TRACK_DESCRIPTOR_POOL = 0;
+#define TRACK_DESCRIPTOR_POOL(COUNT) do{ _TRACK_DESCRIPTOR_POOL += COUNT;if(COUNT<0){SGF::debug("destroying descriptor pool: ", _TRACK_DESCRIPTOR_POOL);}else{SGF::debug("creating descriptor pool: ", _TRACK_DESCRIPTOR_POOL);} }while(0)
+    int32_t _TRACK_DESCRIPTOR_SET_LAYOUT = 0;
+#define TRACK_DESCRIPTOR_SET_LAYOUT(COUNT) do{ _TRACK_DESCRIPTOR_SET_LAYOUT += COUNT;if(COUNT<0){SGF::debug("destroying descriptor set layout: ", _TRACK_DESCRIPTOR_SET_LAYOUT);}else{SGF::debug("creating descriptor set layout: ", _TRACK_DESCRIPTOR_SET_LAYOUT);} }while(0)
+    int32_t _TRACK_PIPELINE_LAYOUT = 0;
+#define TRACK_PIPELINE_LAYOUT(COUNT) do{ _TRACK_PIPELINE_LAYOUT += COUNT;if(COUNT<0){SGF::debug("destroying pipeline layout: ", _TRACK_PIPELINE_LAYOUT);}else{SGF::debug("creating pipeline layout: ", _TRACK_PIPELINE_LAYOUT);} }while(0)
+    int32_t _TRACK_PIPELINE = 0;
+#define TRACK_PIPELINE(COUNT) do{ _TRACK_PIPELINE += COUNT;if(COUNT<0){SGF::debug("destroying pipeline: ", _TRACK_PIPELINE);}else{SGF::debug("creating pipeline: ", _TRACK_PIPELINE);} }while(0)
+    int32_t _TRACK_FRAMEBUFFER = 0;
+#define TRACK_FRAMEBUFFER(COUNT) do{ _TRACK_FRAMEBUFFER += COUNT;if(COUNT<0){SGF::debug("destroying framebuffer: ", _TRACK_FRAMEBUFFER);}else{SGF::debug("creating framebuffer: ", _TRACK_FRAMEBUFFER);} }while(0)
+    int32_t _TRACK_SWAPCHAIN = 0;
+#define TRACK_SWAPCHAIN(COUNT) do{ _TRACK_SWAPCHAIN += COUNT;if(COUNT<0){SGF::debug("destroying swapchain: ", _TRACK_SWAPCHAIN);}else{SGF::debug("creating swapchain: ", _TRACK_SWAPCHAIN);} }while(0)
+    int32_t _TRACK_SAMPLER = 0;
+#define TRACK_SAMPLER(COUNT) do{ _TRACK_SAMPLER += COUNT;if(COUNT<0){SGF::debug("destroying sampler: ", _TRACK_SAMPLER);}else{SGF::debug("creating sampler: ", _TRACK_SAMPLER);} }while(0)
+    int32_t _TRACK_SHADER_MODULE = 0;
+#define TRACK_SHADER_MODULE(COUNT) do{ _TRACK_SHADER_MODULE += COUNT;if(COUNT<0){SGF::debug("destroying shader module: ", _TRACK_SHADER_MODULE);}else{SGF::debug("creating shader module: ", _TRACK_SHADER_MODULE);} }while(0)
+#else
+#define TRACK_RENDER_PASS(COUNT)
+#define TRACK_FENCE(COUNT)
+#define TRACK_SEMAPHORE(COUNT)
+#define TRACK_BUFFER(COUNT)
+#define TRACK_IMAGE(COUNT)
+#define TRACK_IMAGE_VIEW(COUNT)
+#define TRACK_DEVICE_MEMORY(COUNT)
+#define TRACK_COMMAND_POOL(COUNT)
+#define TRACK_DESCRIPTOR_POOL(COUNT)
+#define TRACK_DESCRIPTOR_SET_LAYOUT(COUNT)
+#define TRACK_PIPELINE_LAYOUT(COUNT)
+#define TRACK_PIPELINE(COUNT)
+#define TRACK_FRAMEBUFFER(COUNT)
+#define TRACK_SWAPCHAIN(COUNT)
+#define TRACK_SAMPLER(COUNT)
+#define TRACK_SHADER_MODULE(COUNT)
+#
+#endif
+    Device Device::Instance;
+
+    const Device& getDevice() { return Device::Instance; }
+    void shutdownDevice() { Device::Instance.shutdown(); }
+
+    Device::Builder pickDevice() { return Device::Builder(); }
+    void pickDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+        const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
+        uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount)
+    { Device::Instance.createNew(extensionCount, pExtensions, requiredFeatures, optionalFeatures, minLimits, window, graphicsQueueCount, computeQueueCount, transferQueueCount); }
+
 
 #pragma region HELPER_FUNCTIONS
     void createDefaultBufferInfo(VkBufferCreateInfo* pInfo, VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) {
@@ -497,32 +560,55 @@ namespace SGF {
         }
         createLogicalDevice(extensionCount, pExtensions, requiredFeatures,
                 optionalFeatures, minLimits, surface);
-        // bind window
-        Device& d = (*this);
-        if (window != nullptr) {
-            (*window).bindDevice(d);
-        }
     }
     Device::Device(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t g, uint32_t c, uint32_t t)
-        : graphicsCount(g), computeCount(c), transferCount(t), presentCount((window == nullptr ? 0 : 1)) {
+            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, uint32_t g, uint32_t c, uint32_t t) {
+        createNew(extensionCount, pExtensions, requiredFeatures, optionalFeatures, minLimits, window, g, c, t);
+    }
+    void Device::createNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, uint32_t g, uint32_t c, uint32_t t) {
+        shutdown();
+        graphicsCount = g;
+        computeCount = c;
+        transferCount = t;
+        presentCount = (window == nullptr ? 0 : 1);
         VkSurfaceKHR surface = (window != nullptr ? window->surface : VK_NULL_HANDLE);
         pickPhysicalDevice(extensionCount, pExtensions, requiredFeatures,
             optionalFeatures, minLimits, surface);
         createLogicalDevice(extensionCount, pExtensions, requiredFeatures,
                 optionalFeatures, minLimits, surface);
         // bind window
-        Device& d = (*this);
-        if (window != nullptr) {
-            (*window).bindDevice(d);
-        }
+        //Device& d = (*this);
+        //if (window != nullptr) {
+            //(*window).bindDevice(d);
+        //}
     }
-    void Device::destroy() {
+    void Device::shutdown() {
+        SGF::debug("device shutdown requested...");
+        TRACK_RENDER_PASS(0);
+        TRACK_FENCE(0);
+        TRACK_SEMAPHORE(0);
+		TRACK_BUFFER(0);
+        TRACK_IMAGE(0);
+        TRACK_IMAGE_VIEW(0);
+        TRACK_DEVICE_MEMORY(0);
+        TRACK_COMMAND_POOL(0);
+        TRACK_DESCRIPTOR_POOL(0);
+        TRACK_DESCRIPTOR_SET_LAYOUT(0);
+        TRACK_PIPELINE_LAYOUT(0);
+        TRACK_PIPELINE(0);
+        TRACK_FRAMEBUFFER(0);
+        TRACK_SWAPCHAIN(0);
+        TRACK_SAMPLER(0);
+        TRACK_SHADER_MODULE(0);
+
         if (physical != VK_NULL_HANDLE) {
-            DeviceDestroyEvent event(this);
-            EventManager::dispatch(event);
             SGF::debug("destroying device...");
+            waitIdle();
+            {
+				DeviceDestroyEvent event(*this);
+				EventManager::dispatch(event);
+            }
             vkDestroyDevice(logical, SGF::VulkanAllocator);
             logical = VK_NULL_HANDLE;
             physical = VK_NULL_HANDLE;
@@ -564,129 +650,146 @@ namespace SGF {
 
 #pragma region DEVICE_BUILDER
 
-constexpr VkPhysicalDeviceLimits defaultDeviceLimits {
-    0U,     //uint32_t              maxImageDimension1D;
-    0U,     //uint32_t              maxImageDimension2D;
-    0U,     //uint32_t              maxImageDimension3D;
-    0U,     //uint32_t              maxImageDimensionCube;
-    0U,     //uint32_t              maxImageArrayLayers;
-    0U,     //uint32_t              maxTexelBufferElements;
-    0U,     //uint32_t              maxUniformBufferRange;
-    0U,     //uint32_t              maxStorageBufferRange;
-    0U,     //uint32_t              maxPushConstantsSize;
-    0U,     //uint32_t              maxMemoryAllocationCount;
-    0U,     //uint32_t              maxSamplerAllocationCount;
-    0U,     //VkDeviceSize          bufferImageGranularity;
-    0U,     //VkDeviceSize          sparseAddressSpaceSize;
-    0U,     //uint32_t              maxBoundDescriptorSets;
-    0U,     //uint32_t              maxPerStageDescriptorSamplers;
-    0U,     //uint32_t              maxPerStageDescriptorUniformBuffers;
-    0U,     //uint32_t              maxPerStageDescriptorStorageBuffers;
-    0U,     //uint32_t              maxPerStageDescriptorSampledImages;
-    0U,     //uint32_t              maxPerStageDescriptorStorageImages;
-    0U,     //uint32_t              maxPerStageDescriptorInputAttachments;
-    0U,     //uint32_t              maxPerStageResources;
-    0U,     //uint32_t              maxDescriptorSetSamplers;
-    0U,     //uint32_t              maxDescriptorSetUniformBuffers;
-    0U,     //uint32_t              maxDescriptorSetUniformBuffersDynamic;
-    0U,     //uint32_t              maxDescriptorSetStorageBuffers;
-    0U,     //uint32_t              maxDescriptorSetStorageBuffersDynamic;
-    0U,     //uint32_t              maxDescriptorSetSampledImages;
-    0U,     //uint32_t              maxDescriptorSetStorageImages;
-    0U,     //uint32_t              maxDescriptorSetInputAttachments;
-    0U,     //uint32_t              maxVertexInputAttributes;
-    0U,     //uint32_t              maxVertexInputBindings;
-    0U,     //uint32_t              maxVertexInputAttributeOffset;
-    0U,     //uint32_t              maxVertexInputBindingStride;
-    0U,     //uint32_t              maxVertexOutputComponents;
-    0U,     //uint32_t              maxTessellationGenerationLevel;
-    0U,     //uint32_t              maxTessellationPatchSize;
-    0U,     //uint32_t              maxTessellationControlPerVertexInputComponents;
-    0U,     //uint32_t              maxTessellationControlPerVertexOutputComponents;
-    0U,     //uint32_t              maxTessellationControlPerPatchOutputComponents;
-    0U,     //uint32_t              maxTessellationControlTotalOutputComponents;
-    0U,     //uint32_t              maxTessellationEvaluationInputComponents;
-    0U,     //uint32_t              maxTessellationEvaluationOutputComponents;
-    0U,     //uint32_t              maxGeometryShaderInvocations;
-    0U,     //uint32_t              maxGeometryInputComponents;
-    0U,     //uint32_t              maxGeometryOutputComponents;
-    0U,     //uint32_t              maxGeometryOutputVertices;
-    0U,     //uint32_t              maxGeometryTotalOutputComponents;
-    0U,     //uint32_t              maxFragmentInputComponents;
-    0U,     //uint32_t              maxFragmentOutputAttachments;
-    0U,     //uint32_t              maxFragmentDualSrcAttachments;
-    0U,     //uint32_t              maxFragmentCombinedOutputResources;
-    0U,     //uint32_t              maxComputeSharedMemorySize;
-    {},     //uint32_t              maxComputeWorkGroupCount[3];
-    0U,     //uint32_t              maxComputeWorkGroupInvocations;
-    {},     //uint32_t              maxComputeWorkGroupSize[3];
-    0U,     //uint32_t              subPixelPrecisionBits;
-    0U,     //uint32_t              subTexelPrecisionBits;
-    0U,     //uint32_t              mipmapPrecisionBits;
-    0U,     //uint32_t              maxDrawIndexedIndexValue;
-    0U,     //uint32_t              maxDrawIndirectCount;
-    0.f,    //float                 maxSamplerLodBias;
-    0.f,    //float                 maxSamplerAnisotropy;
-    0U,     //uint32_t              maxViewports;
-    {0, 0},     //uint32_t              maxViewportDimensions[2];
-    {std::numeric_limits<float>::infinity(), 
-    -std::numeric_limits<float>::infinity()},     //float viewportBoundsRange[2];
-    0U,     //uint32_t              viewportSubPixelBits;
-    0U,     //size_t                minMemoryMapAlignment;
-    0U,     //VkDeviceSize          minTexelBufferOffsetAlignment;
-    0U,     //VkDeviceSize          minUniformBufferOffsetAlignment;
-    0U,     //VkDeviceSize          minStorageBufferOffsetAlignment;
-    INT32_MAX,     //int32_t               minTexelOffset;
-    0U,     //uint32_t              maxTexelOffset;
-    INT32_MAX,     //int32_t               minTexelGatherOffset;
-    0U,     //uint32_t              maxTexelGatherOffset;
-    std::numeric_limits<float>::infinity(),     //float                 minInterpolationOffset;
-    -std::numeric_limits<float>::infinity(),     //float                 maxInterpolationOffset;
-    UINT32_MAX,     //uint32_t              subPixelInterpolationOffsetBits;
-    0U,     //uint32_t              maxFramebufferWidth;
-    0U,     //uint32_t              maxFramebufferHeight;
-    0U,     //uint32_t              maxFramebufferLayers;
-    0U,     //VkSampleCountFlagBits    framebufferColorSampleCounts;
-    0U,     //VkSampleCountFlagBits    framebufferDepthSampleCounts;
-    0U,     //VkSampleCountFlagBits    framebufferStencilSampleCounts;
-    0U,     //VkSampleCountFlagBits    framebufferNoAttachmentsSampleCounts;
-    0U,     //uint32_t              maxColorAttachments;
-    0U,     //VkSampleCountFlagBits    sampledImageColorSampleCounts;
-    0U,     //VkSampleCountFlagBits    sampledImageIntegerSampleCounts;
-    0U,     //VkSampleCountFlagBits    sampledImageDepthSampleCounts;
-    0U,     //VkSampleCountFlagBits    sampledImageStencilSampleCounts;
-    0U,     //VkSampleCountFlagBits    storageImageSampleCounts;
-    0U,     //uint32_t              maxSampleMaskWords;
-    VK_FALSE,     //VkBool32              timestampComputeAndGraphics;
-    0.f,     //float                 timestampPeriod;
-    0U,     //uint32_t              maxClipDistances;
-    0U,     //uint32_t              maxCullDistances;
-    0U,     //uint32_t              maxCombinedClipAndCullDistances;
-    0U,     //uint32_t              discreteQueuePriorities;
-    {std::numeric_limits<float>::infinity(), 
-    -std::numeric_limits<float>::infinity()},     //float                 pointSizeRange[2];
-    {std::numeric_limits<float>::infinity(), 
-    -std::numeric_limits<float>::infinity()},     //float                 lineWidthRange[2];
-    std::numeric_limits<float>::infinity(),     //float                 pointSizeGranularity;
-    std::numeric_limits<float>::infinity(),     //float                 lineWidthGranularity;
-    VK_FALSE,     //VkBool32              strictLines;
-    VK_FALSE,     //VkBool32              standardSampleLocations;
-    0U,     //VkDeviceSize          optimalBufferCopyOffsetAlignment;
-    0U,     //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
-    0U     //VkDeviceSize          nonCoherentAtomSize;
-};
+	constexpr VkPhysicalDeviceLimits defaultDeviceLimits {
+		0U,     //uint32_t              maxImageDimension1D;
+		0U,     //uint32_t              maxImageDimension2D;
+		0U,     //uint32_t              maxImageDimension3D;
+		0U,     //uint32_t              maxImageDimensionCube;
+		0U,     //uint32_t              maxImageArrayLayers;
+		0U,     //uint32_t              maxTexelBufferElements;
+		0U,     //uint32_t              maxUniformBufferRange;
+		0U,     //uint32_t              maxStorageBufferRange;
+		0U,     //uint32_t              maxPushConstantsSize;
+		0U,     //uint32_t              maxMemoryAllocationCount;
+		0U,     //uint32_t              maxSamplerAllocationCount;
+		0U,     //VkDeviceSize          bufferImageGranularity;
+		0U,     //VkDeviceSize          sparseAddressSpaceSize;
+		0U,     //uint32_t              maxBoundDescriptorSets;
+		0U,     //uint32_t              maxPerStageDescriptorSamplers;
+		0U,     //uint32_t              maxPerStageDescriptorUniformBuffers;
+		0U,     //uint32_t              maxPerStageDescriptorStorageBuffers;
+		0U,     //uint32_t              maxPerStageDescriptorSampledImages;
+		0U,     //uint32_t              maxPerStageDescriptorStorageImages;
+		0U,     //uint32_t              maxPerStageDescriptorInputAttachments;
+		0U,     //uint32_t              maxPerStageResources;
+		0U,     //uint32_t              maxDescriptorSetSamplers;
+		0U,     //uint32_t              maxDescriptorSetUniformBuffers;
+		0U,     //uint32_t              maxDescriptorSetUniformBuffersDynamic;
+		0U,     //uint32_t              maxDescriptorSetStorageBuffers;
+		0U,     //uint32_t              maxDescriptorSetStorageBuffersDynamic;
+		0U,     //uint32_t              maxDescriptorSetSampledImages;
+		0U,     //uint32_t              maxDescriptorSetStorageImages;
+		0U,     //uint32_t              maxDescriptorSetInputAttachments;
+		0U,     //uint32_t              maxVertexInputAttributes;
+		0U,     //uint32_t              maxVertexInputBindings;
+		0U,     //uint32_t              maxVertexInputAttributeOffset;
+		0U,     //uint32_t              maxVertexInputBindingStride;
+		0U,     //uint32_t              maxVertexOutputComponents;
+		0U,     //uint32_t              maxTessellationGenerationLevel;
+		0U,     //uint32_t              maxTessellationPatchSize;
+		0U,     //uint32_t              maxTessellationControlPerVertexInputComponents;
+		0U,     //uint32_t              maxTessellationControlPerVertexOutputComponents;
+		0U,     //uint32_t              maxTessellationControlPerPatchOutputComponents;
+		0U,     //uint32_t              maxTessellationControlTotalOutputComponents;
+		0U,     //uint32_t              maxTessellationEvaluationInputComponents;
+		0U,     //uint32_t              maxTessellationEvaluationOutputComponents;
+		0U,     //uint32_t              maxGeometryShaderInvocations;
+		0U,     //uint32_t              maxGeometryInputComponents;
+		0U,     //uint32_t              maxGeometryOutputComponents;
+		0U,     //uint32_t              maxGeometryOutputVertices;
+		0U,     //uint32_t              maxGeometryTotalOutputComponents;
+		0U,     //uint32_t              maxFragmentInputComponents;
+		0U,     //uint32_t              maxFragmentOutputAttachments;
+		0U,     //uint32_t              maxFragmentDualSrcAttachments;
+		0U,     //uint32_t              maxFragmentCombinedOutputResources;
+		0U,     //uint32_t              maxComputeSharedMemorySize;
+		{},     //uint32_t              maxComputeWorkGroupCount[3];
+		0U,     //uint32_t              maxComputeWorkGroupInvocations;
+		{},     //uint32_t              maxComputeWorkGroupSize[3];
+		0U,     //uint32_t              subPixelPrecisionBits;
+		0U,     //uint32_t              subTexelPrecisionBits;
+		0U,     //uint32_t              mipmapPrecisionBits;
+		0U,     //uint32_t              maxDrawIndexedIndexValue;
+		0U,     //uint32_t              maxDrawIndirectCount;
+		0.f,    //float                 maxSamplerLodBias;
+		0.f,    //float                 maxSamplerAnisotropy;
+		0U,     //uint32_t              maxViewports;
+		{0, 0},     //uint32_t              maxViewportDimensions[2];
+		{std::numeric_limits<float>::infinity(), 
+		-std::numeric_limits<float>::infinity()},     //float viewportBoundsRange[2];
+		0U,     //uint32_t              viewportSubPixelBits;
+		0U,     //size_t                minMemoryMapAlignment;
+		0U,     //VkDeviceSize          minTexelBufferOffsetAlignment;
+		0U,     //VkDeviceSize          minUniformBufferOffsetAlignment;
+		0U,     //VkDeviceSize          minStorageBufferOffsetAlignment;
+		INT32_MAX,     //int32_t               minTexelOffset;
+		0U,     //uint32_t              maxTexelOffset;
+		INT32_MAX,     //int32_t               minTexelGatherOffset;
+		0U,     //uint32_t              maxTexelGatherOffset;
+		std::numeric_limits<float>::infinity(),     //float                 minInterpolationOffset;
+		-std::numeric_limits<float>::infinity(),     //float                 maxInterpolationOffset;
+		UINT32_MAX,     //uint32_t              subPixelInterpolationOffsetBits;
+		0U,     //uint32_t              maxFramebufferWidth;
+		0U,     //uint32_t              maxFramebufferHeight;
+		0U,     //uint32_t              maxFramebufferLayers;
+		0U,     //VkSampleCountFlagBits    framebufferColorSampleCounts;
+		0U,     //VkSampleCountFlagBits    framebufferDepthSampleCounts;
+		0U,     //VkSampleCountFlagBits    framebufferStencilSampleCounts;
+		0U,     //VkSampleCountFlagBits    framebufferNoAttachmentsSampleCounts;
+		0U,     //uint32_t              maxColorAttachments;
+		0U,     //VkSampleCountFlagBits    sampledImageColorSampleCounts;
+		0U,     //VkSampleCountFlagBits    sampledImageIntegerSampleCounts;
+		0U,     //VkSampleCountFlagBits    sampledImageDepthSampleCounts;
+		0U,     //VkSampleCountFlagBits    sampledImageStencilSampleCounts;
+		0U,     //VkSampleCountFlagBits    storageImageSampleCounts;
+		0U,     //uint32_t              maxSampleMaskWords;
+		VK_FALSE,     //VkBool32              timestampComputeAndGraphics;
+		0.f,     //float                 timestampPeriod;
+		0U,     //uint32_t              maxClipDistances;
+		0U,     //uint32_t              maxCullDistances;
+		0U,     //uint32_t              maxCombinedClipAndCullDistances;
+		0U,     //uint32_t              discreteQueuePriorities;
+		{std::numeric_limits<float>::infinity(), 
+		-std::numeric_limits<float>::infinity()},     //float                 pointSizeRange[2];
+		{std::numeric_limits<float>::infinity(), 
+		-std::numeric_limits<float>::infinity()},     //float                 lineWidthRange[2];
+		std::numeric_limits<float>::infinity(),     //float                 pointSizeGranularity;
+		std::numeric_limits<float>::infinity(),     //float                 lineWidthGranularity;
+		VK_FALSE,     //VkBool32              strictLines;
+		VK_FALSE,     //VkBool32              standardSampleLocations;
+		0U,     //VkDeviceSize          optimalBufferCopyOffsetAlignment;
+		0U,     //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
+		0U     //VkDeviceSize          nonCoherentAtomSize;
+	};
 
-Device::Builder::Builder() : limits(defaultDeviceLimits) {}
+	Device::Builder::Builder() : limits(defaultDeviceLimits) {}
 
-constexpr VkPhysicalDeviceFeatures emptyFeatures = {};
-Device Device::Builder::build() {
-    return Device(deviceExtensionCount, deviceExtensions, &features, &optional, &limits,
-            pWindow, graphicsQueueCount, computeQueueCount, transferQueueCount);
-}
+	constexpr VkPhysicalDeviceFeatures emptyFeatures = {};
+	void Device::Builder::build() {
+		pickDevice(deviceExtensionCount, deviceExtensions, &features, &optional, &limits,
+				pWindow, graphicsQueueCount, computeQueueCount, transferQueueCount);
+	}
 
 #pragma endregion DEVICE_BUILDER
 
 #pragma region DEVICE_USER_FUNCTIONS
+    void Device::waitIdle() const {
+        if (vkDeviceWaitIdle(logical) != VK_SUCCESS) {
+            fatal(ERROR_DEVICE_WAIT_IDLE);
+        }
+    }
+    void Device::waitFence(VkFence fence) const {
+        if (vkWaitForFences(logical, 1, &fence, VK_TRUE, UINT32_MAX) != VK_SUCCESS) {
+            fatal(ERROR_WAIT_FENCE);
+        }
+    }
+    void Device::waitFences(const VkFence* pFences, uint32_t count) const {
+        if (vkWaitForFences(logical, count, pFences, VK_TRUE, UINT32_MAX) != VK_SUCCESS) {
+            fatal(ERROR_WAIT_FENCE);
+        }
+    }
+
+
 #pragma region DEVICE_MEMORY
     uint32_t Device::findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const {
         VkPhysicalDeviceMemoryProperties mem_properties;
@@ -700,13 +803,43 @@ Device Device::Builder::build() {
         SGF::error(ERROR_UNSUPPORTED_MEMORY_TYPE);
         return UINT32_MAX;
     }
-
+    VkSurfaceFormatKHR Device::pickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat) const {
+        uint32_t format_count;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physical, surface, &format_count, nullptr);
+        std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
+        if (format_count != 0) {
+            vkGetPhysicalDeviceSurfaceFormatsKHR(physical, surface, &format_count, surface_formats.data());
+        }
+        else {
+            SGF::fatal(ERROR_DEVICE_NO_SURFACE_SUPPORT);
+        }
+        for (const auto& available_format : surface_formats) {
+            if (available_format.format == surfaceFormat.format && available_format.colorSpace == surfaceFormat.colorSpace)
+            {
+                return available_format;
+            }
+        }
+        return surface_formats[0];
+    }
+    VkPresentModeKHR Device::pickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const {
+		uint32_t presentCount;
+		vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &presentCount, nullptr);
+		std::vector<VkPresentModeKHR> available(presentCount);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &presentCount, available.data());
+		for (const auto& mode : available) {
+			if (mode == requested) {
+				return requested;
+			}
+		}
+		return VK_PRESENT_MODE_FIFO_KHR;
+	}
     DeviceMemory Device::allocate(const VkMemoryAllocateInfo& info) const {
         DeviceMemory mem;
         mem.memorySize = info.allocationSize;
         if (vkAllocateMemory(logical, &info, SGF::VulkanAllocator, &mem.handle) != VK_SUCCESS) {
             SGF::fatal(ERROR_DEVICE_MEM_ALLOCATION);
         }
+        TRACK_DEVICE_MEMORY(1);
         return mem;
     }
 
@@ -837,6 +970,7 @@ Device Device::Builder::build() {
         if (vkCreateBuffer(logical, &info, SGF::VulkanAllocator, &buffer.handle) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_BUFFER);
         }
+        TRACK_BUFFER(1);
         return buffer;
     }
     Buffer Device::buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) const {
@@ -870,6 +1004,7 @@ Device Device::Builder::build() {
         image.depth = info.extent.depth;
         image.format = info.format;
         image.mipLevelCount = info.mipLevels;
+        TRACK_IMAGE(1);
         return image;
     }
         Image Device::image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
@@ -908,7 +1043,7 @@ Device Device::Builder::build() {
         info.imageType = VK_IMAGE_TYPE_3D;
         return image(info);
     }
-    Image Device::image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    Image Device::image1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { length, 1, 1 }, 1, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -916,7 +1051,7 @@ Device Device::Builder::build() {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    Image Device::image2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         assert(graphicsCount != 0);
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, 1 }, 1, format, usage, mipLevelCount, samples, flags);
@@ -925,7 +1060,7 @@ Device Device::Builder::build() {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    Image Device::image3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         assert(graphicsCount != 0);
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, depth }, 1, format, usage, mipLevelCount, samples, flags);
@@ -934,7 +1069,7 @@ Device Device::Builder::build() {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    Image Device::imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { length, 1, 1 }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -942,7 +1077,7 @@ Device Device::Builder::build() {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    Image Device::imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, 1 }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -950,7 +1085,7 @@ Device Device::Builder::build() {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    Image Device::imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, depth }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -966,9 +1101,10 @@ Device Device::Builder::build() {
     ImageView Device::imageView(const VkImageViewCreateInfo& info) const {
         ImageView view;
         assert(info.sType == VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
-        if (!vkCreateImageView(logical, &info, SGF::VulkanAllocator, &view.handle) != VK_SUCCESS) {
+        if (vkCreateImageView(logical, &info, SGF::VulkanAllocator, &view.handle) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_IMAGE_VIEW);
         }
+        TRACK_IMAGE_VIEW(1);
         return view;
     }
     ImageView Device::imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
@@ -1045,6 +1181,7 @@ Device Device::Builder::build() {
         if (vkCreateFence(logical, &info, VulkanAllocator, &fence_r) != VK_SUCCESS) {
             fatal(ERROR_CREATE_FENCE);
         }
+        TRACK_FENCE(1);
         return fence_r;
     }
 
@@ -1058,6 +1195,7 @@ Device Device::Builder::build() {
         if (vkCreateFence(logical, &info, VulkanAllocator, &fence_r) != VK_SUCCESS) {
             fatal(ERROR_CREATE_FENCE);
         }
+        TRACK_FENCE(1);
         return fence_r;
     }
     VkSemaphore Device::semaphore() const {
@@ -1069,6 +1207,7 @@ Device Device::Builder::build() {
         if (vkCreateSemaphore(logical, &info, VulkanAllocator, &sem) != VK_SUCCESS) {
             fatal(ERROR_CREATE_SEMAPHORE);
         }
+        TRACK_SEMAPHORE(1);
         return sem;
     }
 
@@ -1087,6 +1226,7 @@ Device Device::Builder::build() {
         if (vkCreateShaderModule(logical, &info, VulkanAllocator, &shaderModule) != VK_SUCCESS) {
             fatal(ERROR_CREATE_SHADER_MODULE);
         }
+        TRACK_SHADER_MODULE(1);
         return shaderModule;
     }
 
@@ -1095,6 +1235,7 @@ Device Device::Builder::build() {
         if (vkCreatePipelineLayout(logical, &info, VulkanAllocator, &layout) != VK_SUCCESS) {
             fatal(ERROR_CREATE_PIPELINE_LAYOUT);
         }
+        TRACK_PIPELINE_LAYOUT(1);
         return layout;
     }
     VkPipelineLayout Device::pipelineLayout(uint32_t descriptorLayoutCount, const VkDescriptorSetLayout* pLayouts, uint32_t pushConstantCount, const VkPushConstantRange* pPushConstantRanges) const {
@@ -1113,6 +1254,7 @@ Device Device::Builder::build() {
         if (vkCreateGraphicsPipelines(logical, VK_NULL_HANDLE, 1, &info, VulkanAllocator, &pipeline) != VK_SUCCESS) {
             fatal(ERROR_CREATE_RENDER_PIPELINE);
         }
+        TRACK_PIPELINE(1);
         return pipeline;
     }
 
@@ -1121,6 +1263,7 @@ Device Device::Builder::build() {
         if (vkCreateComputePipelines(logical, VK_NULL_HANDLE, 1, &info, VulkanAllocator, &pipeline) != VK_SUCCESS) {
             fatal(ERROR_CREATE_COMPUTE_PIPELINE);
         }
+        TRACK_PIPELINE(1);
         return pipeline;
     }
 
@@ -1129,6 +1272,7 @@ Device Device::Builder::build() {
         if (vkCreateFramebuffer(logical, &info, SGF::VulkanAllocator, &framebuffer) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_FRAMEBUFFER);
         }
+        TRACK_FRAMEBUFFER(1);
         return framebuffer;
     }
     VkFramebuffer Device::framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const {
@@ -1145,9 +1289,10 @@ Device Device::Builder::build() {
 
     VkRenderPass Device::renderPass(const VkRenderPassCreateInfo& info) const {
         VkRenderPass renderPass;
-        if (!vkCreateRenderPass(logical, &info, SGF::VulkanAllocator, &renderPass) != VK_SUCCESS) {
+        if (vkCreateRenderPass(logical, &info, SGF::VulkanAllocator, &renderPass) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_RENDER_PASS);
         }
+        TRACK_RENDER_PASS(1);
         return renderPass;
     }
     VkRenderPass Device::renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependenfyCount) const {
@@ -1166,7 +1311,47 @@ Device Device::Builder::build() {
         if (vkCreateSwapchainKHR(logical, &info, SGF::VulkanAllocator, &swapchain) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_SWAPCHAIN);
         }
+        TRACK_SWAPCHAIN(1);
         return swapchain;
+    }
+
+    VkCommandPool Device::commandPool(const VkCommandPoolCreateInfo& info) const {
+        VkCommandPool pool;
+        if (vkCreateCommandPool(logical, &info, SGF::VulkanAllocator, &pool) != VK_SUCCESS) {
+            SGF::fatal(ERROR_CREATE_COMMAND_POOL);
+        }
+        return pool;
+    }
+    VkCommandPool Device::commandPool(uint32_t queueIndex, VkCommandPoolCreateFlags flags) const {
+        VkCommandPoolCreateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        info.pNext = nullptr;
+        info.flags = flags;
+        info.queueFamilyIndex = queueIndex;
+        return commandPool(info);
+    }
+    VkCommandBuffer Device::commandBuffer(VkCommandPool pool, VkCommandBufferLevel level) const {
+        VkCommandBuffer commands;
+        commandBuffers(pool, level, 1, &commands);
+        return commands;
+    }
+    void Device::commandBuffers(VkCommandPool pool, VkCommandBufferLevel level, uint32_t allocationCount, VkCommandBuffer* pBuffers) const {
+        VkCommandBufferAllocateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        info.pNext = nullptr;
+        info.commandPool = pool;
+        info.commandBufferCount = allocationCount;
+        info.level = level;
+        commandBuffers(info, pBuffers);
+    }
+    void Device::commandBuffers(const VkCommandBufferAllocateInfo& info, VkCommandBuffer* pBuffers) const {
+        if (vkAllocateCommandBuffers(logical, &info, pBuffers) != VK_SUCCESS) {
+            fatal(ERROR_ALLOCATE_COMMAND_BUFFERS);
+        }
+    }
+
+    VkFormat Device::getSwapchainFormat(VkSurfaceKHR surface) const {
+        return pickSurfaceFormat(surface, Swapchain::DEFAULT_SURFACE_FORMAT).format;
     }
     VkFormat Device::getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling) const {
         assert(tiling == VK_IMAGE_TILING_LINEAR || tiling == VK_IMAGE_TILING_OPTIMAL);
@@ -1185,67 +1370,86 @@ Device Device::Builder::build() {
     }
 
 #pragma region DESTRUCTORS
-    void Device::destroy(VkFence fence) const {
+    void Device::destroyType(VkFence fence) const {
         assert(fence != VK_NULL_HANDLE);
         vkDestroyFence(logical, fence, SGF::VulkanAllocator);
+        TRACK_FENCE(-1);
     }
-    void Device::destroy(VkSemaphore semaphore) const {
+    void Device::destroyType(VkSemaphore semaphore) const {
         assert(semaphore != VK_NULL_HANDLE);
         vkDestroySemaphore(logical, semaphore, SGF::VulkanAllocator);
+        TRACK_SEMAPHORE(-1);
     }
-    void Device::destroy(VkBuffer buffer) const {
+    void Device::destroyType(VkBuffer buffer) const {
         assert(buffer != VK_NULL_HANDLE);
         vkDestroyBuffer(logical, buffer, SGF::VulkanAllocator);
+        TRACK_BUFFER(-1);
     }
-    void Device::destroy(VkImage image) const {
+    void Device::destroyType(VkImage image) const {
         assert(image != VK_NULL_HANDLE);
         vkDestroyImage(logical, image, SGF::VulkanAllocator);
+        TRACK_IMAGE(-1);
     }
-    void Device::destroy(VkImageView imageView) const {
+    void Device::destroyType(VkImageView imageView) const {
         assert(imageView != VK_NULL_HANDLE);
         vkDestroyImageView(logical, imageView, SGF::VulkanAllocator);
+        TRACK_IMAGE_VIEW(-1);
     }
-    void Device::destroy(VkFramebuffer framebuffer) const {
+    void Device::destroyType(VkFramebuffer framebuffer) const {
         assert(framebuffer != VK_NULL_HANDLE);
         vkDestroyFramebuffer(logical, framebuffer, SGF::VulkanAllocator);
+        TRACK_FRAMEBUFFER(-1);
     }
-    void Device::destroy(VkRenderPass renderPass) const {
+    void Device::destroyType(VkRenderPass renderPass) const {
         assert(renderPass != VK_NULL_HANDLE);
         vkDestroyRenderPass(logical, renderPass, SGF::VulkanAllocator);
+        TRACK_RENDER_PASS(-1);
     }
-    void Device::destroy(VkPipeline pipeline) const {
+    void Device::destroyType(VkPipeline pipeline) const {
         assert(pipeline != VK_NULL_HANDLE);
         vkDestroyPipeline(logical, pipeline, SGF::VulkanAllocator);
+        TRACK_PIPELINE(-1);
     }
-    void Device::destroy(VkPipelineLayout pipelineLayout) const {
+    void Device::destroyType(VkPipelineLayout pipelineLayout) const {
         assert(pipelineLayout != VK_NULL_HANDLE);
         vkDestroyPipelineLayout(logical, pipelineLayout, SGF::VulkanAllocator);
+        TRACK_PIPELINE_LAYOUT(-1);
     }
-    void Device::destroy(VkDescriptorSetLayout descriptorSetLayout) const {
+    void Device::destroyType(VkDescriptorSetLayout descriptorSetLayout) const {
         assert(descriptorSetLayout != VK_NULL_HANDLE);
         vkDestroyDescriptorSetLayout(logical, descriptorSetLayout, SGF::VulkanAllocator);
+        TRACK_DESCRIPTOR_SET_LAYOUT(-1);
     }
-    void Device::destroy(VkDescriptorPool descriptorPool) const {
+    void Device::destroyType(VkDescriptorPool descriptorPool) const {
         assert(descriptorPool != VK_NULL_HANDLE);
         vkDestroyDescriptorPool(logical, descriptorPool, SGF::VulkanAllocator);
+        TRACK_DESCRIPTOR_POOL(-1);
     }
-    void Device::destroy(VkDeviceMemory memory) const {
+    void Device::destroyType(VkDeviceMemory memory) const {
         assert(memory != VK_NULL_HANDLE);
         vkFreeMemory(logical, memory, SGF::VulkanAllocator);
+        TRACK_DEVICE_MEMORY(-1);
     }
-    void Device::destroy(VkCommandPool commandPool) const {
+    void Device::destroyType(VkCommandPool commandPool) const {
         assert(commandPool != VK_NULL_HANDLE);
         vkDestroyCommandPool(logical, commandPool, SGF::VulkanAllocator);
+        TRACK_COMMAND_POOL(-1);
     }
-    void Device::destroy(VkSampler sampler) const {
+    void Device::destroyType(VkSampler sampler) const {
         assert(sampler != VK_NULL_HANDLE);
         vkDestroySampler(logical, sampler, SGF::VulkanAllocator);
+        TRACK_SAMPLER(-1);
     }
-    void Device::destroy(VkSwapchainKHR swapchain) const {
+    void Device::destroyType(VkSwapchainKHR swapchain) const {
         assert(swapchain != VK_NULL_HANDLE);
         vkDestroySwapchainKHR(logical, swapchain, SGF::VulkanAllocator);
+        TRACK_SWAPCHAIN(-1);
     }
-
+    void Device::destroyType(VkShaderModule module) const {
+        assert(module != VK_NULL_HANDLE);
+        vkDestroyShaderModule(logical, module, SGF::VulkanAllocator);
+        TRACK_SHADER_MODULE(-1);
+    }
 #pragma endregion DESTRUCTORS
 
 #pragma region GETTERS

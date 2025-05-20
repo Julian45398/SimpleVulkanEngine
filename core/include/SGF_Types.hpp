@@ -7,6 +7,8 @@ namespace SGF {
     inline constexpr Flags FLAG_NONE = 0;
     class Window;
     class Device;
+    class Swapchain;
+    class RenderPass;
     class DeviceMemory;
     class Buffer;
     class Image;

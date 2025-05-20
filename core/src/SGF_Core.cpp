@@ -7,6 +7,8 @@
 #include <vector>
 #include <cstring>
 
+#include <cstdlib>
+
 #define SGF_ENGINE_NAME "SGF"
 #define SGF_ENGINE_VERSION VK_MAKE_API_VERSION(0, 0, 0, 1)
 
@@ -19,7 +21,82 @@
 
 namespace SGF {
     VkInstance VulkanInstance = VK_NULL_HANDLE;
+#ifdef SGF_LOG_VULKAN_ALLOCATIONS
+	const char COMMAND_SCOPE[] = "Command Scope!";
+	const char OBJECT_SCOPE[] = "Object Scope!";
+	const char SYSTEM_SCOPE[] = "System Scope!";
+	const char CACHE_SCOPE[] = "Cache Scope!";
+	const char DEVICE_SCOPE[] = "Device Scope!";
+	const char INSTANCE_SCOPE[] = "Instance Scope!";
+	void vulkanCallbackMessage(const char* operation, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
+		char const* scope;
+		switch (allocationScope)
+		{
+		case VK_SYSTEM_ALLOCATION_SCOPE_COMMAND:
+			scope = COMMAND_SCOPE;
+			break;
+		case VK_SYSTEM_ALLOCATION_SCOPE_OBJECT:
+			scope = OBJECT_SCOPE;
+			break;
+		case VK_SYSTEM_ALLOCATION_SCOPE_CACHE:
+			scope = SYSTEM_SCOPE;
+			break;
+		case VK_SYSTEM_ALLOCATION_SCOPE_DEVICE:
+			scope = DEVICE_SCOPE;
+			break;
+		case VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE:
+			scope = INSTANCE_SCOPE;
+			break;
+		case VK_SYSTEM_ALLOCATION_SCOPE_MAX_ENUM:
+			scope = "NO VALID SCOPE!";
+			break;
+		default:
+			scope = "ERROR!!!!!!!!!";
+			break;
+		}
+		SGF::debug(operation, scope, " size: ", size, " alignment: ", alignment);
+	}
+	void* vulkanAllocationFunction(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope scope) {
+		vulkanCallbackMessage("Allocation: ", size, alignment, scope);
+		void* result = _aligned_malloc(size, alignment);
+		return result;
+	}
+	void* vulkanReallocationFunction(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope scope) {
+		void* result = nullptr;
+		if (pOriginal != nullptr) {
+			vulkanCallbackMessage("Reallocation: ", size, alignment, scope);
+			result = _aligned_realloc(pOriginal, size, alignment);
+		}
+		return result;
+	}
+	void vulkanFreeFunction(void* pUserData, void* pMemory) {
+		if (pMemory != nullptr) {
+			SGF::debug("Freeing vulkan memory: ", pMemory);
+			_aligned_free(pMemory);
+		}
+	}
+	void vulkanInternalAllocationFunction(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope scope) {
+		if (allocationType == VK_INTERNAL_ALLOCATION_TYPE_EXECUTABLE) {
+			vulkanCallbackMessage("Internal Executable Allocation: ", size, 0, scope);
+		}
+		else {
+			vulkanCallbackMessage("Internal Allocation: ", size, 0, scope);
+		}
+	}
+	void vulkanInternalFreeFunction(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope scope) {
+		if (allocationType == VK_INTERNAL_ALLOCATION_TYPE_EXECUTABLE) {
+			vulkanCallbackMessage("Internal Executable Free: ", size, 0, scope);
+		}
+		else {
+			vulkanCallbackMessage("Internal Free: ", size, 0, scope);
+		}
+	}
+	
+	VkAllocationCallbacks ALLOCATION_LOGGER = { nullptr, vulkanAllocationFunction, vulkanReallocationFunction, vulkanFreeFunction, vulkanInternalAllocationFunction, vulkanInternalFreeFunction };
+    VkAllocationCallbacks* VulkanAllocator = &ALLOCATION_LOGGER;
+#else
     VkAllocationCallbacks* VulkanAllocator = nullptr;
+#endif SGF_LOG_VULKAN_ALLOCATIONS
 #ifdef SGF_ENABLE_VALIDATION
 	const char* VULKAN_MESSENGER_NAME = "VK_LAYER_KHRONOS_validation";
     VkDebugUtilsMessengerEXT VulkanMessenger = VK_NULL_HANDLE;

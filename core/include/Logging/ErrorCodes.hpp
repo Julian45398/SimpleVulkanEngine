@@ -10,8 +10,10 @@
 
 namespace SGF {
     SGF_ERROR(1420, DEVICE_MEM_ALLOCATION, "failed to allocate device memory!");
-    SGF_ERROR(1421, BIND_DEVICE_MEMORY, "failed to bind device memory!");
-    SGF_ERROR(1422, UNSUPPORTED_MEMORY_TYPE, "unsupported memory type!");
+    SGF_ERROR(1421, BIND_DEVICE_MEMORY, "failed to bind device memory");
+    SGF_ERROR(1422, UNSUPPORTED_MEMORY_TYPE, "unsupported memory type");
+    SGF_ERROR(1422, DEVICE_WAIT_IDLE, "failed waiting for device idling");
+    SGF_ERROR(1422, WAIT_FENCE, "failed waiting for fence");
 
     SGF_ERROR(1012, CREATE_BUFFER, "failed to create buffer");
     SGF_ERROR(1013, CREATE_IMAGE, "failed to create image");
@@ -26,12 +28,14 @@ namespace SGF {
     SGF_ERROR(1106, CREATE_DESCRIPTOR_POOL, "failed to create descriptor pool");
     SGF_ERROR(1107, CREATE_DESCRIPTOR_LAYOUT, "failed to create descriptor layout");
     SGF_ERROR(1108, CREATE_COMMAND_POOL, "failed to create command pool");
+    SGF_ERROR(1108, ALLOCATE_COMMAND_BUFFERS, "failed to allocate command buffers");
     SGF_ERROR(1109, CREATE_FENCE, "failed to create fence");
     SGF_ERROR(1110, CREATE_SEMAPHORE, "failed to create semaphore");
 
     SGF_ERROR(1006, CREATE_SWAPCHAIN, "failed to create swapchain");
     SGF_ERROR(1006, ACQUIRE_NEXT_IMAGE, "failed to acquire next swapchain image");
     SGF_ERROR(1006, PRESENT_IMAGE, "failed to present swapchain image");
+    SGF_ERROR(1422, GET_SWAPCHAIN_IMAGES, "unsupported memory type!");
 
     SGF_ERROR(1005, CREATE_LOGICAL_DEVICE, "failed to create logical device");
     SGF_ERROR(1004, FIND_PHYSICAL_DEVICE, "failed to suitable graphics device");

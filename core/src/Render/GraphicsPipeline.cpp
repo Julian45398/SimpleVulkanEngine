@@ -3,8 +3,8 @@
 
 namespace SGF {
 
-    VkPipeline GraphicsPipeline::Builder::build() {
-        return pDevice->pipeline(info);
+    GraphicsPipeline GraphicsPipeline::Builder::build() {
+        return GraphicsPipeline(pDevice->pipeline(info));
     }
     GraphicsPipeline::Builder& GraphicsPipeline::Builder::geometryShader(const char* filename) {
         assert(pDevice->isFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
@@ -35,7 +35,7 @@ namespace SGF {
             pDevice->destroy(pipelineStages[i].module);
         }
     }
-    GraphicsPipeline::Builder::Builder(const Device* device, VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) {
+    GraphicsPipeline::Builder::Builder(const Device* device, VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) : pDevice(device) {
         info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         info.pNext = nullptr;
         info.flags = FLAG_NONE;
@@ -89,7 +89,7 @@ namespace SGF {
         rasterizationState.pNext = nullptr;
         rasterizationState.flags = FLAG_NONE;
         rasterizationState.depthClampEnable = VK_FALSE;
-        rasterizationState.rasterizerDiscardEnable = VK_TRUE;
+        rasterizationState.rasterizerDiscardEnable = VK_FALSE;
         rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
         rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
@@ -153,7 +153,7 @@ namespace SGF {
     void GraphicsPipeline::Builder::addShaderStage(const char* filename, VkShaderStageFlagBits stage) {
         assert(info.stageCount < SGF_PIPELINE_MAX_PIPELINE_STAGES);
         VkShaderModule shader = pDevice->shaderModule(filename);
-        pipelineStages[info.stageCount].sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        pipelineStages[info.stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineStages[info.stageCount].stage = stage;
         pipelineStages[info.stageCount].pName = "main";
         pipelineStages[info.stageCount].module = shader;
