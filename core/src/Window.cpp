@@ -33,6 +33,32 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
     
 
 #pragma endregion SWAPCHAIN_HELPER_FUNCTIONS
+    VkExtent2D Window::getMonitorSize(uint32_t index) {
+        uint32_t count;
+        auto monitors = glfwGetMonitors(&count)
+        assert(index < count);
+        auto vidmode = glfwGetVideoMode(monitors[index]);
+        VkExtent2D extent;
+        extent.width = vidmode->width;
+        extent.height = vidmode->height;
+        return extent;
+    }
+    VkExtent2D Window::getMaxMonitorSize() {
+        VkExtent2D extent{};
+        uint32_t count;
+        auto monitors = glfwGetMonitors(&count);
+        for (uint32_t i = 0; i < count; ++i) {
+            auto vidmode = glfwGetVideoMode(monitors[i]);
+            extent.width = std::max(extent.width, vidmode->width);
+            extent.height = std::max(extent.height, vidmode->height);
+        }
+        return extent;
+    }
+    uint32_t Window::getMonitorCount() {
+        uint32_t count;
+        glfwGetMonitors(&count);
+        return count;
+    }
 
     void Window::onResize(WindowResizeEvent& event) {
         Window& win = event.getWindow();

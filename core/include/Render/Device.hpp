@@ -84,7 +84,6 @@ namespace SGF {
         static uint32_t getSupportedDeviceCount(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures, Window* windowSupport, uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
         inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
     private:
-        class Builder;
         /**
          * @brief Creates the device at the specified device index returned by vkEnumeratePhysicalDevices if it matches the requirements
          * 
@@ -107,17 +106,20 @@ namespace SGF {
         void waitIdle() const;
         void waitFence(VkFence fence) const;
         void waitFences(const VkFence* pFences, uint32_t count) const;
+        inline void reset(const VkFence* fences, uint32_t fenceCount) const {
+            if (vkResetFences(logical, fenceCount, fences) != VK_SUCCESS) {
+                fatal(ERROR_RESET_FENCE);
+            }
+        }
+        inline void reset(VkFence fence) const { reset(&fence, 1); }
 
         const char* getName() const;
         bool isCreated() const;
     public:
-        // builder functions:
-        inline GraphicsPipeline::Builder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) const { return GraphicsPipeline::Builder(this, layout, renderPass, subpass); };
-
-        inline Image::Builder image(uint32_t length) const { return Image::Builder(this, length); }
-        inline Image::Builder image(uint32_t width, uint32_t height) const { return Image::Builder(this, width, height); }
-        inline Image::Builder image(uint32_t width, uint32_t height, uint32_t depth) const { return Image::Builder(this, width, height, depth); }
-        inline ImageView::Builder imageView(const Image& image) const { return ImageView::Builder(this, image); }
+        //inline operator VkDevice() const { return logical; }
+        //inline operator VkPhysicalDevice() const { return physical; }
+        //inline getLogical() const { return logical; }
+        //inline getPhysical() const { return physical; }
         // Queue functions:
         inline uint32_t graphicsFamily() const { return graphicsFamilyIndex; }
         inline uint32_t computeFamily() const { return computeFamilyIndex; }
@@ -161,6 +163,15 @@ namespace SGF {
         Image imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
         Image imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
         Image imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount = 1, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        // builder functions:
+        inline GraphicsPipeline::Builder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) const { return GraphicsPipeline::Builder(this, layout, renderPass, subpass); };
+
+        inline Image::Builder image(uint32_t length) const { return Image::Builder(this, length); }
+        inline Image::Builder image(uint32_t width, uint32_t height) const { return Image::Builder(this, width, height); }
+        inline Image::Builder image(uint32_t width, uint32_t height, uint32_t depth) const { return Image::Builder(this, width, height, depth); }
+        inline ImageView::Builder imageView(const Image& image) const { return ImageView::Builder(this, image); }
+
+
 
         ImageView imageView(const VkImageViewCreateInfo& info) const;
         ImageView imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
@@ -248,13 +259,15 @@ namespace SGF {
          */
         VkFormat getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL) const;
         VkFormat getSwapchainFormat(VkSurfaceKHR surface) const;
+        void getSwapchainImages(VkSwapchainKHR swapchain, VkImage* images, uint32_t* count) const;
         VkSurfaceFormatKHR pickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR preference) const;
         VkPresentModeKHR pickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const;
+        inline void reset(VkCommandPool commandPool, VkCommandPoolResetFlags flags = FLAG_NONE) const { vkResetCommandPool(logical, commandPool, flags); }
+        void shutdown();
     private:
         uint32_t findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const;
         inline void destroyType() const {}
     public:
-        void shutdown();
         void destroyType(VkFence fence) const;
         void destroyType(VkSemaphore semaphore) const;
         void destroyType(VkBuffer buffer) const;
@@ -302,7 +315,7 @@ namespace SGF {
             const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface);
         friend Window;
         friend Swapchain;
-        friend Builder;
+        //friend Builder;
         VkDevice logical = VK_NULL_HANDLE;
         VkPhysicalDevice physical = VK_NULL_HANDLE;
         uint32_t presentFamilyIndex = UINT32_MAX;

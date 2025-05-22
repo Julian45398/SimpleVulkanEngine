@@ -14,6 +14,8 @@ namespace SGF {
     SGF_ERROR(1422, UNSUPPORTED_MEMORY_TYPE, "unsupported memory type");
     SGF_ERROR(1422, DEVICE_WAIT_IDLE, "failed waiting for device idling");
     SGF_ERROR(1422, WAIT_FENCE, "failed waiting for fence");
+    SGF_ERROR(1422, RESET_FENCE, "failed resetting fences");
+    SGF_ERROR(1422, QUEUE_SUBMIT, "failed to submit commands");
 
     SGF_ERROR(1012, CREATE_BUFFER, "failed to create buffer");
     SGF_ERROR(1013, CREATE_IMAGE, "failed to create image");

@@ -1,8 +1,5 @@
 #include "Input/Input.hpp"
 
-#include <glfw/glfw3.h>
-
-
 namespace SGF {
 	bool isKeyPressed(Keycode key) {
 		return false;

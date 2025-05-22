@@ -9,3 +9,6 @@
 #include "Events/InputEvents.hpp"
 #include "Input/Input.hpp"
 #include "Filesystem/File.hpp"
+#include "Render/CommandList.hpp"
+#include "Render/Swapchain.hpp"
+#include "Render/GraphicsPipeline.hpp"

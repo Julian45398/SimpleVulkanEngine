@@ -22,6 +22,11 @@ namespace SGF {
     class Window {
     public:
         inline static Window* getFocusedWindow() { return focusedWindow; }
+        static VkExtent2D Window::getMonitorSize(uint32_t index);
+        static VkExtent2D Window::getMaxMonitorSize();
+        static uint32_t Window::getMonitorCount();
+
+
         //====================================================================
         //========================Window Creation=============================
         //====================================================================

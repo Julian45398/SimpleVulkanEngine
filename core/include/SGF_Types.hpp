@@ -8,6 +8,7 @@ namespace SGF {
     class Window;
     class Device;
     class Swapchain;
+    class Display;
     class RenderPass;
     class DeviceMemory;
     class Buffer;

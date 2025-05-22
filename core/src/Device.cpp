@@ -1353,6 +1353,12 @@ namespace SGF {
     VkFormat Device::getSwapchainFormat(VkSurfaceKHR surface) const {
         return pickSurfaceFormat(surface, Swapchain::DEFAULT_SURFACE_FORMAT).format;
     }
+
+    void Device::getSwapchainImages(VkSwapchainKHR swapchain, uint32_t* pCount, VkImage* pImages) const {
+        if (vkGetSwapchainImagesKHR(logical, swapchain, pCount, pImages) != VK_NULL_HANDLE) {
+            fatal(ERROR_GET_SWAPCHAIN_IMAGES);
+        }
+    }
     VkFormat Device::getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling) const {
         assert(tiling == VK_IMAGE_TILING_LINEAR || tiling == VK_IMAGE_TILING_OPTIMAL);
         for (uint32_t i = 0; i < candidateCount; i++) {
