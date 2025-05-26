@@ -13,8 +13,8 @@ namespace SGF {
 	};
 	inline VkClearValue createDepthClearValue(float depth, uint32_t stencil) { VkClearValue value; value.depthStencil.depth = depth; value.depthStencil.stencil = stencil; return value; }
 	inline VkClearValue createColorClearValue(float r, float g, float b, float a) { return { r, g, b , a }; }
-	inline VkClearValue createColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { return { r, g, b , a }; }
-	inline VkClearValue createColorClearValue(uint32_t r, uint32_t g, uint32_t b, uint32_t a) { return { r, g, b , a }; }
+	//inline VkClearValue createColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { return { r, g, b , a }; }
+	//inline VkClearValue createColorClearValue(uint32_t r, uint32_t g, uint32_t b, uint32_t a) { return { r, g, b , a }; }
 
 	class CommandList {
 	public:
@@ -38,6 +38,10 @@ namespace SGF {
 			auto& device = getDevice();
 			device.destroy(commandPool);
 		}
+		inline operator VkCommandBuffer() const { return commands; }
+		inline operator VkCommandPool() const { return commandPool; }
+		inline VkCommandBuffer getCommands() const { return commands; }
+		inline VkCommandPool getCommandPool() const { return commandPool; }
 		inline void begin(VkCommandBufferUsageFlags flags = FLAG_NONE) {
 			VkCommandBufferBeginInfo info;
 			info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -65,10 +69,10 @@ namespace SGF {
 		inline void end() {
 			vkEndCommandBuffer(commands);
 		}
-		inline void beginRenderPass(const VkRenderPassBeginInfo& info, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) {
+		inline void beginRenderPass(const VkRenderPassBeginInfo& info, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
 			vkCmdBeginRenderPass(commands, &info, subpassContents);
 		}
-		inline void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const VkClearValue* pClearValues, uint32_t clearValueCount, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) {
+		inline void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const VkClearValue* pClearValues, uint32_t clearValueCount, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
 			VkRenderPassBeginInfo info;
 			info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 			info.pNext = nullptr;
@@ -79,39 +83,45 @@ namespace SGF {
 			info.clearValueCount = clearValueCount;
 			beginRenderPass(info, subpassContents);
 		}
-		inline void beginRenderPass(const Swapchain& swapchain, const VkClearValue* pClearValues, uint32_t clearValueCount) {
+		inline void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const std::vector<VkClearValue>& clearValues, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
+			beginRenderPass(renderPass, framebuffer, renderArea, clearValues.data(), (uint32_t)clearValues.size(), subpassContents);
+		}
+		inline void beginRenderPass(const Window& window, const VkClearValue* pClearValues, uint32_t clearValueCount, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
 			VkRect2D renderArea;
-			renderArea.extent.width = swapchain.getWidth();
-			renderArea.extent.height = swapchain.getHeight();
+			renderArea.extent.width = window.getWidth();
+			renderArea.extent.height = window.getHeight();
 			renderArea.offset.x = 0;
 			renderArea.offset.y = 0;
-			beginRenderPass(swapchain.getRenderPass(), swapchain.getCurrentFramebuffer(), renderArea, pClearValues, clearValueCount);
+			beginRenderPass(window.getRenderPass(), window.getCurrentFramebuffer(), renderArea, pClearValues, clearValueCount, subpassContents);
 		}
-		inline void endRenderPass() {
+		inline void beginRenderPass(const Window& window, const std::vector<VkClearValue>& clearValues, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
+			beginRenderPass(window, clearValues.data(), (uint32_t)clearValues.size(), subpassContents);
+		}
+		inline void endRenderPass() const {
 			vkCmdEndRenderPass(commands);
 		}
-		inline void bindGraphicsPipeline(VkPipeline pipeline) {
+		inline void bindGraphicsPipeline(VkPipeline pipeline) const {
 			vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		}
-		inline void bindComputePipeline(VkPipeline pipeline) {
+		inline void bindComputePipeline(VkPipeline pipeline) const {
 			vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 		}
-		inline void bindVertexBuffers(const VkBuffer* pBuffers, uint32_t bufferCount, const VkDeviceSize* pOffsets, uint32_t firstBinding) {
+		inline void bindVertexBuffers(const VkBuffer* pBuffers, uint32_t bufferCount, const VkDeviceSize* pOffsets, uint32_t firstBinding) const {
 			vkCmdBindVertexBuffers(commands, firstBinding, bufferCount, pBuffers, pOffsets);
 		}
-		inline void bindIndexBuffer(VkBuffer indexBuffer, VkDeviceSize indexOffset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32) {
+		inline void bindIndexBuffer(VkBuffer indexBuffer, VkDeviceSize indexOffset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32) const {
 			vkCmdBindIndexBuffer(commands, indexBuffer, indexOffset, indexType);
 		}
-		inline void setScissors(const VkRect2D* pScissors, uint32_t scissorCount, uint32_t firstScissor = 0) {
+		inline void setScissors(const VkRect2D* pScissors, uint32_t scissorCount, uint32_t firstScissor = 0) const {
 			vkCmdSetScissor(commands, firstScissor, scissorCount, pScissors);
 		}
 		
-		inline void setScissor(const VkRect2D& scissor) { setScissors(&scissor, 1, 0); }
-		inline void setViewports(const VkViewport* pViewports, uint32_t viewportCount, uint32_t firstViewport = 0) {
+		inline void setScissor(const VkRect2D& scissor) const { setScissors(&scissor, 1, 0); }
+		inline void setViewports(const VkViewport* pViewports, uint32_t viewportCount, uint32_t firstViewport = 0) const {
 			vkCmdSetViewport(commands, firstViewport, viewportCount, pViewports);
 		}
-		inline void setViewport(const VkViewport& viewport) { setViewports(&viewport, 1, 0); }
-		inline void setRenderArea(const VkViewport& viewport) {
+		inline void setViewport(const VkViewport& viewport) const { setViewports(&viewport, 1, 0); }
+		inline void setRenderArea(const VkViewport& viewport) const {
 			setViewport(viewport);
 			VkRect2D area;
 			area.extent.width = (uint32_t)viewport.width;
@@ -120,7 +130,7 @@ namespace SGF {
 			area.offset.y = (int32_t)viewport.y;
 			setScissor(area);
 		}
-		inline void setRenderArea(uint32_t width, uint32_t height, int32_t xOffset = 0, int32_t yOffset = 0, float minDepth = 0.f, float maxDepth = 1.f) {
+		inline void setRenderArea(uint32_t width, uint32_t height, int32_t xOffset = 0, int32_t yOffset = 0, float minDepth = 0.f, float maxDepth = 1.f) const {
 			VkRect2D area;
 			area.extent.width = width;
 			area.extent.height = height;
@@ -136,13 +146,13 @@ namespace SGF {
 			viewport.minDepth = minDepth;
 			setViewport(viewport);
 		}
-		inline void setRenderArea(const Swapchain& swapchain) {
-			setRenderArea(swapchain.getWidth(), swapchain.getHeight());
+		inline void setRenderArea(const Window& window) const {
+			setRenderArea(window.getWidth(), window.getHeight());
 		}
-		inline void draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) { 
+		inline void draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) const { 
 			vkCmdDraw(commands, vertexCount, instanceCount, firstVertex, firstInstance);
 		}
-		inline void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) {
+		inline void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) const {
 			vkCmdDrawIndexed(commands, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 		}
 

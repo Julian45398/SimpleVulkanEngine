@@ -16,6 +16,7 @@ namespace SGF {
     SGF_ERROR(1422, WAIT_FENCE, "failed waiting for fence");
     SGF_ERROR(1422, RESET_FENCE, "failed resetting fences");
     SGF_ERROR(1422, QUEUE_SUBMIT, "failed to submit commands");
+    SGF_ERROR(1422, VULKAN_IMGUI, "vulkan error for imgui operation");
 
     SGF_ERROR(1012, CREATE_BUFFER, "failed to create buffer");
     SGF_ERROR(1013, CREATE_IMAGE, "failed to create image");
@@ -31,6 +32,7 @@ namespace SGF {
     SGF_ERROR(1107, CREATE_DESCRIPTOR_LAYOUT, "failed to create descriptor layout");
     SGF_ERROR(1108, CREATE_COMMAND_POOL, "failed to create command pool");
     SGF_ERROR(1108, ALLOCATE_COMMAND_BUFFERS, "failed to allocate command buffers");
+    SGF_ERROR(1108, ALLOCATE_DESCRIPTOR_SETS, "failed to allocate descriptor sets");
     SGF_ERROR(1109, CREATE_FENCE, "failed to create fence");
     SGF_ERROR(1110, CREATE_SEMAPHORE, "failed to create semaphore");
 

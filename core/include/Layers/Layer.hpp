@@ -6,8 +6,11 @@
 namespace SGF {
     class RenderEvent {
     public:
-        inline RenderEvent(double dTime) : deltaTime(dTime) {}
+        inline RenderEvent(double dTime, const CommandList& commandList) : deltaTime(dTime), commands(&commandList) {}
+        inline double getTime() const { return deltaTime; }
+        inline const CommandList& getCommands() const { return *commands; }
     private:
+        const CommandList* commands;
         double deltaTime;
     };
     class UpdateEvent {

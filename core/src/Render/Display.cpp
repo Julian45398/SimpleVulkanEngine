@@ -1,139 +1,80 @@
-#include "Display.hpp"
+#include "Render/Display.hpp"
+#include "Render/Device.hpp"
 
 namespace SGF {
-    void Display::nextFrame(VkSemaphore imageAvailable, VkFence fence) {
-		const auto& device = getDevice();
-		if (vkAcquireNextImageKHR(device.logical, handle, 1000000000, imageAvailable, fence, &currentImageIndex) != VK_SUCCESS) {
-			fatal(ERROR_ACQUIRE_NEXT_IMAGE);
-		}
-	}
-	void Swapchain::presentImage(uint32_t imageIndex, const VkSemaphore* pWaitSemaphores, uint32_t count) const {
-		VkPresentInfoKHR info;
-		info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		info.pNext = nullptr;
-		info.swapchainCount = 1;
-		info.pImageIndices = &imageIndex;
-		info.pSwapchains = &handle;
-		info.waitSemaphoreCount = count;
-		info.pWaitSemaphores = pWaitSemaphores;
-		info.pResults = nullptr;
-		if (vkQueuePresentKHR(presentQueue, &info) != VK_SUCCESS) {
-			fatal(ERROR_PRESENT_IMAGE);
-		}
-	}
-	void Swapchain::presentImage(uint32_t imageIndex, VkSemaphore waitSemaphore) const {
-		presentImage(imageIndex, &waitSemaphore, 1);
-	}
-	void Display::updateSwapchain(const Window& window) {
-		updateSwapchain(window, window.getWidth(), window.getHeight());
-	}
-	void Display::updateSwapchain(const Window& window, uint32_t w, uint32_t h) {
+	Display Instance;
+	void Display::updateFramebuffers(VkSurfaceKHR surface, uint32_t w, uint32_t h) {
 		destroyFramebuffers();
-		createSwapchain(window, w, h);
-		createFramebuffers();
+		swapchain.update(surface, w, h);
+		createFramebuffers(w, h);
 	}
-	void Display::updateRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
+	void Display::updateRenderPass(VkSurfaceKHR surface, uint32_t w, uint32_t h, const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) {
 		const auto& device = getDevice();
-		device.waitIdle();
 		if (renderPass != VK_NULL_HANDLE) {
 			device.destroy(renderPass);
 			renderPass = VK_NULL_HANDLE;
 		}
-		createRenderPass(pAttachments, attCount, pSubpasses, subpassCount);
+		renderPass = device.renderPass(pAttachments, attCount, pSubpasses, subpassCount, pDependencies, dependencyCount);
 		if (attachmentData != nullptr) {
 			freeAttachmentData();
 		}
-		allocateAttachmentData(pAttachments, attCount, pSubpasses, subpassCount);
-		//createFramebuffers();
+		if (!swapchain.isInitialized()) {
+			swapchain.create(surface, w, h);
+		}
+		else {
+			swapchain.update(surface, w, h);
+		}
+		allocateAttachmentData(w, h, pAttachments, attCount, pSubpasses, subpassCount);
 	}
-	Display::Swapchain(const Device& device, const Window& window, VkPresentModeKHR mode, const VkAttachmentDescription* pAttachments, uint32_t attCount, 
+
+	void Display::create(VkSurfaceKHR surface, uint32_t width, uint32_t height, VkPresentModeKHR mode, const VkAttachmentDescription* pAttachments, uint32_t attCount,
 		const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
 		SGF::debug("creating swapchain object!");
-		presentMode = mode;
-		presentQueue = device.presentQueue();
-		surfaceFormat = DEFAULT_SURFACE_FORMAT;
+		assert(attCount > 0);
 		attachmentData = nullptr;
-		handle = VK_NULL_HANDLE;
-		createSwapchain(window, window.getWidth(), window.getHeight());
+		attachmentCount = attCount-1;
+		destroy();
+		swapchain.create(surface, width, height, mode);
 		if (pAttachments == nullptr) {
 			assert(attCount == 0);
 			assert(pSubpasses == 0);
 			assert(subpassCount == 0);
-			VkAttachmentDescription swapchainAttachment = { FLAG_NONE, surfaceFormat.format, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
+			VkAttachmentDescription swapchainAttachment = { FLAG_NONE, swapchain.getImageFormat(), VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
 				VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
 			VkAttachmentReference colorRef = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 			VkSubpassDescription subpass = { FLAG_NONE, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, nullptr, 1, &colorRef, nullptr, nullptr, 0, nullptr };
 			createRenderPass(&swapchainAttachment, 1, &subpass, 1);
-			allocateAttachmentData(&swapchainAttachment, 1, &subpass, 1);
+			allocateAttachmentData(width, height, &swapchainAttachment, 1, &subpass, 1);
 		}
 		else {
 			createRenderPass(pAttachments, attCount, pSubpasses, subpassCount);
-			allocateAttachmentData(pAttachments, attCount, pSubpasses, subpassCount);
+			allocateAttachmentData(width, height, pAttachments, attCount, pSubpasses, subpassCount);
 		}
-		//updateSwapchain(window);
-		//createFramebuffers();
 	}
-	void Display::destroy() {
-		if (!isInitialized()) {
-			return;
-		}
-		SGF::debug("swapchain destroy called!");
-		freeAttachmentData();
-		auto& dev = getDevice(); 
-		dev.destroy(handle, renderPass);
-		handle = VK_NULL_HANDLE;
-		renderPass = VK_NULL_HANDLE;
-		height = 0;
-		width = 0;
-		swapchainImageCount = 0;
-		currentImageIndex = 0;
-		presentQueue = VK_NULL_HANDLE;
+	Display::Display(VkSurfaceKHR surface, uint32_t width, uint32_t height, VkPresentModeKHR mode, const VkAttachmentDescription* pAttachments, uint32_t attCount, 
+		const VkSubpassDescription* pSubpasses, uint32_t subpassCount) : swapchain(surface, width, height, mode) {
+		create(surface, width, height, mode, pAttachments, attCount, pSubpasses, subpassCount);
 	}
-	void Display::createSwapchain(const Window& window, uint32_t w, uint32_t h) {
-		currentImageIndex = 0;
-		swapchainImageCount = 0;
-		const auto& device = getDevice();
-		presentMode = device.pickPresentMode(window.getSurface(), presentMode);
-		surfaceFormat = device.pickSurfaceFormat(window.getSurface(), surfaceFormat);
-        VkSwapchainCreateInfoKHR info{};
-        info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        VkSurfaceCapabilitiesKHR capabilities;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical, window.getSurface(), &capabilities);
-        swapchainImageCount = capabilities.minImageCount + 1;
-        if (capabilities.maxImageCount > 0 && swapchainImageCount > capabilities.maxImageCount) {
-            swapchainImageCount = capabilities.maxImageCount;
-        }
-        width = std::min(capabilities.maxImageExtent.width, std::max(w, capabilities.minImageExtent.width));
-        height = std::min(capabilities.maxImageExtent.height, std::max(h, capabilities.minImageExtent.height));
-		if (width != w || height != h) {
-			SGF::warn("swapchain doesnt have requested dimensions! dimensions: { ", width, ", ", height, " }, requested: { ", w, ", ", h, " }");
-		}
-        info.oldSwapchain = handle;
-        info.surface = window.getSurface();
-        info.minImageCount = swapchainImageCount;
-        info.imageFormat = surfaceFormat.format;
-        info.imageColorSpace = surfaceFormat.colorSpace;
-        info.imageExtent = { width, height };
-        info.imageArrayLayers = 1;
-        if (device.presentFamilyIndex != device.graphicsFamilyIndex) {
-            uint32_t queueFamilyIndices[] = { device.graphicsFamilyIndex, device.presentFamilyIndex };
-            info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            info.queueFamilyIndexCount = 2;
-            info.pQueueFamilyIndices = queueFamilyIndices;
-        }
-        else {
-            info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        }
-        info.preTransform = capabilities.currentTransform;
-        info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        info.presentMode = presentMode;
-        info.clipped = VK_TRUE;
-		info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		handle = device.swapchain(info);
-		vkGetSwapchainImagesKHR(device.logical, handle, &swapchainImageCount, nullptr);
-		assert(swapchainImageCount != 0);
+	void Display::destroy() {
+		if (swapchain.isInitialized()) {
+			swapchain.destroy();
+		}
+		if (renderPass != VK_NULL_HANDLE) {
+			freeAttachmentData();
+			auto& dev = getDevice(); 
+			dev.destroy(renderPass);
+			renderPass = VK_NULL_HANDLE;
+		}
 	}
+	Display::~Display() {
+		if (renderPass != VK_NULL_HANDLE) {
+			freeAttachmentData();
+			auto& dev = getDevice(); 
+			dev.destroy(renderPass);
+		}
+	}
+
 	void Display::createRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
 		assert(attCount > 0);
 		std::vector<VkSubpassDependency> dependencies(subpassCount);
@@ -148,7 +89,7 @@ namespace SGF {
 		for (size_t i = 0; i < attCount; ++i) {
 			att[i] = pAttachments[i];
 		}
-		att[0].format = surfaceFormat.format;
+		att[0].format = swapchain.getImageFormat();
 		att[0].samples = VK_SAMPLE_COUNT_1_BIT;
 			
 		if (pSubpasses[0].colorAttachmentCount != 0) {
@@ -300,7 +241,7 @@ namespace SGF {
 		assert(attachmentCount != 0);
 		return (VkImageView*)((char*)getAttachmentImagesMod() +  sizeof(VkImage) * getAttachmentCount());
 	}
-	VkDeviceMemory Display::getAttachmentMemory() const {
+	VkDeviceMemory& Display::getAttachmentMemory() const {
 		assert(attachmentData != nullptr);
 		assert(attachmentCount != 0);
 		return *(VkDeviceMemory*)((char*)getAttachmentImageViewsMod() + sizeof(VkImageView) * getAttachmentCount());
@@ -322,17 +263,17 @@ namespace SGF {
 	}
 
 	void Display::freeAttachmentData() {
-		assert(handle != VK_NULL_HANDLE);
 		assert(attachmentData != nullptr);
 		destroyFramebuffers();
 		delete[] attachmentData;
 		attachmentData = nullptr;
 	}
 
-	void Display::allocateAttachmentData(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
-		assert(attCount == attachmentCount + 1);
+	void Display::allocateAttachmentData(uint32_t width, uint32_t height, const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
+		assert(attCount > 0);
+		attachmentCount = attCount - 1;
 		assert(attachmentData == nullptr);
-		size_t allocSize = (sizeof(VkImage) + sizeof(VkFramebuffer) + sizeof(VkImageView)) * swapchainImageCount;
+		size_t allocSize = (sizeof(VkImage) + sizeof(VkFramebuffer) + sizeof(VkImageView)) * swapchain.getImageCount();
 		if (attachmentCount != 0) {
 			allocSize += (sizeof(VkImage) + sizeof(VkImageView) + sizeof(VkFormat) + sizeof(VkImageUsageFlags) + sizeof(VkSampleCountFlags)) * attachmentCount + sizeof(VkDeviceMemory);
 		}
@@ -343,38 +284,38 @@ namespace SGF {
 			auto samples = getAttachmentSampleCountsMod();
 			for (uint32_t i = 1; i < attCount; ++i) {
 				formats[i-1] = pAttachments[i].format;
-				usages[i-1] = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+				VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 				samples[i-1] = pAttachments[i].samples;
 				for (uint32_t k = 0; k < subpassCount; ++k) {
 					auto& subpass = pSubpasses[k];
 					for (uint32_t l = 0; l < subpass.colorAttachmentCount; ++l) {
 						if (subpass.pColorAttachments[l].attachment == i) {
-							usages[i-1] |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+							usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 						}
 					}
 					for (uint32_t l = 0; l < subpass.inputAttachmentCount; ++l) {
 						if (subpass.pInputAttachments[l].attachment == i) {
-							usages[i-1] |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+							usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 						}
 					}
 					if (subpass.pDepthStencilAttachment != nullptr) {
 						if (subpass.pDepthStencilAttachment[0].attachment == i) {
-							usages[i-1] |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+							usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 						}
 					}
 				}
+				usages[i - 1] = usage;
 			}
 		}
-		createFramebuffers();
+		createFramebuffers(width, height);
 	}
 	void Display::destroyFramebuffers() {
 		SGF::debug("destroying framebuffers of swapchain!");
 		auto& dev = getDevice(); 
 		assert(attachmentData != nullptr);
-		assert(swapchainImageCount != 0);
-		auto imageViews = getImageViews();
+		auto imageViews = getSwapchainImageViews();
 		auto framebuffers = getFramebuffers();
-		for (uint32_t i = 0; i < swapchainImageCount; ++i) {
+		for (uint32_t i = 0; i < swapchain.getImageCount(); ++i) {
 			dev.destroy(imageViews[i], framebuffers[i]);
 		}
 		for (uint32_t i = 0; i < attachmentCount; ++i) {
@@ -382,18 +323,17 @@ namespace SGF {
 			auto attachmentImageViews = getAttachmentImageViews();
 			dev.destroy(attachmentImages[i], attachmentImageViews[i]);
 		}
+		if (attachmentCount != 0) {
+			dev.destroy(getAttachmentMemory());
+		}
 	}
-	void Display::createFramebuffers() {
+	void Display::createFramebuffers(uint32_t width, uint32_t height) {
 		SGF::debug("creating framebuffers of swapchain!");
 		auto& dev = getDevice();
 		assert(attachmentData != nullptr);
-		assert(swapchainImageCount != 0);
-		if (vkGetSwapchainImagesKHR(dev.logical, handle, &swapchainImageCount, getImagesMod()) != VK_SUCCESS) {
-			SGF::fatal(ERROR_GET_SWAPCHAIN_IMAGES);
-		}
-		assert(swapchainImageCount != 0);
+		swapchain.loadImages(getImagesMod());
 		VkImageView* views = getImageViewsMod();
-		auto images = getImages();
+		auto images = getSwapchainImages();
 		VkImageViewCreateInfo info;
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		info.pNext = nullptr;
@@ -417,8 +357,13 @@ namespace SGF {
 			VkImage* attImages = getAttachmentImagesMod();
 			VkImageView* attImageViews = getAttachmentImageViewsMod();
 			for (uint32_t i = 0; i < attachmentCount; ++i) {
-				attImages[i] = dev.image2D(width, height, attFormats[i], attUsages[i], 1, attSamples[i]);
-				if (attUsages[i] | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+				attImages[i] = dev.image2D(width, height, attFormats[i], attUsages[i], attSamples[i]);
+			}
+			auto& memory = getAttachmentMemory();
+			memory = dev.allocate(attImages, attachmentCount);
+			for (uint32_t i = 0; i < attachmentCount; ++i) {
+				VkImageUsageFlags usage = attUsages[i];
+				if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 					info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 					if ((attFormats[i] == VK_FORMAT_D16_UNORM_S8_UINT || attFormats[i] == VK_FORMAT_D24_UNORM_S8_UINT || attFormats[i] == VK_FORMAT_D32_SFLOAT_S8_UINT)) {
 						info.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -438,7 +383,8 @@ namespace SGF {
 		}
 		info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		auto framebuffers = getFramebuffersMod();
-		for (uint32_t i = 0; i < swapchainImageCount; ++i) {
+		info.format = getImageFormat();
+		for (uint32_t i = 0; i < swapchain.getImageCount(); ++i) {
 			info.image = images[i];
 			views[i] = dev.imageView(info);
 			attachmentViews[0] = views[i];

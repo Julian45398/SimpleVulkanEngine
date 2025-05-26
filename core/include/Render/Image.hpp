@@ -5,58 +5,30 @@
 namespace SGF {
     class Image {
     public:
-        inline operator VkImage() const {return handle;}
-        inline VkImage getHandle() const {return handle;}
-        inline VkFormat getFormat() const {return format;}
-        inline uint32_t getWidth() const {return width;}
-        inline uint32_t getHeight() const {return height;}
-        inline uint32_t getDepth() const {return depth;}
-        inline uint32_t getMipLevelCount() const {return mipLevelCount;}
-        inline uint32_t getArraySize() const {return arraySize;}
+        inline operator VkImage() const { return handle; }
+        inline VkImage getHandle() const { return handle; }
+        inline VkFormat getFormat() const { return format; }
+        inline uint32_t getWidth() const { return extent.width; }
+        inline uint32_t getHeight() const { return extent.height; }
+        inline uint32_t getDepth() const { return extent.depth; }
+        inline VkExtent3D getExtent() const { return extent; }
+        inline uint32_t getMipLevelCount() const { return mipLevelCount; }
+        inline uint32_t getArraySize() const { return arraySize; }
+        inline VkImageUsageFlags getUsage() const { return usage; }
         
-        inline Image() {};
+        Image(const Device& device, uint32_t length, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT, uint32_t arraySize = 1, uint32_t mipLevelCount = 1, QueueFamilyFlags simultaneousUsage = FLAG_NONE);
+        Image(const Device& device, uint32_t width, uint32_t height, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT, uint32_t arraySize = 1, uint32_t mipLevelCount = 1, QueueFamilyFlags simultaneousUsage = FLAG_NONE);
+        Image(const Device& device, uint32_t width, uint32_t height, uint32_t depth, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT, uint32_t arraySize = 1, uint32_t mipLevelCount = 1, QueueFamilyFlags simultaneousUsage = FLAG_NONE);
+        ~Image();
     private:
-        friend Device;
         friend ImageView;
         VkImage handle;
+        VkImageUsageFlags usage;
         VkFormat format;
         VkImageLayout layout;
-        uint32_t width;
-        uint32_t height;
-        uint32_t depth;
+        VkExtent3D extent;
         uint32_t mipLevelCount;
         uint32_t arraySize;
-    public:
-        class Builder {
-        public:
-            inline Image build();
-            inline Builder& format(VkFormat format) { info.format = format; return *this; }
-            inline Builder& extent(uint32_t length) { info.extent = {length, 1, 1}; info.imageType = VK_IMAGE_TYPE_1D; return *this; }
-            inline Builder& extent(uint32_t width, uint32_t height) { info.extent = {width, height, 1}; info.imageType = VK_IMAGE_TYPE_2D; return *this; }
-            inline Builder& extent(uint32_t width, uint32_t height, uint32_t depth) { info.extent = {width, height, depth}; info.imageType = VK_IMAGE_TYPE_3D; return *this; }
-            inline Builder& samples(VkSampleCountFlagBits sampleCount) { info.samples = sampleCount; return *this; }
-            inline Builder& mipLevels(uint32_t count) { info.mipLevels = count; return *this; }
-            inline Builder& array(uint32_t size) { info.arrayLayers = size; return *this; }
-            inline Builder& tiling(VkImageTiling tiling) { info.tiling = tiling; return *this; }
-            inline Builder& layout(VkImageLayout initialLayout) { info.initialLayout = initialLayout; return *this; }
-            inline Builder& usage(VkImageUsageFlags usage) { info.usage = usage; return *this; }
-            inline Builder& createFlags(VkImageCreateFlags flags) { info.flags = flags; return *this; }
-            inline Builder& next(void* pNext) { info.pNext = pNext; return *this; }
-            Builder& graphics();
-            Builder& compute();
-            Builder& transfer();
-            Builder& present();
-            inline Builder& flags(VkImageCreateFlags createFlags) { info.flags = createFlags; return *this; }
-            inline Builder& next(const void* pNext) { info.pNext = pNext; return *this; }
-        private:
-            friend Device;
-            Builder(const Device* device, uint32_t length);
-            Builder(const Device* device, uint32_t width, uint32_t height);
-            Builder(const Device* device, uint32_t width, uint32_t height, uint32_t depth);
-            VkImageCreateInfo info = {};
-            uint32_t indices[4] = {UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX};
-            const Device* pDevice;
-        };
     };
     class ImageView {
     public:

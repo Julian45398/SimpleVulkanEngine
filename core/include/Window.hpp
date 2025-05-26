@@ -3,29 +3,20 @@
 #include "SGF_Core.hpp"
 #include "Input/Keycodes.hpp"
 #include "Input/Mousecodes.hpp"
+#include "Render/Display.hpp"
 
 namespace SGF {
-    enum WindowCreateFlagBits {
-        WINDOW_FLAG_FULLSCREEN = BIT(0),
-        WINDOW_FLAG_RESIZABLE = BIT(1),
-        WINDOW_FLAG_MINIMIZED = BIT(2),
-        WINDOW_FLAG_MAXIMIZED = BIT(3)
-    };
-    typedef Flags WindowCreateFlags;
-
-	struct FileFilter {
+    	struct FileFilter {
 		const char* filterDescription;
 		const char* filters;
 	};
-    //inline WindowEventManager WindowEvents;
-
     class Window {
     public:
-        inline static Window* getFocusedWindow() { return focusedWindow; }
-        static VkExtent2D Window::getMonitorSize(uint32_t index);
-        static VkExtent2D Window::getMaxMonitorSize();
-        static uint32_t Window::getMonitorCount();
-
+        //inline static Window* getFocusedWindow() { return focusedWindow; }
+        inline static Window* GetFocused() { return FocusedWindow; }
+        static VkExtent2D getMonitorSize(uint32_t index);
+        static VkExtent2D getMaxMonitorSize();
+        static uint32_t getMonitorCount();
 
         //====================================================================
         //========================Window Creation=============================
@@ -42,7 +33,6 @@ namespace SGF {
          * @param height - window height - or when fullscreen the resolution
          * @param fullscreen - controls whether the window should be created in fullscreen mode
          */
-        Window(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags = FLAG_NONE);
         ~Window();
         Window(Window&& other) noexcept;
         Window(const Window& other) = delete;
@@ -51,35 +41,39 @@ namespace SGF {
         void open(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags = FLAG_NONE);
         void close();
 
+        inline void setRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) 
+        { display.updateRenderPass(surface, width, height, pAttachments, attCount, pSubpasses, subpassCount, pDependencies, dependencyCount); }
+        inline void setRenderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies)
+        { display.updateRenderPass(surface, width, height, attachments.data(), (uint32_t)attachments.size(), subpasses.data(), (uint32_t)subpasses.size(), dependencies.data(), (uint32_t)dependencies.size()); }
+        inline void resizeFramebuffers(uint32_t w, uint32_t h) { width = w; height = h; display.updateFramebuffers(surface, w, h); }
+        inline void nextFrame(VkSemaphore imageAvailable, VkFence fence = VK_NULL_HANDLE) { display.nextFrame(imageAvailable, fence); }
+        inline void presentFrame(VkSemaphore waitSemaphore) { display.presentFrame(waitSemaphore); }
+        inline void presentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) { display.presentFrame(pWaitSemaphores, waitCount); }
+        inline void presentFrame(const std::vector<VkSemaphore>& waitSemaphores) { display.presentFrame(waitSemaphores.data(), (uint32_t)waitSemaphores.size()); }
         //====================================================================
         //========================Window Information==========================
         //====================================================================
         bool isOpen() const { return window != nullptr; }
-        //bool hasDevice() const { return pDevice != nullptr; }
         bool shouldClose() const ;
         inline uint32_t getWidth() const { return width; }
         inline uint32_t getHeight() const { return height; }
         inline VkSurfaceKHR getSurface() const { return surface; }
+        inline VkRenderPass getRenderPass() const { return display.getRenderPass(); }
+        inline VkFramebuffer getCurrentFramebuffer() const { return display.getCurrentFramebuffer(); }
+        inline uint32_t getImageIndex() const { return display.getImageIndex(); }
+        inline uint32_t getImageCount() const { return display.getImageCount(); }
         inline operator VkSurfaceKHR() const { return surface; }
-        //inline VkSurfaceFormatKHR getSurfaceFormat() const { return surfaceFormat; }
-        //inline VkFormat getFormat() const { return surfaceFormat.format; }
-        //inline VkColorSpaceKHR getColorspace() const { return surfaceFormat.colorSpace; }
-        //inline VkPresentModeKHR getPresentMode() const { return presentMode; }
+        inline const void* getNativeWindow() const { return window; }
         const char* getName() const;
         //====================================================================
         //========================Window Modifiers============================
         //====================================================================
-        //void bindDevice(Device& device);
-        //void unbindDevice();
         void onUpdate();
-        void nextImage(VkSemaphore signalSemaphore, VkFence fence);
-        void presentImage(VkSemaphore waitSemaphore, VkFence fence) const;
         bool isFullscreen() const;
         bool isMinimized();
         void enableVsync();
         void disableVsync();
         void setFullscreen();
-        //void setFullscreenKeepResolution();
         void setWindowed(uint32_t width, uint32_t height);
         void minimize();
         //====================================================================
@@ -93,19 +87,15 @@ namespace SGF {
 		std::string openFileDialog(uint32_t filterCount, const FileFilter* pFilters) const;
 		std::string saveFileDialog(const FileFilter& filter) const;
 		std::string saveFileDialog(uint32_t filterCount, const FileFilter* pFilters) const;
+        Window(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags = FLAG_NONE);
     private:
-        static void onResize(WindowResizeEvent& event);
-        static void onMinimize(WindowMinimizeEvent& event);
-        static void onDeviceDestroy(const DeviceDestroyEvent& event, Window* window);
-    private:
+        inline Window() {}
         friend Device;
-        //void createSwapchain();
-        //void createResources();
-        //void destroyResources();
         uint32_t width = 0;
         uint32_t height = 0;
         void* window = nullptr;
         VkSurfaceKHR surface = VK_NULL_HANDLE;
-        inline static Window* focusedWindow = nullptr;
+        Display display;
+        inline static Window* FocusedWindow = nullptr;
     };
 }

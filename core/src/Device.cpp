@@ -69,7 +69,6 @@ namespace SGF {
 #endif
     Device Device::Instance;
 
-    const Device& getDevice() { return Device::Instance; }
     void shutdownDevice() { Device::Instance.shutdown(); }
 
     Device::Builder pickDevice() { return Device::Builder(); }
@@ -788,6 +787,11 @@ namespace SGF {
             fatal(ERROR_WAIT_FENCE);
         }
     }
+    void Device::reset(const VkFence* fences, uint32_t fenceCount) const {
+		if (vkResetFences(logical, fenceCount, fences) != VK_SUCCESS) {
+			fatal(ERROR_RESET_FENCE);
+		}
+	}
 
 
 #pragma region DEVICE_MEMORY
@@ -833,17 +837,30 @@ namespace SGF {
 		}
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
-    DeviceMemory Device::allocate(const VkMemoryAllocateInfo& info) const {
-        DeviceMemory mem;
-        mem.memorySize = info.allocationSize;
-        if (vkAllocateMemory(logical, &info, SGF::VulkanAllocator, &mem.handle) != VK_SUCCESS) {
+    VkSampleCountFlagBits Device::getMaxSupportedSampleCount() const {
+		VkPhysicalDeviceProperties physicalDeviceProperties;
+		vkGetPhysicalDeviceProperties(physical, &physicalDeviceProperties);
+
+		VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+		if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+		if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+		if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+		if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+		if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+		if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+    VkDeviceMemory Device::allocate(const VkMemoryAllocateInfo& info) const {
+        VkDeviceMemory mem;
+        if (vkAllocateMemory(logical, &info, SGF::VulkanAllocator, &mem) != VK_SUCCESS) {
             SGF::fatal(ERROR_DEVICE_MEM_ALLOCATION);
         }
+        SGF::info("Allocated device Memory with size: ", info.allocationSize);
         TRACK_DEVICE_MEMORY(1);
         return mem;
     }
 
-    DeviceMemory Device::allocate(const VkMemoryRequirements& req, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::allocate(const VkMemoryRequirements& req, VkMemoryPropertyFlags flags) const {
         VkMemoryAllocateInfo info;
         info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         info.pNext = nullptr;
@@ -852,17 +869,17 @@ namespace SGF {
         return allocate(info);
     }
 
-    DeviceMemory Device::allocate(VkBuffer buffer, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::allocate(VkBuffer buffer, VkMemoryPropertyFlags flags) const {
         assert(buffer != VK_NULL_HANDLE);
         VkMemoryRequirements req;
         vkGetBufferMemoryRequirements(logical, buffer, &req);
-        DeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = allocate(req, flags);
         if (vkBindBufferMemory(logical, buffer, mem, 0) != VK_SUCCESS) {
             SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
         }
         return mem;
     }
-    DeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags) const {
         assert(bufferCount != 0);
         assert(pBuffers != nullptr);
         VkMemoryRequirements req = {};
@@ -878,7 +895,7 @@ namespace SGF {
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
         assert(req.size % req.alignment == 0);
-        DeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = allocate(req, flags);
         for (uint32_t i = 0; i < bufferCount; ++i) {
             if (vkBindBufferMemory(logical, pBuffers[i], mem, offsets[i]) != VK_SUCCESS) {
                 SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
@@ -887,17 +904,17 @@ namespace SGF {
         delete[] offsets;
         return mem;
     }
-    DeviceMemory Device::allocate(VkImage image, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::allocate(VkImage image, VkMemoryPropertyFlags flags) const {
         assert(image != VK_NULL_HANDLE);
         VkMemoryRequirements req;
         vkGetImageMemoryRequirements(logical, image, &req);
-        DeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = allocate(req, flags);
         if (vkBindImageMemory(logical, image, mem, 0) != VK_SUCCESS) {
             SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
         }
         return mem;
     }
-    DeviceMemory Device::allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
         assert(imageCount != 0);
         assert(pImages != nullptr);
         VkMemoryRequirements req = {};
@@ -913,7 +930,7 @@ namespace SGF {
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
         assert(req.size % req.alignment == 0);
-        DeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = allocate(req, flags);
         for (uint32_t i = 0; i < imageCount; ++i) {
             if (vkBindImageMemory(logical, pImages[i], mem, offsets[i]) != VK_SUCCESS) {
                 SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
@@ -922,7 +939,7 @@ namespace SGF {
         delete[] offsets;
         return mem;
     }
-    DeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
         assert(imageCount != 0);
         assert(pImages != nullptr);
         assert(bufferCount != 0);
@@ -948,7 +965,7 @@ namespace SGF {
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
         assert(req.size % req.alignment == 0);
-        DeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = allocate(req, flags);
         for (uint32_t i = 0; i < bufferCount; ++i) {
             if (vkBindBufferMemory(logical, pBuffers[i], mem, offsets[i]) != VK_SUCCESS) {
                 SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
@@ -964,21 +981,20 @@ namespace SGF {
     }
 #pragma endregion DEVICE_MEMORY
 
-    Buffer Device::buffer(const VkBufferCreateInfo& info) const {
-        Buffer buffer;
-        buffer.memorySize = info.size;
-        if (vkCreateBuffer(logical, &info, SGF::VulkanAllocator, &buffer.handle) != VK_SUCCESS) {
+    VkBuffer Device::buffer(const VkBufferCreateInfo& info) const {
+        VkBuffer buffer;
+        if (vkCreateBuffer(logical, &info, SGF::VulkanAllocator, &buffer) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_BUFFER);
         }
         TRACK_BUFFER(1);
         return buffer;
     }
-    Buffer Device::buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) const {
+    VkBuffer Device::buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) const {
         VkBufferCreateInfo info;
         createDefaultBufferInfo(&info, size, usage, flags);
         return buffer(info);
     }
-    Buffer Device::buffer(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags familyFlags, VkBufferCreateFlags flags) const {
+    VkBuffer Device::bufferShared(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags familyFlags, VkBufferCreateFlags flags) const {
         uint32_t indices[4] = {};
         VkBufferCreateInfo info;
         createDefaultBufferInfo(&info, size, usage, flags);
@@ -988,62 +1004,55 @@ namespace SGF {
 
 
 #pragma region IMAGE
-    Image Device::image(const VkImageCreateInfo& info) const {
+    VkImage Device::image(const VkImageCreateInfo& info) const {
         assert(info.extent.width != 0);
         assert(info.extent.height != 0);
         assert(info.extent.depth != 0);
         assert(info.sType == VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
-        assert(info.pQueueFamilyIndices != nullptr);
-        Image image;
-        if (vkCreateImage(logical, &info, SGF::VulkanAllocator, &image.handle) != VK_SUCCESS) {
+        VkImage image;
+        if (vkCreateImage(logical, &info, SGF::VulkanAllocator, &image) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_IMAGE);
         }
-        image.arraySize = info.arrayLayers;
-        image.width = info.extent.width;
-        image.height = info.extent.height;
-        image.depth = info.extent.depth;
-        image.format = info.format;
-        image.mipLevelCount = info.mipLevels;
         TRACK_IMAGE(1);
         return image;
     }
-        Image Device::image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
+    VkImage Device::image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {length, 1, 1}, 1, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_1D;
         return image(info);
     }
-    Image Device::image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
+    VkImage Device::image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {width, height, 1}, 1, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_2D;
         return image(info);
     }
-    Image Device::image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
+    VkImage Device::image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {width, height, depth}, 1, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_3D;
         return image(info);
     }
-    Image Device::imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
+    VkImage Device::imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {length, 1, 1}, arraySize, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_1D;
         return image(info);
     }
-    Image Device::imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
+    VkImage Device::imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info{};
         createDefaultImageInfo(&info, {width, height, 1}, arraySize, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_2D;
         return image(info);
     }
-    Image Device::imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, VkImageCreateFlags flags) const {
+    VkImage Device::imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info{};
         createDefaultImageInfo(&info, { width, height, depth }, arraySize, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_3D;
         return image(info);
     }
-    Image Device::image1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::image1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { length, 1, 1 }, 1, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -1051,7 +1060,7 @@ namespace SGF {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::image2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::image2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         assert(graphicsCount != 0);
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, 1 }, 1, format, usage, mipLevelCount, samples, flags);
@@ -1060,7 +1069,7 @@ namespace SGF {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::image3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::image3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         assert(graphicsCount != 0);
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, depth }, 1, format, usage, mipLevelCount, samples, flags);
@@ -1069,7 +1078,7 @@ namespace SGF {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { length, 1, 1 }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -1077,7 +1086,7 @@ namespace SGF {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, 1 }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -1085,7 +1094,7 @@ namespace SGF {
         setupQueueFamilySharing(this, &info, indices, queueFlags);
         return image(info);
     }
-    Image Device::imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevelCount, VkSampleCountFlagBits samples, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, depth }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
@@ -1098,48 +1107,47 @@ namespace SGF {
 {VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY},\
 {ASPECT,MIP,LEVELS,BASE,COUNT}}
 
-    ImageView Device::imageView(const VkImageViewCreateInfo& info) const {
-        ImageView view;
+    VkImageView Device::imageView(const VkImageViewCreateInfo& info) const {
+        VkImageView view;
         assert(info.sType == VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
-        if (vkCreateImageView(logical, &info, SGF::VulkanAllocator, &view.handle) != VK_SUCCESS) {
+        if (vkCreateImageView(logical, &info, SGF::VulkanAllocator, &view) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_IMAGE_VIEW);
         }
         TRACK_IMAGE_VIEW(1);
         return view;
     }
-    ImageView Device::imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_1D, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
         return imageView(info);
     }
 
-    ImageView Device::imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_2D, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
         return imageView(info);
     }
 
-    ImageView Device::imageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::imageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_3D, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
         return imageView(info);
     }
 
-    ImageView Device::imageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::imageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_CUBE, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
         return imageView(info);
     }
-    ImageView Device::imageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
+    VkImageView Device::imageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_1D_ARRAY, format, imageAspect, mipLevel, levelCount, arrayLayer, arraySize);
         return imageView(info);
     }
 
-    ImageView Device::imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
+    VkImageView Device::imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_2D_ARRAY, format, imageAspect, mipLevel, levelCount, arrayLayer, arraySize);
         return imageView(info);
     }
-    ImageView Device::imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
+    VkImageView Device::imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY, format, imageAspect, mipLevel, levelCount, arrayLayer, arraySize);
         return imageView(info);
     }
-
 #pragma endregion IMAGE_CREATION
 
     VkQueue Device::graphicsQueue(uint32_t index) const {
@@ -1350,12 +1358,79 @@ namespace SGF {
         }
     }
 
-    VkFormat Device::getSwapchainFormat(VkSurfaceKHR surface) const {
-        return pickSurfaceFormat(surface, Swapchain::DEFAULT_SURFACE_FORMAT).format;
+    VkDescriptorSetLayout Device::descriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) const {
+        VkDescriptorSetLayout layout;
+        if (vkCreateDescriptorSetLayout(logical, &info, VulkanAllocator, &layout) != VK_SUCCESS) {
+            fatal(ERROR_CREATE_DESCRIPTOR_LAYOUT);
+        }
+        return layout;
+    }
+    VkDescriptorSetLayout Device::descriptorSetLayout(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags) const {
+        VkDescriptorSetLayoutCreateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        info.pNext = nullptr;
+        info.pBindings = pBindings;
+        info.bindingCount = bindingCount;
+        info.flags = flags;
+        return descriptorSetLayout(info);
+    }
+    VkDescriptorSetLayout Device::descriptorSetLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags) const {
+        return descriptorSetLayout(bindings.data(), (uint32_t)bindings.size(), flags);
     }
 
+    VkDescriptorPool Device::descriptorPool(const VkDescriptorPoolCreateInfo& info) const {
+        assert(info.sType == VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+        assert(info.pPoolSizes != nullptr);
+        assert(info.poolSizeCount != 0);
+        VkDescriptorPool pool;
+        if (vkCreateDescriptorPool(logical, &info, VulkanAllocator, &pool) != VK_SUCCESS) {
+            fatal(ERROR_CREATE_DESCRIPTOR_POOL);
+        }
+        return pool;
+    }
+
+    VkDescriptorPool Device::descriptorPool(uint32_t maxSets, const VkDescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, VkDescriptorPoolCreateFlags flags) const {
+        VkDescriptorPoolCreateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        info.flags = flags;
+        info.pNext = nullptr;
+        info.poolSizeCount = poolSizeCount;
+        info.pPoolSizes = pPoolSizes;
+        info.maxSets = maxSets;
+        return descriptorPool(info);
+    }
+    VkDescriptorPool Device::descriptorPool(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags) const {
+        return descriptorPool(maxSets, poolSizes.data(), (uint32_t)poolSizes.size(), flags);
+    }
+
+    
+    VkDescriptorSet Device::descriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const {
+        VkDescriptorSet set;
+        descriptorSets(pool, &descriptorSetLayout, 1, &set);
+        return set;
+    }
+    void Device::descriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* descriptorSets) const {
+        if (vkAllocateDescriptorSets(logical, &info, descriptorSets) != VK_SUCCESS) {
+            fatal(ERROR_ALLOCATE_DESCRIPTOR_SETS);
+        }
+    }
+    void Device::descriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const {
+        VkDescriptorSetAllocateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        info.descriptorPool = pool;
+        info.pSetLayouts = pSetLayouts;
+        info.descriptorSetCount = setCount;
+        info.pSetLayouts = pSetLayouts;
+        info.pNext = nullptr;
+        descriptorSets(info, pDescriptorSets);
+    }
+    void Device::descriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const {
+        descriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
+    }
+        
+
     void Device::getSwapchainImages(VkSwapchainKHR swapchain, uint32_t* pCount, VkImage* pImages) const {
-        if (vkGetSwapchainImagesKHR(logical, swapchain, pCount, pImages) != VK_NULL_HANDLE) {
+        if (vkGetSwapchainImagesKHR(logical, swapchain, pCount, pImages) != VK_SUCCESS) {
             fatal(ERROR_GET_SWAPCHAIN_IMAGES);
         }
     }

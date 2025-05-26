@@ -18,6 +18,7 @@ namespace SGF {
 		inline uint32_t getWidth() const { return width; }
 		inline uint32_t getHeight() const { return height; }
 	private:
+		friend Window;
 		uint32_t width;
 		uint32_t height;
 	};

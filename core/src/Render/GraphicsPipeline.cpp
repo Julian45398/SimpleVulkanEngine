@@ -3,39 +3,44 @@
 
 namespace SGF {
 
-    GraphicsPipeline GraphicsPipeline::Builder::build() {
-        return GraphicsPipeline(pDevice->pipeline(info));
+    VkPipeline GraphicsPipelineBuilder::build() {
+        return getDevice().pipeline(info);
     }
-    GraphicsPipeline::Builder& GraphicsPipeline::Builder::geometryShader(const char* filename) {
-        assert(pDevice->isFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::geometryShader(const char* filename) {
+        auto& device = getDevice();
+        assert(device.isFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_GEOMETRY_BIT);
         return *this;
     }
-    GraphicsPipeline::Builder& GraphicsPipeline::Builder::fragmentShader(const char* filename) {
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::fragmentShader(const char* filename) {
         addShaderStage(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
         return *this;
     }
-    GraphicsPipeline::Builder& GraphicsPipeline::Builder::vertexShader(const char* filename) {
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::vertexShader(const char* filename) {
         addShaderStage(filename, VK_SHADER_STAGE_VERTEX_BIT);
         return *this;
     }
-    GraphicsPipeline::Builder& GraphicsPipeline::Builder::tesselationEvaluationShader(const char* filename) {
-        assert(pDevice->isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationEvaluationShader(const char* filename) {
+        auto& device = getDevice();
+        assert(device.isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
         return *this;
     }
-    GraphicsPipeline::Builder& GraphicsPipeline::Builder::tesselationControlShader(const char* filename) {
-        assert(pDevice->isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationControlShader(const char* filename) {
+        auto& device = getDevice();
+        assert(device.isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
         return *this;
     }
 
-    GraphicsPipeline::Builder::~Builder() {
+    GraphicsPipelineBuilder::~GraphicsPipelineBuilder() {
+        auto& device = getDevice();
         for (uint32_t i = 0; i < info.stageCount; ++i) {
-            pDevice->destroy(pipelineStages[i].module);
+            device.destroy(pipelineStages[i].module);
         }
     }
-    GraphicsPipeline::Builder::Builder(const Device* device, VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) : pDevice(device) {
+    GraphicsPipelineBuilder::GraphicsPipelineBuilder(const Device* device, VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass)
+    {
         info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         info.pNext = nullptr;
         info.flags = FLAG_NONE;
@@ -150,9 +155,11 @@ namespace SGF {
         dynamicStateInfo.pDynamicStates = dynamicStates;
     }
 
-    void GraphicsPipeline::Builder::addShaderStage(const char* filename, VkShaderStageFlagBits stage) {
+    void GraphicsPipelineBuilder::addShaderStage(const char* filename, VkShaderStageFlagBits stage) {
         assert(info.stageCount < SGF_PIPELINE_MAX_PIPELINE_STAGES);
-        VkShaderModule shader = pDevice->shaderModule(filename);
+
+        auto& device = getDevice();
+        VkShaderModule shader = device.shaderModule(filename);
         pipelineStages[info.stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineStages[info.stageCount].stage = stage;
         pipelineStages[info.stageCount].pName = "main";

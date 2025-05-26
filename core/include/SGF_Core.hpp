@@ -36,6 +36,4 @@ namespace SGF {
 #include <glm/gtc/matrix_transform.hpp>
 
 
-#define BIT(X) (1<<X)
-#define CHECK_BIT(X, BIT_POSITION) (X & BIT(BIT_POSITION))
-#define ARRAY_SIZE(X) (sizeof(X)/sizeof(X[0]))
+#define SGF_SINGLE_GRAPHICS_DEVICE

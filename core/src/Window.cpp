@@ -34,9 +34,9 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
 
 #pragma endregion SWAPCHAIN_HELPER_FUNCTIONS
     VkExtent2D Window::getMonitorSize(uint32_t index) {
-        uint32_t count;
-        auto monitors = glfwGetMonitors(&count)
-        assert(index < count);
+        int count;
+        auto monitors = glfwGetMonitors(&count);
+        assert(index < (uint32_t)count);
         auto vidmode = glfwGetVideoMode(monitors[index]);
         VkExtent2D extent;
         extent.width = vidmode->width;
@@ -45,29 +45,24 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
     }
     VkExtent2D Window::getMaxMonitorSize() {
         VkExtent2D extent{};
-        uint32_t count;
+        int count;
         auto monitors = glfwGetMonitors(&count);
         for (uint32_t i = 0; i < count; ++i) {
             auto vidmode = glfwGetVideoMode(monitors[i]);
-            extent.width = std::max(extent.width, vidmode->width);
-            extent.height = std::max(extent.height, vidmode->height);
+            extent.width = std::max(extent.width, (uint32_t)vidmode->width);
+            extent.height = std::max(extent.height, (uint32_t)vidmode->height);
         }
         return extent;
     }
     uint32_t Window::getMonitorCount() {
-        uint32_t count;
+        int count;
         glfwGetMonitors(&count);
-        return count;
-    }
-
-    void Window::onResize(WindowResizeEvent& event) {
-        Window& win = event.getWindow();
-        win.width = event.getWidth();
-        win.height = event.getHeight();
-        //win.createSwapchain();
-        //win.createResources();
+        return (uint32_t)count;
     }
     void Window::open(const char* name, uint32_t newWidth, uint32_t newHeight, WindowCreateFlags flags) {
+        if (isOpen()) {
+            close();
+        }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         if (flags & WINDOW_FLAG_RESIZABLE) {
             glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
@@ -111,8 +106,9 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
                 EventManager::dispatch(maxEvent);
                 SGF::info("window is maximized again!");
             }
+            getDevice().waitIdle();
+            win.resizeFramebuffers(width, height);
             WindowResizeEvent event(win, width, height);
-            onResize(event);
             EventManager::dispatch(event);
 		});
 
@@ -182,10 +178,8 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
                 Window* win = (Window*)glfwGetWindowUserPointer(window);
                 if (focus == GLFW_TRUE) {
                     SGF::info("Window: ", win->getName(), " is now focused!");
-                    focusedWindow = win;
-                } else if (focus == GLFW_FALSE && win == focusedWindow) {
+                } else if (focus == GLFW_FALSE) {
                     SGF::info("Window: ", win->getName(), " lost focus");
-                    focusedWindow = nullptr;
                 }
             });
 
@@ -205,6 +199,7 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
             });
     }
     void Window::close() {
+        display.destroy();
         vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
         glfwDestroyWindow((GLFWwindow*)window);
         window = nullptr;
