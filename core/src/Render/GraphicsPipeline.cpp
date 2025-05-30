@@ -4,10 +4,10 @@
 namespace SGF {
 
     VkPipeline GraphicsPipelineBuilder::build() {
-        return getDevice().pipeline(info);
+        return Device::Get().pipeline(info);
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::geometryShader(const char* filename) {
-        auto& device = getDevice();
+        auto& device = Device::Get();
         assert(device.isFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_GEOMETRY_BIT);
         return *this;
@@ -21,20 +21,20 @@ namespace SGF {
         return *this;
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationEvaluationShader(const char* filename) {
-        auto& device = getDevice();
+        auto& device = Device::Get();
         assert(device.isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
         return *this;
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationControlShader(const char* filename) {
-        auto& device = getDevice();
+        auto& device = Device::Get();
         assert(device.isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
         return *this;
     }
 
     GraphicsPipelineBuilder::~GraphicsPipelineBuilder() {
-        auto& device = getDevice();
+        auto& device = Device::Get();
         for (uint32_t i = 0; i < info.stageCount; ++i) {
             device.destroy(pipelineStages[i].module);
         }
@@ -158,7 +158,7 @@ namespace SGF {
     void GraphicsPipelineBuilder::addShaderStage(const char* filename, VkShaderStageFlagBits stage) {
         assert(info.stageCount < SGF_PIPELINE_MAX_PIPELINE_STAGES);
 
-        auto& device = getDevice();
+        auto& device = Device::Get();
         VkShaderModule shader = device.shaderModule(filename);
         pipelineStages[info.stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineStages[info.stageCount].stage = stage;

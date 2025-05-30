@@ -71,7 +71,7 @@ namespace SGF {
         extent.depth = depth;
     }
     Image::~Image() {
-        auto& device = getDevice();
+        auto& device = Device::Get();
         device.destroy(handle);
     }
 }

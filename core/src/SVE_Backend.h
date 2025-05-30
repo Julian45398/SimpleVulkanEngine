@@ -4,6 +4,7 @@
 #include <nfd.h>
 //#define SVE_RENDER_IN_VIEWPORT
 
+
 namespace SVE {
 	typedef void (*CallbackFunction)(void* data);
 	inline constexpr uint32_t FRAMES_IN_FLIGHT = 2;

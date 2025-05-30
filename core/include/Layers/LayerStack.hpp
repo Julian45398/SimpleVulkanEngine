@@ -17,7 +17,7 @@ namespace SGF {
         static void clear();
 
         // Events:
-        static void onEvent(const RenderEvent& event);
+        static void onEvent(RenderEvent& event);
         static void onEvent(const UpdateEvent& event);
         static void onEvent(const KeyPressedEvent& event);
         static void onEvent(const KeyReleasedEvent& event);

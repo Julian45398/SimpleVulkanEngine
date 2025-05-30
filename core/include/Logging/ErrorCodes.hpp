@@ -21,6 +21,7 @@ namespace SGF {
     SGF_ERROR(1012, CREATE_BUFFER, "failed to create buffer");
     SGF_ERROR(1013, CREATE_IMAGE, "failed to create image");
     SGF_ERROR(1013, CREATE_IMAGE_VIEW, "failed to create image view");
+    SGF_ERROR(1013, CREATE_SAMPLER, "failed to create image sampler");
 
     SGF_ERROR(1100, CREATE_RENDER_PASS, "failed to create render pass");
     SGF_ERROR(1101, CREATE_FRAMEBUFFER, "failed to create framebuffer");

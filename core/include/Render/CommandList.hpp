@@ -3,6 +3,7 @@
 #include "SGF_Core.hpp"
 
 #include "Device.hpp"
+#include "Window.hpp"
 
 namespace SGF {
 	enum QueueTypes {
@@ -31,18 +32,27 @@ namespace SGF {
 				queueFamilyIndex = device.transferFamily();
 				queue = device.transferQueue(queueIndex);
 			}
+			else {
+				queueFamilyIndex = UINT32_MAX;
+				queue = VK_NULL_HANDLE;
+			}
+			fence = device.fenceSignaled();
 			commandPool = device.commandPool(queueFamilyIndex, flags);
 			commands = device.commandBuffer(commandPool, level);
 		}
 		inline ~CommandList() {
-			auto& device = getDevice();
-			device.destroy(commandPool);
+			Device::Get().waitFence(fence);
+			auto& device = Device::Get();
+			device.destroy(commandPool, fence);
 		}
 		inline operator VkCommandBuffer() const { return commands; }
 		inline operator VkCommandPool() const { return commandPool; }
 		inline VkCommandBuffer getCommands() const { return commands; }
 		inline VkCommandPool getCommandPool() const { return commandPool; }
 		inline void begin(VkCommandBufferUsageFlags flags = FLAG_NONE) {
+			Device::Get().waitFence(fence);
+			Device::Get().reset(fence);
+			Device::Get().reset(commandPool);
 			VkCommandBufferBeginInfo info;
 			info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			info.flags = flags;
@@ -157,10 +167,29 @@ namespace SGF {
 		}
 
 		inline void reset() {
-			auto& device = getDevice();
+			auto& device = Device::Get();
 			device.reset(commandPool);
 		}
-		inline void submit(VkSemaphore waitSemaphore, VkShaderStageFlags waitStage, VkSemaphore signalSemaphore, VkFence fence) {
+		inline void submit(const VkSemaphore* pWaitSemaphores, const VkShaderStageFlags* pWaitStages, uint32_t waitCount, const VkSemaphore* pSignalSemaphores, uint32_t signalCount) {
+			VkSubmitInfo info;
+			info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			info.pNext = nullptr;
+			info.commandBufferCount = 1;
+			info.pCommandBuffers = &commands;
+			info.waitSemaphoreCount = waitCount;
+			info.signalSemaphoreCount = signalCount;
+			info.pWaitDstStageMask = pWaitStages;
+			info.pWaitSemaphores = pWaitSemaphores;
+			info.pSignalSemaphores = pSignalSemaphores;
+			if (vkQueueSubmit(queue, 1, &info, fence) != VK_SUCCESS) {
+				fatal(ERROR_QUEUE_SUBMIT);
+			}
+		}
+		inline void submit(const std::vector<VkSemaphore>& waitSemaphores, const std::vector<VkShaderStageFlags>& waitStages, const std::vector<VkSemaphore>& signalSemaphores) {
+			assert(waitSemaphores.size() == waitStages.size());
+			submit(waitSemaphores.data(), waitStages.data(), (uint32_t)waitStages.size(), signalSemaphores.data(), signalSemaphores.size());
+		}
+		inline void submit(VkSemaphore waitSemaphore, VkShaderStageFlags waitStage, VkSemaphore signalSemaphore) {
 			VkSubmitInfo info;
 			info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			info.pNext = nullptr;
@@ -178,6 +207,7 @@ namespace SGF {
 	private:
 		VkCommandBuffer	commands;
 		VkCommandPool commandPool;
+		VkFence fence;
 		VkQueue queue;
 	};
 }

@@ -12,8 +12,13 @@ namespace SGF {
     public:
         class Builder;
         static uint32_t getSupportedDeviceCount(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures, VkSurfaceKHR surface, uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-        inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
         inline static const Device& Get() { return Instance; }
+        static Builder PickNew();
+        static void PickNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+			const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
+			uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
+        inline static void Shutdown() { Instance.shutdown(); }
+        inline static bool IsInitialized() { return Instance.isCreated(); }
     private:
         /**
          * @brief Creates the device at the specified device index returned by vkEnumeratePhysicalDevices if it matches the requirements
@@ -30,9 +35,11 @@ namespace SGF {
          * @param window - window to bind device to 
          */
     public:
+        
         inline ~Device() { shutdown(); }
         void waitIdle() const;
 
+        inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
         void waitFence(VkFence fence) const;
         void waitFences(const VkFence* pFences, uint32_t count) const;
         inline void waitFences(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
@@ -102,6 +109,11 @@ namespace SGF {
         VkImageView imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
         VkImageView imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
 
+        VkSampler imageSampler(const VkSamplerCreateInfo& info) const;
+        VkSampler imageSampler(VkFilter filterType = VK_FILTER_NEAREST, VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 
+            float mipLodBias = 0.0f, VkBool32 anisotropyEnable = VK_FALSE, float maxAnisotropy = 0.0f, VkBool32 compareEnable = VK_FALSE, VkCompareOp compareOp = VK_COMPARE_OP_ALWAYS, 
+            float minLod = 0.0f, float maxLod = 0.0f, VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK, VkBool32 unnormalizedCoordinates = VK_FALSE, VkSamplerCreateFlags flags = FLAG_NONE, const void* pNext = nullptr) const;
+
         VkDeviceMemory allocate(const VkMemoryAllocateInfo& info) const;
         VkDeviceMemory allocate(const VkMemoryRequirements& memReq, VkMemoryPropertyFlags flags) const;
         VkDeviceMemory allocate(VkBuffer buffer, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
@@ -125,7 +137,7 @@ namespace SGF {
 
         VkRenderPass renderPass(const VkRenderPassCreateInfo& info) const;
         VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies = nullptr, uint32_t dependencyCount = 0) const;
-        inline VkRenderPass renderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency> dependencies) {
+        inline VkRenderPass renderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies) const {
             return renderPass(attachments.data(), (uint32_t)attachments.size(), subpasses.data(), (uint32_t)subpasses.size(), dependencies.data(), (uint32_t)dependencies.size());
         }
 
@@ -263,25 +275,14 @@ namespace SGF {
             uint32_t deviceExtensionCount = 0;
             Window* pWindow = nullptr;
         };
-        friend void shutdownDevice();
-        friend Builder pickDevice();
-        friend void pickDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
         static Device Instance;
     };
-    inline const Device& getDevice() { return Device::Get(); }
-    void shutdownDevice();
-    void pickDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-        const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
-        uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-
-    class DeviceDestroyEvent {
+    //void shutdownDevice();
+        class DeviceDestroyEvent {
     public:
         inline DeviceDestroyEvent(const Device& d) : device(d) {}
         inline const Device& getDevice() const { return device; }
     private:
         const Device& device;
     };
-    Device::Builder pickDevice();
 }

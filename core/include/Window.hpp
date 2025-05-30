@@ -45,7 +45,14 @@ namespace SGF {
         { display.updateRenderPass(surface, width, height, pAttachments, attCount, pSubpasses, subpassCount, pDependencies, dependencyCount); }
         inline void setRenderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies)
         { display.updateRenderPass(surface, width, height, attachments.data(), (uint32_t)attachments.size(), subpasses.data(), (uint32_t)subpasses.size(), dependencies.data(), (uint32_t)dependencies.size()); }
+
         inline void resizeFramebuffers(uint32_t w, uint32_t h) { width = w; height = h; display.updateFramebuffers(surface, w, h); }
+
+		inline void requestSurfaceFormat(VkSurfaceFormatKHR requested) { display.requestSurfaceFormat(requested); }
+		inline void requestColorSpace(VkColorSpaceKHR requested) { display.requestColorSpace(requested); }
+		inline void requestImageFormat(VkFormat requested) { display.requestImageFormat(requested); }
+		inline void requestPresentMode(VkPresentModeKHR requested) { display.requestPresentMode(requested); }
+
         inline void nextFrame(VkSemaphore imageAvailable, VkFence fence = VK_NULL_HANDLE) { display.nextFrame(imageAvailable, fence); }
         inline void presentFrame(VkSemaphore waitSemaphore) { display.presentFrame(waitSemaphore); }
         inline void presentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) { display.presentFrame(pWaitSemaphores, waitCount); }
@@ -57,6 +64,7 @@ namespace SGF {
         bool shouldClose() const ;
         inline uint32_t getWidth() const { return width; }
         inline uint32_t getHeight() const { return height; }
+        inline VkExtent2D getFramebufferSize() const { return { width, height }; }
         inline VkSurfaceKHR getSurface() const { return surface; }
         inline VkRenderPass getRenderPass() const { return display.getRenderPass(); }
         inline VkFramebuffer getCurrentFramebuffer() const { return display.getCurrentFramebuffer(); }

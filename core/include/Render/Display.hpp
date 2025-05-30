@@ -8,7 +8,7 @@ namespace SGF {
 	public:
 		inline const Swapchain& getSwapchain() const { return swapchain; }
 
-		inline void nextFrame(VkSemaphore imageAvailable, VkFence fence) { currentImageIndex = swapchain.nextImage(imageAvailable, fence); }
+		inline void nextFrame(VkSemaphore imageAvailableSignal, VkFence fence) { currentImageIndex = swapchain.nextImage(imageAvailableSignal, fence); }
 		inline void presentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) const { swapchain.presentImage(currentImageIndex, pWaitSemaphores, waitCount); }
 		inline void presentFrame(VkSemaphore waitSemaphore) const { swapchain.presentImage(currentImageIndex, waitSemaphore); }
 
@@ -61,7 +61,10 @@ namespace SGF {
 		{ updateRenderPass(surface, width, height, pAttachments, attachmentCount, &subpass, 1); }
 		inline void updateRenderPass(VkSurfaceKHR surface, uint32_t width, uint32_t height, const std::vector<VkAttachmentDescription>& attachments, const VkSubpassDescription& subpass) 
 		{ updateRenderPass(surface, width, height, attachments.data(), attachments.size(), subpass); }
-		
+
+		inline void requestSurfaceFormat(VkSurfaceFormatKHR requested) { swapchain.requestSurfaceFormat(requested); }
+		inline void requestColorSpace(VkColorSpaceKHR requested) { swapchain.requestColorSpace(requested); }
+		inline void requestImageFormat(VkFormat requested) { swapchain.requestImageFormat(requested); }
 		inline void requestPresentMode(VkPresentModeKHR requested) { swapchain.requestPresentMode(requested); }
 		inline bool isInitialized() const { return swapchain.isInitialized(); }
 

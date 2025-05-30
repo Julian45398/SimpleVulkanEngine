@@ -74,14 +74,14 @@ namespace SGF {
         layers.shrink_to_fit();
     }
 
-    void LayerStack::onEvent(const RenderEvent& event) {
+    void LayerStack::onEvent(RenderEvent& event) {
         for (auto& lay : layers) {
             lay->onRender(event);
         }
     }
     void LayerStack::onEvent(const UpdateEvent& event) {
-        for (auto& lay : layers) {
-            lay->onUpdate(event);
+        for (size_t i = layers.size(); i != 0; --i) {
+            layers[i - 1]->onUpdate(event);
         }
     }
     void LayerStack::onEvent(const KeyPressedEvent& event) {

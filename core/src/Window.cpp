@@ -106,7 +106,7 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
                 EventManager::dispatch(maxEvent);
                 SGF::info("window is maximized again!");
             }
-            getDevice().waitIdle();
+            Device::Get().waitIdle();
             win.resizeFramebuffers(width, height);
             WindowResizeEvent event(win, width, height);
             EventManager::dispatch(event);

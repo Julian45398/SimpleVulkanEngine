@@ -1,5 +1,3 @@
-#include <SVE_Entrypoint.hpp>
-
 #include "SimpleVulkanEditor.h"
 
 

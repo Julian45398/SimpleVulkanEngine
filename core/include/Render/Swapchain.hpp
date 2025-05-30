@@ -6,10 +6,10 @@
 namespace SGF {
 	class Swapchain {
 	public:
-		inline static const VkSurfaceFormatKHR DEFAULT_SURFACE_FORMAT = { VK_FORMAT_B8G8R8A8_SRGB, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+		inline static const VkSurfaceFormatKHR DEFAULT_SURFACE_FORMAT = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
 		static VkAttachmentDescription createAttachment(const Device& device, VkSurfaceKHR surface, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR);
 	public:
-		uint32_t nextImage(VkSemaphore imageAvailable, VkFence fence) const;
+		uint32_t nextImage(VkSemaphore imageAvailableSignal, VkFence fence) const;
 		void presentImage(uint32_t imageIndex, const VkSemaphore* waitSemaphores, uint32_t waitCount) const;
 		inline void presentImage(uint32_t imageIndex, VkSemaphore waitSemaphore) const { presentImage(imageIndex, &waitSemaphore, 1); }
 
@@ -28,13 +28,16 @@ namespace SGF {
 			update(surface, width, height);
 		}
 
+		inline void requestSurfaceFormat(VkSurfaceFormatKHR requested) { surfaceFormat = requested; }
+		inline void requestColorSpace(VkColorSpaceKHR requested) { surfaceFormat.colorSpace = requested; }
+		inline void requestImageFormat(VkFormat requested) { surfaceFormat.format; }
 		inline void requestPresentMode(VkPresentModeKHR requested) { presentMode = requested; }
 		inline bool isInitialized() const { return handle != VK_NULL_HANDLE; }
 
 		void create(VkSurfaceKHR surface, uint32_t width, uint32_t height, VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR);
 		void destroy();
 
-		inline Swapchain(VkSurfaceKHR surface, uint32_t width, uint32_t height, VkPresentModeKHR mode) : handle(VK_NULL_HANDLE), presentQueue(getDevice().presentQueue()) 
+		inline Swapchain(VkSurfaceKHR surface, uint32_t width, uint32_t height, VkPresentModeKHR mode) : handle(VK_NULL_HANDLE), presentQueue(Device::Get().presentQueue()) 
 		{ update(surface, width, height, mode); }
 		inline Swapchain() : handle(VK_NULL_HANDLE), presentQueue(VK_NULL_HANDLE), surfaceFormat(DEFAULT_SURFACE_FORMAT), presentMode(VK_PRESENT_MODE_FIFO_KHR), imageCount(0) {}
 		inline ~Swapchain() { destroy(); }

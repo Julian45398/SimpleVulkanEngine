@@ -26,7 +26,7 @@ namespace SGF {
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-		auto& device = getDevice();
+		auto& device = Device::Get();
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
 		//ImGui::StyleColorsLight();
@@ -65,19 +65,26 @@ namespace SGF {
 		ImGui::NewFrame();
 		ImGui::ShowDemoWindow(&showDemo);
 	}
-	void ImGuiLayer::onRender(const RenderEvent& event) {
+	void ImGuiLayer::onRender(RenderEvent& event) {
 		ImGui::Render();
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 		ImDrawData* draw_data = ImGui::GetDrawData();
 		auto& commands = event.getCommands();
+		const std::vector<VkClearValue> clearValues = {
+				SGF::createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
+				//SGF::createDepthClearValue(1.0f, 0)
+				//SGF::createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
+			};
+		commands.beginRenderPass(event.getWindow(), clearValues);
 		// Record dear imgui primitives into command buffer
 		ImGui_ImplVulkan_RenderDrawData(draw_data, commands.getCommands());
+		commands.endRenderPass();
 	}
 	ImGuiLayer::~ImGuiLayer() {
 		ImGui_ImplGlfw_Shutdown();
 		ImGui_ImplVulkan_Shutdown();
-		auto& device = getDevice();
+		auto& device = Device::Get();
 		device.destroy(descriptorPool);
 	}
 	void ImGuiLayer::onAttach() {

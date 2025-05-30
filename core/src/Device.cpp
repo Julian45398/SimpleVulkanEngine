@@ -69,13 +69,11 @@ namespace SGF {
 #endif
     Device Device::Instance;
 
-    void shutdownDevice() { Device::Instance.shutdown(); }
-
-    Device::Builder pickDevice() { return Device::Builder(); }
-    void pickDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
+    Device::Builder Device::PickNew() { return Device::Builder(); }
+    void Device::PickNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
         const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
         uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount)
-    { Device::Instance.createNew(extensionCount, pExtensions, requiredFeatures, optionalFeatures, minLimits, window, graphicsQueueCount, computeQueueCount, transferQueueCount); }
+    { Instance.createNew(extensionCount, pExtensions, requiredFeatures, optionalFeatures, minLimits, window, graphicsQueueCount, computeQueueCount, transferQueueCount); }
 
 
 #pragma region HELPER_FUNCTIONS
@@ -765,7 +763,7 @@ namespace SGF {
 
 	constexpr VkPhysicalDeviceFeatures emptyFeatures = {};
 	void Device::Builder::build() {
-		pickDevice(deviceExtensionCount, deviceExtensions, &features, &optional, &limits,
+		PickNew(deviceExtensionCount, deviceExtensions, &features, &optional, &limits,
 				pWindow, graphicsQueueCount, computeQueueCount, transferQueueCount);
 	}
 
@@ -1150,6 +1148,39 @@ namespace SGF {
     }
 #pragma endregion IMAGE_CREATION
 
+    VkSampler Device::imageSampler(const VkSamplerCreateInfo& info) const {
+        VkSampler sampler;
+        if (vkCreateSampler(logical, &info, VulkanAllocator, &sampler) != VK_SUCCESS) {
+            fatal(ERROR_CREATE_SAMPLER);
+        }
+        return sampler;
+    }
+
+    VkSampler Device::imageSampler(VkFilter filterType, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressMode, float mipLodBias, VkBool32 anisotropyEnable, 
+        float maxAnisotropy, VkBool32 compareEnable, VkCompareOp compareOp, float minLod, float maxLod, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates, VkSamplerCreateFlags flags, const void* pNext) const {
+        VkSamplerCreateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        info.pNext = pNext;
+        info.flags = flags;
+		info.magFilter = filterType;
+		info.minFilter = filterType;
+		info.mipmapMode = mipmapMode;
+		info.addressModeU = addressMode;
+		info.addressModeV = addressMode;
+		info.addressModeW = addressMode;
+		info.mipLodBias = mipLodBias;
+		info.anisotropyEnable = anisotropyEnable;
+		info.maxAnisotropy = maxAnisotropy;
+		info.compareEnable = compareEnable;
+		info.compareOp = compareOp;
+		info.minLod = minLod;
+		info.maxLod = maxLod;
+		info.borderColor = borderColor;
+		info.unnormalizedCoordinates = unnormalizedCoordinates;
+        return imageSampler(info);
+    }
+
+
     VkQueue Device::graphicsQueue(uint32_t index) const {
         assert(graphicsCount != 0);
         assert(graphicsFamilyIndex != UINT32_MAX);
@@ -1220,7 +1251,7 @@ namespace SGF {
     }
 
     VkShaderModule Device::shaderModule(const char* filename) const {
-        const auto& code = loadBinaryFile(filename);
+        const auto& code = LoadBinaryFile(filename);
         VkShaderModuleCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         info.pNext = nullptr;

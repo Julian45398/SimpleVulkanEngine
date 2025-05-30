@@ -18,6 +18,7 @@
 #ifndef SGF_APP_NAME
 #define SGF_APP_NAME SGF_ENGINE_NAME 
 #endif
+#include "Render/Device.hpp"
 
 namespace SGF {
     VkInstance VulkanInstance = VK_NULL_HANDLE;
@@ -214,21 +215,22 @@ namespace SGF {
         volkFinalize();
     }
 
-    void init() {
+    void Init() {
 #ifdef SGF_LOG_FILE
 		_LogFile.open(SGF_LOG_FILE);
 #endif
         glfwInit();
         initVulkan();
     }
-    void terminate() {
+    void Terminate() {
+		Device::Shutdown();
         glfwTerminate();
         terminateVulkan();
 #ifdef SGF_LOG_FILE
 		_LogFile.close();
 #endif
     }
-	bool isInitialized() {
+	bool IsInitialized() {
 		return VulkanInstance != VK_NULL_HANDLE;
 	}
 }

@@ -9,7 +9,7 @@ namespace SGF {
 		createFramebuffers(w, h);
 	}
 	void Display::updateRenderPass(VkSurfaceKHR surface, uint32_t w, uint32_t h, const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) {
-		const auto& device = getDevice();
+		const auto& device = Device::Get();
 		if (renderPass != VK_NULL_HANDLE) {
 			device.destroy(renderPass);
 			renderPass = VK_NULL_HANDLE;
@@ -62,7 +62,7 @@ namespace SGF {
 		}
 		if (renderPass != VK_NULL_HANDLE) {
 			freeAttachmentData();
-			auto& dev = getDevice(); 
+			auto& dev = Device::Get(); 
 			dev.destroy(renderPass);
 			renderPass = VK_NULL_HANDLE;
 		}
@@ -70,7 +70,7 @@ namespace SGF {
 	Display::~Display() {
 		if (renderPass != VK_NULL_HANDLE) {
 			freeAttachmentData();
-			auto& dev = getDevice(); 
+			auto& dev = Device::Get(); 
 			dev.destroy(renderPass);
 		}
 	}
@@ -215,7 +215,7 @@ namespace SGF {
 				}
 			}
 		}
-		const auto& device = getDevice();
+		const auto& device = Device::Get();
 		renderPass = device.renderPass(att.data(), att.size(), pSubpasses, subpassCount, dependencies.data(), dependencies.size());
 		attachmentCount = attCount - 1;
 	}
@@ -311,7 +311,7 @@ namespace SGF {
 	}
 	void Display::destroyFramebuffers() {
 		SGF::debug("destroying framebuffers of swapchain!");
-		auto& dev = getDevice(); 
+		auto& dev = Device::Get(); 
 		assert(attachmentData != nullptr);
 		auto imageViews = getSwapchainImageViews();
 		auto framebuffers = getFramebuffers();
@@ -329,7 +329,7 @@ namespace SGF {
 	}
 	void Display::createFramebuffers(uint32_t width, uint32_t height) {
 		SGF::debug("creating framebuffers of swapchain!");
-		auto& dev = getDevice();
+		auto& dev = Device::Get();
 		assert(attachmentData != nullptr);
 		swapchain.loadImages(getImagesMod());
 		VkImageView* views = getImageViewsMod();

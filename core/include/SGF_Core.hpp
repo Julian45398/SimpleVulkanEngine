@@ -4,16 +4,18 @@ namespace SGF {
     /**
      * @brief Initializes the SGF backend
      */
-    void init();
+    void Init();
     /**
      * @brief Terminates the SGF backend and frees allocated resources
      */
-    void terminate();
+    void Terminate();
+
+    void Run();
 
     /**
      * @brief Tells wether the backend is initialized
      */
-    bool isInitialized();
+    bool IsInitialized();
 }
 
 #include "SGF_Types.hpp"

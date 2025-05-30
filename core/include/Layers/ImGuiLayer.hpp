@@ -12,7 +12,7 @@ namespace SGF {
 		ImGuiLayer(const Window& window, VkSampleCountFlagBits sampleCount);
 		virtual void onAttach() override;
 		virtual void onUpdate(const UpdateEvent& event) override;
-		virtual void onRender(const RenderEvent& event) override;
+		virtual void onRender(RenderEvent& event) override;
 		~ImGuiLayer();
 	private:
 		VkDescriptorPool descriptorPool;

@@ -20,11 +20,11 @@ namespace SGF {
 		att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		return att;
 	}
-	uint32_t Swapchain::nextImage(VkSemaphore imageAvailable, VkFence fence) const {
+	uint32_t Swapchain::nextImage(VkSemaphore imageAvailableSignal, VkFence fence) const {
 		assert(handle != VK_NULL_HANDLE);
-		auto& device = getDevice();
+		auto& device = Device::Get();
 		uint32_t index;
-		if (vkAcquireNextImageKHR(device, handle, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailable, fence, &index) != VK_SUCCESS) {
+		if (vkAcquireNextImageKHR(device, handle, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailableSignal, fence, &index) != VK_SUCCESS) {
 			fatal(ERROR_ACQUIRE_NEXT_IMAGE);
 		}
 		return index;
@@ -51,14 +51,14 @@ namespace SGF {
 	}
 	uint32_t Swapchain::loadImages(VkImage* pSwapchainImages) {
 		assert(handle != VK_NULL_HANDLE);
-		auto& device = getDevice();
+		auto& device = Device::Get();
 		uint32_t count;
 		device.getSwapchainImages(handle, &count, pSwapchainImages);
 		return count;
 	}
 	void Swapchain::update(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
 		imageCount = 0;
-		const auto& device = getDevice();
+		const auto& device = Device::Get();
 		presentMode = device.pickPresentMode(surface, presentMode);
 		surfaceFormat = device.pickSurfaceFormat(surface, surfaceFormat);
         VkSwapchainCreateInfoKHR info{};
@@ -110,7 +110,7 @@ namespace SGF {
 	}
 	void Swapchain::create(VkSurfaceKHR s, uint32_t w, uint32_t h, VkPresentModeKHR mode) {
 		destroy();
-		presentQueue = getDevice().presentQueue();
+		presentQueue = Device::Get().presentQueue();
 		update(s, w, h, mode);
 	}
 }

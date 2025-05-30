@@ -3,7 +3,7 @@
 #include <fstream>
 
 namespace SGF {
-	std::vector<char> loadBinaryFile(const char* filename) {
+	std::vector<char> LoadBinaryFile(const char* filename) {
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 		std::vector<char> buffer;
 		if (!file.is_open()) {
@@ -19,7 +19,7 @@ namespace SGF {
 		file.close();
 		return buffer;
 	}
-	size_t loadBinaryFileToBuffer(const char* filename, size_t bufSize, char* pBuf) {
+	size_t LoadBinaryFileToBuffer(const char* filename, size_t bufSize, char* pBuf) {
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 		if (!file.is_open()) {
 			SGF::error("Failed to open file: ", filename);
@@ -37,7 +37,7 @@ namespace SGF {
 		file.close();
 		return fileSize;
 	}
-	bool saveBinaryFile(const char* filename, size_t dataSize, const char* pData) {
+	bool SaveBinaryFile(const char* filename, size_t dataSize, const char* pData) {
 		std::ofstream file(filename, std::ios::ate | std::ios::binary);
 		if (!file.is_open()) {
 			SGF::error("Failed to open file: ", filename);
@@ -48,10 +48,10 @@ namespace SGF {
 		return true;
 	}
 
-	bool saveBinaryFile(const char* filename, const std::vector<char>& data) {
-		return saveBinaryFile(filename, data.size(), data.data());
+	bool SaveBinaryFile(const char* filename, const std::vector<char>& data) {
+		return SaveBinaryFile(filename, data.size(), data.data());
 	}
-	std::vector<uint8_t> loadTextureFile(const char* filename, uint32_t* pWidth, uint32_t* pHeight) {
+	std::vector<uint8_t> LoadTextureFile(const char* filename, uint32_t* pWidth, uint32_t* pHeight) {
 		return std::vector<uint8_t>();
 	}
 }
