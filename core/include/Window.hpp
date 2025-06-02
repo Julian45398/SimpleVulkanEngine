@@ -6,7 +6,7 @@
 #include "Render/Display.hpp"
 
 namespace SGF {
-    	struct FileFilter {
+    struct FileFilter {
 		const char* filterDescription;
 		const char* filters;
 	};
@@ -53,7 +53,7 @@ namespace SGF {
 		inline void requestImageFormat(VkFormat requested) { display.requestImageFormat(requested); }
 		inline void requestPresentMode(VkPresentModeKHR requested) { display.requestPresentMode(requested); }
 
-        inline void nextFrame(VkSemaphore imageAvailable, VkFence fence = VK_NULL_HANDLE) { display.nextFrame(imageAvailable, fence); }
+        void nextFrame(VkSemaphore imageAvailable, VkFence fence = VK_NULL_HANDLE);
         inline void presentFrame(VkSemaphore waitSemaphore) { display.presentFrame(waitSemaphore); }
         inline void presentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) { display.presentFrame(pWaitSemaphores, waitCount); }
         inline void presentFrame(const std::vector<VkSemaphore>& waitSemaphores) { display.presentFrame(waitSemaphores.data(), (uint32_t)waitSemaphores.size()); }

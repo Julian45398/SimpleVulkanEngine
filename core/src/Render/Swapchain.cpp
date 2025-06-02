@@ -24,7 +24,11 @@ namespace SGF {
 		assert(handle != VK_NULL_HANDLE);
 		auto& device = Device::Get();
 		uint32_t index;
-		if (vkAcquireNextImageKHR(device, handle, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailableSignal, fence, &index) != VK_SUCCESS) {
+		VkResult res = vkAcquireNextImageKHR(device, handle, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailableSignal, fence, &index);
+		if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR) {
+			warn("swapchain out of date!");
+			return UINT32_MAX;
+		} else if (res != VK_SUCCESS) {
 			fatal(ERROR_ACQUIRE_NEXT_IMAGE);
 		}
 		return index;

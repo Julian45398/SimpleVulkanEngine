@@ -3,6 +3,7 @@
 #include "Render/Device.hpp"
 #include "Layers/LayerStack.hpp"
 #include "Events/InputEvents.hpp"
+#include "Render/CommandList.hpp"
 
 #ifdef SGF_WINDOWS 
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -59,6 +60,37 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
         glfwGetMonitors(&count);
         return (uint32_t)count;
     }
+    void Window::nextFrame(VkSemaphore imageAvailable, VkFence fence) { 
+            display.nextFrame(imageAvailable, fence);
+            if (getImageIndex() == UINT32_MAX) {
+                glfwGetFramebufferSize((GLFWwindow*)window, (int*)&width, (int*)&height);
+                display.updateFramebuffers(surface, width, height);
+                auto& device = Device::Get();
+                VkCommandPool pool = device.commandPool(device.graphicsFamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+                VkCommandBuffer cmdBuf = device.commandBuffer(pool);
+                VkCommandBufferBeginInfo info;
+                info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                info.pInheritanceInfo = nullptr;
+                info.pNext = nullptr;
+                vkBeginCommandBuffer(cmdBuf, &info);
+                vkEndCommandBuffer(cmdBuf);
+                VkPipelineStageFlags stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+                VkSubmitInfo submitInfo{};
+                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                submitInfo.commandBufferCount = 1;
+                submitInfo.pCommandBuffers = &cmdBuf;
+                submitInfo.pWaitSemaphores = &imageAvailable;
+                submitInfo.pWaitDstStageMask = &stage;
+                submitInfo.waitSemaphoreCount = 1;
+                VkFence f = device.fence();
+                vkQueueSubmit(Device::Get().graphicsQueue(0), 1, &submitInfo, f);
+                device.waitFence(f);
+                device.destroy(f, pool);
+                //Device::Get().signalSemaphore(imageAvailable, 0);
+                display.nextFrame(imageAvailable, fence);
+            }
+        }
     void Window::open(const char* name, uint32_t newWidth, uint32_t newHeight, WindowCreateFlags flags) {
         if (isOpen()) {
             close();

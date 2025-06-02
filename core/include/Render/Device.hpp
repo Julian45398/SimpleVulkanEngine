@@ -44,7 +44,7 @@ namespace SGF {
         void waitFences(const VkFence* pFences, uint32_t count) const;
         inline void waitFences(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
 
-        void reset(const VkFence* fences, uint32_t fenceCount) const;
+        void reset(const VkFence* pFences, uint32_t count) const;
         inline void reset(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
         inline void reset(VkFence fence) const { reset(&fence, 1); }
 
@@ -74,6 +74,8 @@ namespace SGF {
         VkFence fence() const;
         VkFence fenceSignaled() const;
         VkSemaphore semaphore() const;
+        //void signalSemaphore(VkSemaphore semaphore, uint64_t value) const;
+
         VkBuffer buffer(const VkBufferCreateInfo& info) const;
         VkBuffer buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = 0) const;
         VkBuffer bufferShared(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags flags, VkBufferCreateFlags createFlags = 0) const;
@@ -116,11 +118,21 @@ namespace SGF {
 
         VkDeviceMemory allocate(const VkMemoryAllocateInfo& info) const;
         VkDeviceMemory allocate(const VkMemoryRequirements& memReq, VkMemoryPropertyFlags flags) const;
+
         VkDeviceMemory allocate(VkBuffer buffer, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
-        VkDeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
         VkDeviceMemory allocate(VkImage image, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+
+        VkDeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        inline VkDeviceMemory allocate(const std::vector<VkBuffer>& buffers, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
+        { return allocate(buffers.data(), (uint32_t)buffers.size(), flags); }
         VkDeviceMemory allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        inline VkDeviceMemory allocate(const std::vector<VkImage>& images, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
+        { return allocate(images.data(), (uint32_t)images.size(), flags); }
+
         VkDeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        inline VkDeviceMemory allocate(const std::vector<VkBuffer>& buffers, const std::vector<VkImage>& images, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
+        { return allocate(buffers.data(), (uint32_t)buffers.size(), images.data(), (uint32_t)images.size(), flags); }
+
 
         VkShaderModule shaderModule(const char* filename) const;
         VkShaderModule shaderModule(const VkShaderModuleCreateInfo& info) const;
@@ -239,6 +251,7 @@ namespace SGF {
         uint32_t computeCount = 0;
         uint64_t enabledFeatures = 0;
         char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};
+    public:
         class Builder {
         public:
             Builder();

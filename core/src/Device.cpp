@@ -776,17 +776,20 @@ namespace SGF {
         }
     }
     void Device::waitFence(VkFence fence) const {
+        assert(fence != VK_NULL_HANDLE);
         if (vkWaitForFences(logical, 1, &fence, VK_TRUE, UINT32_MAX) != VK_SUCCESS) {
             fatal(ERROR_WAIT_FENCE);
         }
     }
     void Device::waitFences(const VkFence* pFences, uint32_t count) const {
+        assert(pFences != nullptr && count != 0);
         if (vkWaitForFences(logical, count, pFences, VK_TRUE, UINT32_MAX) != VK_SUCCESS) {
             fatal(ERROR_WAIT_FENCE);
         }
     }
-    void Device::reset(const VkFence* fences, uint32_t fenceCount) const {
-		if (vkResetFences(logical, fenceCount, fences) != VK_SUCCESS) {
+    void Device::reset(const VkFence* pFences, uint32_t count) const {
+        assert(pFences != nullptr && count != 0);
+		if (vkResetFences(logical, count, pFences) != VK_SUCCESS) {
 			fatal(ERROR_RESET_FENCE);
 		}
 	}
@@ -877,6 +880,13 @@ namespace SGF {
         }
         return mem;
     }
+    VkDeviceSize calcOffset(const VkMemoryRequirements& prevReq, const VkMemoryRequirements& objReq) {
+        if (prevReq.size % objReq.alignment == 0) {
+            return prevReq.size;
+        } else {
+            return prevReq.size + (objReq.alignment - (prevReq.size % objReq.alignment));
+        }
+    }
     VkDeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags) const {
         assert(bufferCount != 0);
         assert(pBuffers != nullptr);
@@ -887,8 +897,8 @@ namespace SGF {
             vkGetBufferMemoryRequirements(logical, pBuffers[i], &bufReq);
             req.memoryTypeBits |= bufReq.memoryTypeBits;
             req.alignment = (bufReq.alignment < req.alignment ? req.alignment : bufReq.alignment);
-            offsets[i] = ((bufReq.alignment - req.size % bufReq.alignment) ^ bufReq.alignment) + req.size;
-            req.size += offsets[i] + bufReq.size;
+            offsets[i] = calcOffset(req, bufReq);
+            req.size = offsets[i] + bufReq.size;
             assert(offsets[i] % bufReq.alignment == 0);
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
@@ -922,8 +932,9 @@ namespace SGF {
             vkGetImageMemoryRequirements(logical, pImages[i], &imageReq);
             req.memoryTypeBits |= imageReq.memoryTypeBits;
             req.alignment = (imageReq.alignment < req.alignment ? req.alignment : imageReq.alignment);
-            offsets[i] = ((imageReq.alignment - req.size % imageReq.alignment) ^ imageReq.alignment) + req.size;
-            req.size += (req.size % req.alignment) + imageReq.size;
+            //VkDeviceSize offset = ((imageReq.alignment - req.size % imageReq.alignment) ^ imageReq.alignment) + req.size;
+            offsets[i] = calcOffset(req, imageReq);
+            req.size = offsets[i] + imageReq.size;
             assert(offsets[i] % imageReq.alignment == 0);
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
@@ -937,6 +948,7 @@ namespace SGF {
         delete[] offsets;
         return mem;
     }
+    
     VkDeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
         assert(imageCount != 0);
         assert(pImages != nullptr);
@@ -949,16 +961,20 @@ namespace SGF {
             vkGetBufferMemoryRequirements(logical, pBuffers[i], &memReq);
             req.memoryTypeBits |= memReq.memoryTypeBits;
             req.alignment = (memReq.alignment < req.alignment ? req.alignment : memReq.alignment);
-            offsets[i] = ((memReq.alignment - req.size % memReq.alignment) ^ memReq.alignment) + req.size;
-            req.size += offsets[i] + memReq.size;
+            offsets[i] = calcOffset(req, memReq);
+            //offsets[i] = ((memReq.alignment - req.size % memReq.alignment) ^ memReq.alignment) + req.size;
+            req.size = offsets[i] + memReq.size;
+            //req.size += offsets[i] + memReq.size;
             assert(offsets[i] % memReq.alignment == 0);
         }
         for (uint32_t i = bufferCount; i < imageCount + bufferCount; ++i) {
             vkGetImageMemoryRequirements(logical, pImages[i], &memReq);
             req.memoryTypeBits |= memReq.memoryTypeBits;
             req.alignment = (memReq.alignment < req.alignment ? req.alignment : memReq.alignment);
-            offsets[i] = ((memReq.alignment - req.size % memReq.alignment) ^ memReq.alignment) + req.size;
-            req.size += (req.size % req.alignment) + memReq.size;
+            //offsets[i] = ((memReq.alignment - req.size % memReq.alignment) ^ memReq.alignment) + req.size;
+            offsets[i] = calcOffset(req, memReq);
+            //req.size += (req.size % req.alignment) + memReq.size;
+            req.size = offsets[i] + memReq.size;
             assert(offsets[i] % memReq.alignment == 0);
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
@@ -1249,6 +1265,17 @@ namespace SGF {
         TRACK_SEMAPHORE(1);
         return sem;
     }
+    /*
+    void Device::signalSemaphore(VkSemaphore semaphore, uint64_t value) const {
+        VkSemaphoreSignalInfo signalInfo{};
+        signalInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
+        signalInfo.semaphore = semaphore;
+        signalInfo.value = 0;
+        signalInfo.pNext = nullptr;
+        if (vkSignalSemaphore(logical, &signalInfo) != VK_SUCCESS) {
+            fatal("failed to signal semaphore");
+        }
+    }*/
 
     VkShaderModule Device::shaderModule(const char* filename) const {
         const auto& code = LoadBinaryFile(filename);

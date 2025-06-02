@@ -55,7 +55,7 @@ namespace SGF {
 		{ updateRenderPass(surface, width, height, attachments.data(), (uint32_t)attachments.size(), subpasses.data(), subpasses.size()); }
 
 		void updateRenderPass(VkSurfaceKHR surface, uint32_t width, uint32_t height, const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount);
-		inline void updateRenderPass(VkSurfaceKHR surface, uint32_t width, uint32_t height, const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const const std::vector<VkSubpassDependency>& dependencies) 
+		inline void updateRenderPass(VkSurfaceKHR surface, uint32_t width, uint32_t height, const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies) 
 		{ updateRenderPass(surface, width, height, attachments.data(), (uint32_t)attachments.size(), subpasses.data(), subpasses.size(), dependencies.data(), dependencies.size()); }
     	inline void updateRenderPass(VkSurfaceKHR surface, uint32_t width, uint32_t height, const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription& subpass) 
 		{ updateRenderPass(surface, width, height, pAttachments, attachmentCount, &subpass, 1); }

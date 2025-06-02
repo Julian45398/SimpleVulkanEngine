@@ -1,5 +1,3 @@
-#pragma once
-
 #include "Layers/ImGuiLayer.hpp"
 #include "Render/Device.hpp"
 #include "Window.hpp"
