@@ -73,7 +73,7 @@ namespace SGF {
 #endif
     Device Device::s_Instance;
     DeviceRequirements Device::s_Requirements = {
-        .extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME}, 
+        .extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME },
         .requiredFeatures = 0, 
         .optionalFeatures = 0,
         .graphicsQueueCount = 1, 

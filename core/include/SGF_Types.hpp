@@ -39,7 +39,7 @@ namespace SGF {
     };
     typedef Flags WindowCreateFlags;
 
-    enum DeviceFeatureFlagBits {
+    enum DeviceFeatureFlagBits : uint64_t {
         DEVICE_FEATURE_ROBUST_BUFFER_ACCESS = BIT(0),
         DEVICE_FEATURE_FULL_DRAW_INDEX_UINT32 = BIT(1),
         DEVICE_FEATURE_IMAGE_CUBE_ARRAY = BIT(2),
@@ -121,10 +121,6 @@ namespace SGF {
         uint32_t graphicsQueueCount;
         uint32_t computeQueueCount;
         uint32_t transferQueueCount;
-    };
-    struct InitSettings {
-        WindowSettings window;
-        DeviceRequirements device;
     };
 }
 
