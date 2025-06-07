@@ -10,36 +10,31 @@
 namespace SGF {
     class Device {
     public:
-        class Builder;
-        static uint32_t getSupportedDeviceCount(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures, VkSurfaceKHR surface, uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-        inline static const Device& Get() { return Instance; }
-        static Builder PickNew();
-        static void PickNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-			const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
-			uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-        inline static void Shutdown() { Instance.shutdown(); }
-        inline static bool IsInitialized() { return Instance.isCreated(); }
-    private:
-        /**
-         * @brief Creates the device at the specified device index returned by vkEnumeratePhysicalDevices if it matches the requirements
-         * 
-         * If the device at the specified index does not support the required device extensions another physical device is selected.
-         * @param deviceIndex - the index of the physical device returned by vkEnumeratePhysicalDevices
-         * @param extensionCount - the number of device extensions requested
-         * @param ppDeviceExtensions - pointer to the specified extensions
-         * @param pRequiredFeatures - pointer to the required device features can be nullptr 
-         * @param pOptionalFeatures - pointer to optional device features will be activated when supported can be nullptr 
-         * @param graphicsQueueCount - the number of device queues with graphics support
-         * @param transferQueueCount - the number of device queues with transfer support - ideally from a unused queue index
-         * @param computeQueueCount - the number of device queues with compute support - ideally from a unused queue index
-         * @param window - window to bind device to 
-         */
+        static uint32_t getSupportedDeviceCount();
+        static uint32_t getSupportedDeviceCount(const DeviceRequirements& requirements);
+        inline static const Device& Get() { return s_Instance; }
+        static void RequireFeatures(DeviceFeatureFlags requiredFeatures);
+        static void RequestFeatures(DeviceFeatureFlags optionalFeatures);
+        static void RequireExtensions(const char* const* pExtensionNames, uint32_t featureCount);
+        static void RequireExtensions(const std::vector<const char*> extensionNames);
+        template<size_t EXT_COUNT>
+        inline static void RequireExtensions(const char*(&extensionNames)[EXT_COUNT]) { RequireExtensions(extensionNames, EXT_COUNT); }
+
+        static void RequireGraphicsQueues(uint32_t queueCount);
+        static void RequireComputeQueues(uint32_t queueCount);
+        static void RequireTransferQueues(uint32_t queueCount);
+        static void PickNew();
+
+        inline static void Shutdown() { s_Instance.shutdown(); }
+        inline static bool IsInitialized() { return s_Instance.isCreated(); }
     public:
         
         inline ~Device() { shutdown(); }
         void waitIdle() const;
 
-        inline bool isFeatureEnabled(DeviceFeature feature) const { return ((enabledFeatures >> (uint32_t)feature) & 1); }
+        inline bool hasFeaturesEnabled(DeviceFeatureFlags features) const { return (enabledFeatures & features) == features; }
+        inline bool hasFeatureEnabled(DeviceFeatureFlagBits feature) const { return (enabledFeatures & feature); }
+
         void waitFence(VkFence fence) const;
         void waitFences(const VkFence* pFences, uint32_t count) const;
         inline void waitFences(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
@@ -137,7 +132,10 @@ namespace SGF {
         VkShaderModule shaderModule(const char* filename) const;
         VkShaderModule shaderModule(const VkShaderModuleCreateInfo& info) const;
         VkPipelineLayout pipelineLayout(const VkPipelineLayoutCreateInfo& info) const;
-        VkPipelineLayout pipelineLayout(uint32_t descriptorLayoutCount, const VkDescriptorSetLayout* pLayouts, uint32_t pushConstantCount = 0, const VkPushConstantRange* pPushConstantRanges = nullptr) const;
+        VkPipelineLayout pipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges = nullptr, uint32_t pushConstantCount = 0) const;
+        template<size_t DESCRIPTOR_COUNT, size_t PUSH_CONSTANT_COUNT>
+        VkPipelineLayout pipelineLayout(const VkDescriptorSetLayout(&layouts)[DESCRIPTOR_COUNT], const VkPushConstantRange(&pushConstants)[PUSH_CONSTANT_COUNT]) const;
+        VkPipelineLayout pipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts, const std::vector<VkPushConstantRange>& pushConstants) const;
         VkPipeline pipeline(const VkGraphicsPipelineCreateInfo& info) const;
         VkPipeline pipeline(const VkComputePipelineCreateInfo& info) const;
         inline GraphicsPipelineBuilder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) const { return GraphicsPipelineBuilder(this, layout, renderPass, subpass); };
@@ -149,6 +147,10 @@ namespace SGF {
 
         VkRenderPass renderPass(const VkRenderPassCreateInfo& info) const;
         VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies = nullptr, uint32_t dependencyCount = 0) const;
+
+        template<size_t ATTACHMENT_COUNT, size_t SUBPASS_COUNT, size_t DEPENDENCY_COUNT>
+        inline VkRenderPass renderPass(const VkAttachmentDescription(&attachments)[ATTACHMENT_COUNT], const VkSubpassDescription(&subpasses)[SUBPASS_COUNT], const VkSubpassDependency(&dependencies)[DEPENDENCY_COUNT]) const {
+            return renderPass(attachments, ATTACHMENT_COUNT, subpasses, SUBPASS_COUNT, dependencies, DEPENDENCY_COUNT); }
         inline VkRenderPass renderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies) const {
             return renderPass(attachments.data(), (uint32_t)attachments.size(), subpasses.data(), (uint32_t)subpasses.size(), dependencies.data(), (uint32_t)dependencies.size());
         }
@@ -221,21 +223,10 @@ namespace SGF {
         Device(Device&& other) noexcept;
         Device(const Device& other) = delete;
         Device(Device& other) = delete;
-        Device(uint32_t deviceIndex, uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* pRequiredFeatures,
-            const VkPhysicalDeviceFeatures* pOptionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-        Device(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* pRequiredFeatures,
-            const VkPhysicalDeviceFeatures* pOptionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount = 1, uint32_t computeQueueCount = 0, uint32_t transferQueueCount = 0);
-        void createNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, 
-            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount);
-        inline Builder createNew() { return Builder(); }
-        void getQueueCreateInfos(VkPhysicalDevice device, VkSurfaceKHR surface, uint32_t* pIndexCount, VkDeviceQueueCreateInfo* pQueueCreateInfos, float* pQueuePriorityBuffer);
-        void pickPhysicalDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface);
-        void createLogicalDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface);
+        void createNew(const DeviceRequirements& requirements);
+        void getQueueCreateInfos(VkPhysicalDevice device, uint32_t* pIndexCount, VkDeviceQueueCreateInfo* pQueueCreateInfos, float* pQueuePriorityBuffer);
+        void pickPhysicalDevice(const DeviceRequirements& requirements);
+        void createLogicalDevice(const DeviceRequirements& requirements);
         friend Window;
         friend Swapchain;
         //friend Builder;
@@ -249,49 +240,14 @@ namespace SGF {
         uint32_t transferCount = 0;
         uint32_t computeFamilyIndex = UINT32_MAX;
         uint32_t computeCount = 0;
-        uint64_t enabledFeatures = 0;
+        DeviceFeatureFlags enabledFeatures = 0;
         char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {};
-    public:
-        class Builder {
-        public:
-            Builder();
-            void build();
-            inline Builder& requireExtension(const char* deviceExtension) { deviceExtensions[deviceExtensionCount] = deviceExtension; ++deviceExtensionCount; return *this; }
-            inline Builder& requireFeature(DeviceFeature feature) { VkBool32* feat = (VkBool32*)&features; feat[(uint32_t)feature] = VK_TRUE; return *this; }
-            inline Builder& optionalFeature(DeviceFeature feature) { VkBool32* feat = (VkBool32*)&optional; feat[(uint32_t)feature] = VK_TRUE; return *this; }
-            inline Builder& graphicQueues(uint32_t count) { graphicsQueueCount = count; return *this; }
-            inline Builder& transferQueues(uint32_t count) { transferQueueCount = count; return *this; }
-            inline Builder& computeQueues(uint32_t count) { computeQueueCount = count; return *this; }
-            inline Builder& forWindow(Window& window) { pWindow = &window; requireExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME); return *this; }
-            inline Builder& requireImageSize1D(uint32_t size) { limits.maxImageDimension1D = size; return *this; }
-            inline Builder& requireImageSize2D(uint32_t size) { limits.maxImageDimension2D = size; return *this; }
-            inline Builder& requireImageSize3D(uint32_t size) { limits.maxImageDimension3D = size; return *this; }
-            inline Builder& requireImageSizeCube(uint32_t size) { limits.maxImageDimensionCube = size; return *this; }
-            inline Builder& requireImageArraySize(uint32_t size) { limits.maxImageArrayLayers = size; return *this; }
-            inline Builder& requireUniformBufferSize(uint32_t size) { limits.maxUniformBufferRange = size; return *this; }
-            inline Builder& requireStorageBufferSize(uint32_t size) { limits.maxStorageBufferRange = size; return *this; }
-            inline Builder& requirePushConstantSize(uint32_t size) { limits.maxPushConstantsSize = size; return *this; }
-            inline Builder& requireMemoryAllocationCount(uint32_t count) { limits.maxMemoryAllocationCount = count; return *this; }
-            inline Builder& requireSampleAllocationCount(uint32_t count) { limits.maxSamplerAllocationCount = count; return *this; }
-            inline Builder& requireBoundDescriptorSets(uint32_t count) { limits.maxBoundDescriptorSets = count; return *this; }
-        private:
-            const char* deviceExtensions[SGF_MAX_DEVICE_EXTENSION_COUNT] = {};
-            VkPhysicalDeviceLimits* pLimits = nullptr;
-            VkPhysicalDeviceLimits limits = {};
-            VkPhysicalDeviceFeatures* pFeatures = nullptr; 
-            VkPhysicalDeviceFeatures features = {};
-            VkPhysicalDeviceFeatures* pOptional = nullptr;
-            VkPhysicalDeviceFeatures optional = {};
-            uint32_t graphicsQueueCount = 0;
-            uint32_t transferQueueCount = 0;
-            uint32_t computeQueueCount = 0;
-            uint32_t deviceExtensionCount = 0;
-            Window* pWindow = nullptr;
-        };
-        static Device Instance;
+    private:
+        static DeviceRequirements s_Requirements;
+        static Device s_Instance;
     };
-    //void shutdownDevice();
-        class DeviceDestroyEvent {
+
+    class DeviceDestroyEvent {
     public:
         inline DeviceDestroyEvent(const Device& d) : device(d) {}
         inline const Device& getDevice() const { return device; }

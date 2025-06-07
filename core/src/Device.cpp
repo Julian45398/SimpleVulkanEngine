@@ -7,6 +7,10 @@
 #include "Filesystem/File.hpp"
 
 #include "Window.hpp"
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 namespace SGF {
     extern VkInstance VulkanInstance;
     extern VkAllocationCallbacks* VulkanAllocator;
@@ -67,15 +71,20 @@ namespace SGF {
 #define TRACK_SHADER_MODULE(COUNT)
 #
 #endif
-    Device Device::Instance;
+    Device Device::s_Instance;
+    DeviceRequirements Device::s_Requirements = {
+        .extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME}, 
+        .requiredFeatures = 0, 
+        .optionalFeatures = 0,
+        .graphicsQueueCount = 1, 
+        .computeQueueCount = 0, 
+        .transferQueueCount = 0
+    };
 
-    Device::Builder Device::PickNew() { return Device::Builder(); }
-    void Device::PickNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-        const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window,
-        uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount)
-    { Instance.createNew(extensionCount, pExtensions, requiredFeatures, optionalFeatures, minLimits, window, graphicsQueueCount, computeQueueCount, transferQueueCount); }
 
-
+    void Device::PickNew() {
+        s_Instance.createNew(s_Requirements);
+    }
 #pragma region HELPER_FUNCTIONS
     void createDefaultBufferInfo(VkBufferCreateInfo* pInfo, VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) {
         pInfo->sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -166,18 +175,17 @@ namespace SGF {
         return count == extensionCount;
     }
 
-    bool checkPhysicalDeviceFeatureSupport(VkPhysicalDevice device, const VkPhysicalDeviceFeatures* requestedFeatures) {
+    bool checkPhysicalDeviceFeatureSupport(VkPhysicalDevice device, DeviceFeatureFlags flags) {
         assert(device != VK_NULL_HANDLE);
-        if (requestedFeatures == nullptr) {
+        if (flags == 0) {
             return true;
         }
         VkPhysicalDeviceFeatures features;
         vkGetPhysicalDeviceFeatures(device, &features);
         uint32_t array_size = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
-        const VkBool32* requested = (VkBool32*)requestedFeatures;
         const VkBool32* available = (VkBool32*)&features;
         for(uint32_t i = 0; i < array_size; ++i) {
-            if (requested[i] && !available[i]) {
+            if ((BIT(i) & flags) && !available[i]) {
                 return false;
             }
         }
@@ -266,38 +274,22 @@ namespace SGF {
 
         return true;
     }
-
-    bool checkPhysicalDeviceSurfaceSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
-        assert(device != VK_NULL_HANDLE);
-        if (surface == VK_NULL_HANDLE) {
-            return true;
-        }
-        bool surface_support = false;
-        uint32_t count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
-        for (uint32_t i = 0; i < count; ++i) {
-            VkBool32 support = VK_FALSE;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &support);
-            if (support == VK_TRUE) {
-                surface_support = true;
-                break;
+    bool checkPhysicalDeviceSurfaceSupport(VkPhysicalDevice physicalDevice) {
+        uint32_t queueFamilyCount;
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+        for (uint32_t i = 0; i < queueFamilyCount; ++i) {
+            if (glfwGetPhysicalDevicePresentationSupport(VulkanInstance, physicalDevice, i) == GLFW_TRUE) {
+                return true;
             }
         }
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, nullptr);
-        if (!surface_support || count == 0) {
-            SGF::info("Device is missing surface support!");
-            return false;
-        } else {
-            return true;
-        }
-        //return surface_support && count != 0;
+        return false;
     }
 
     constexpr VkQueueFlags graphicsQueueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
     constexpr VkQueueFlags computeQueueFlags = VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
     constexpr VkQueueFlags transferQueueFlags = VK_QUEUE_TRANSFER_BIT;
 
-    bool checkPhysicalDeviceQueueSupport(VkPhysicalDevice device, VkSurfaceKHR surface, uint32_t graphicsCount, uint32_t computeCount, uint32_t transferCount) {
+    bool checkPhysicalDeviceQueueSupport(VkPhysicalDevice device, uint32_t graphicsCount, uint32_t computeCount, uint32_t transferCount) {
         assert(device != VK_NULL_HANDLE);
         bool support = false;
         uint32_t count = 0;
@@ -310,11 +302,7 @@ namespace SGF {
         bool hasPresent = false;
         for (uint32_t i = 0; i < count; ++i) {
             if (!hasPresent) {
-                VkBool32 support = VK_FALSE;
-                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &support);
-                if (support == VK_TRUE) {
-                    hasPresent = true;
-                }
+                hasPresent = glfwGetPhysicalDevicePresentationSupport(VulkanInstance, device, i) == GLFW_TRUE;
             }
             if (!hasGraphics && (properties[i].queueFlags & graphicsQueueFlags) == graphicsQueueFlags && properties[i].queueCount >= graphicsCount) {
                 hasGraphics = true;
@@ -329,10 +317,7 @@ namespace SGF {
                 continue;
             }
         }
-        if (!(hasPresent || surface == VK_NULL_HANDLE) && 
-            (hasGraphics || graphicsCount == 0) && 
-            (hasCompute || computeCount == 0) && 
-            (hasTransfer || transferCount == 0)) {
+        if (!hasPresent || (!hasGraphics && graphicsCount != 0) || (!hasCompute && computeCount != 0) || (!hasTransfer && transferCount != 0)) {
             SGF::warn("Device is missing queue support!");
             return false;
         } else {
@@ -340,40 +325,41 @@ namespace SGF {
         }
     }
 
-    bool checkPhysicalDeviceRequirements(VkPhysicalDevice device, uint32_t extensionCount, const char* const* pExtensions,
-            const VkPhysicalDeviceFeatures* requiredFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface, 
-            uint32_t graphicsQueueCount, uint32_t computeQueueCount, uint32_t transferQueueCount) {
+    bool checkPhysicalDeviceRequirements(VkPhysicalDevice device, const DeviceRequirements& r) {
         assert(device != VK_NULL_HANDLE);
-        return checkPhysicalDeviceExtensionSupport(device, extensionCount, pExtensions) && checkPhysicalDeviceFeatureSupport(device, requiredFeatures) &&
+        return checkPhysicalDeviceExtensionSupport(device, r.extensions.size(), r.extensions.data()) && checkPhysicalDeviceFeatureSupport(device, r.requiredFeatures) &&
             //checkPhysicalDeviceRequiredLimits(device, minLimits) && 
-            checkPhysicalDeviceSurfaceSupport(device, surface) && 
-            checkPhysicalDeviceQueueSupport(device, surface, graphicsQueueCount, computeQueueCount, transferQueueCount);
+            checkPhysicalDeviceSurfaceSupport(device) && 
+            checkPhysicalDeviceQueueSupport(device, r.graphicsQueueCount, r.computeQueueCount, r.transferQueueCount);
     }
 
-    void getEnabledFeatures(VkPhysicalDevice device, const VkPhysicalDeviceFeatures* requiredFeatures, const VkPhysicalDeviceFeatures* optionalFeatures, VkPhysicalDeviceFeatures* pEnabledFeatures, uint64_t* pFeatureFlags) {
+    DeviceFeatureFlags getEnabledFeatures(VkPhysicalDevice device, const DeviceRequirements& requirements, VkPhysicalDeviceFeatures* f) {
         constexpr size_t featureCount = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
-        static_assert(featureCount < sizeof(*pFeatureFlags)*8);
+        static_assert(featureCount < sizeof(DeviceFeatureFlags)*8);
         assert(device != VK_NULL_HANDLE);
-        *pFeatureFlags = 0;
+        DeviceFeatureFlags enabledFeatures = 0;
         VkPhysicalDeviceFeatures supportedFeatures;
         vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
         const VkBool32* supported = (VkBool32*)&supportedFeatures;
-        const VkBool32* required = (const VkBool32*)requiredFeatures;
-        const VkBool32* optional = (const VkBool32*)optionalFeatures;
-        VkBool32* enabled = (VkBool32*)pEnabledFeatures;
+        VkBool32* ef = (VkBool32*)f;
         for (size_t i = 0; i < featureCount; ++i) {
-            if (requiredFeatures != nullptr) {
-                enabled[i] = required[i];
-            } else {
-                enabled[i] = VK_FALSE;
+            if (BIT(i) & requirements.requiredFeatures) {
+                if (!supported[i]) {
+                    fatal("device feature required but not supported!");
+                } else {
+                    enabledFeatures |= BIT(i);
+                    ef[i] = VK_TRUE;
+                }
             }
-            if (optionalFeatures != nullptr) {
-                enabled[i] = supported[i] & optional[i];
+            else {
+                ef[i] = VK_FALSE;
             }
-            if (enabled[i] == VK_TRUE) {
-                *pFeatureFlags |= 1 << i;
+            if ((BIT(i) & requirements.optionalFeatures) && supported[i]) {
+                enabledFeatures |= BIT(i);
+                ef[i] = VK_TRUE;
             }
         }
+        return enabledFeatures;
     }
 
     #define CHECK_QUEUE(PROPERTIES, INDEX, QUEUE_FLAGS, QUEUE_COUNT, INFO, QUEUE_BUFFER, BUFFER_OFFSET, HAS_QUEUE) {\
@@ -393,7 +379,7 @@ namespace SGF {
         }\
     }
 
-    void Device::getQueueCreateInfos(VkPhysicalDevice device, VkSurfaceKHR surface, uint32_t* pIndexCount, VkDeviceQueueCreateInfo* pQueueCreateInfos, float* pQueuePriorityBuffer) {
+    void Device::getQueueCreateInfos(VkPhysicalDevice device, uint32_t* pIndexCount, VkDeviceQueueCreateInfo* pQueueCreateInfos, float* pQueuePriorityBuffer) {
         assert(device != VK_NULL_HANDLE);
         uint32_t count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
@@ -414,17 +400,9 @@ namespace SGF {
         for (uint32_t i = 0; i < count; ++i) {
             bool this_present = false;
             // search present queue when surface available
-            if (surface != VK_NULL_HANDLE && !hasPresent) {
-                VkBool32 support = VK_FALSE;
-                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &support);
-                if (support == VK_TRUE) {
-                    pQueuePriorityBuffer[floatBufferOffset] = 1.0f;
-                    presentInfo.queueFamilyIndex = i;
-                    presentInfo.pQueuePriorities = &pQueuePriorityBuffer[floatBufferOffset];
-                    floatBufferOffset++;
-                    hasPresent = true;
-                    this_present = true;
-                }
+            if (!hasPresent && glfwGetPhysicalDevicePresentationSupport(VulkanInstance, device, i)) {
+                this_present = true;
+                hasPresent = true;
             }
             CHECK_QUEUE(properties, i, graphicsQueueFlags, graphicsCount, graphicsInfo, pQueuePriorityBuffer, floatBufferOffset, hasGraphics);
             if (this_present) continue;
@@ -461,8 +439,7 @@ namespace SGF {
     #pragma endregion PHYSICAL_DEVICE_HELPER 
 
 #pragma endregion HELPER_FUNCTIONS
-    void Device::pickPhysicalDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface) {
+    void Device::pickPhysicalDevice(const DeviceRequirements& r) {
         uint32_t count;
         vkEnumeratePhysicalDevices(SGF::VulkanInstance, &count, nullptr);
         std::vector<VkPhysicalDevice> physical_devices(count);
@@ -473,14 +450,13 @@ namespace SGF {
         for (size_t i = 0; i < physical_devices.size(); ++i) {
             int32_t score = 0;
             VkPhysicalDevice device = physical_devices[i];
-            if (!checkPhysicalDeviceRequirements(device, extensionCount, pExtensions, requiredFeatures, minLimits,
-                    surface, graphicsCount, computeCount, transferCount)) {
+            if (!checkPhysicalDeviceRequirements(device, r)) {
                 continue;
             }
             SGF::debug("device supports minimal requirements!");
             VkPhysicalDeviceProperties properties;
             vkGetPhysicalDeviceProperties(device, &properties);
-            if (checkPhysicalDeviceFeatureSupport(device, optionalFeatures)) {
+            if (checkPhysicalDeviceFeatureSupport(device, r.optionalFeatures)) {
                 score += 2000;
             }
             if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -498,22 +474,21 @@ namespace SGF {
         physical = picked;
     }
 
-    void Device::createLogicalDevice(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, VkSurfaceKHR surface) {
+    void Device::createLogicalDevice(const DeviceRequirements& r) {
         VkDeviceCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         info.pNext = nullptr;
         info.flags = 0;
-        info.enabledExtensionCount = extensionCount;
-        info.ppEnabledExtensionNames = pExtensions;
+        info.enabledExtensionCount = (uint32_t)r.extensions.size();
+        info.ppEnabledExtensionNames = r.extensions.data();
         VkPhysicalDeviceFeatures enabled;
         uint32_t indexCount;
         VkDeviceQueueCreateInfo queueCreateInfos[4];
         std::vector<float> queuePriorityBuffer(graphicsCount + computeCount + transferCount + presentCount);
-        getQueueCreateInfos(physical, surface, &indexCount, queueCreateInfos, queuePriorityBuffer.data());
+        getQueueCreateInfos(physical, &indexCount, queueCreateInfos, queuePriorityBuffer.data());
         info.pQueueCreateInfos = queueCreateInfos;
         info.queueCreateInfoCount = indexCount;
-        getEnabledFeatures(physical, requiredFeatures, optionalFeatures, &enabled, &enabledFeatures);
+        enabledFeatures = getEnabledFeatures(physical, r, &enabled);
         info.pEnabledFeatures = &enabled;
     #ifdef SGF_ENABLE_VALIDATION
         info.enabledLayerCount = 1;
@@ -531,49 +506,14 @@ namespace SGF {
         SGF::info("Logical device created!");
     }
         
-    Device::Device(uint32_t deviceIndex, uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, uint32_t g, uint32_t c, uint32_t t) 
-            : graphicsCount(g), computeCount(c), transferCount(t), presentCount((window == nullptr ? 0 : 1)) {
-        VkSurfaceKHR surface = (window != nullptr ? window->surface : VK_NULL_HANDLE);
-        {
-            uint32_t count;
-            vkEnumeratePhysicalDevices(SGF::VulkanInstance, &count, nullptr);
-            std::vector<VkPhysicalDevice> physical_devices(count);
-            vkEnumeratePhysicalDevices(SGF::VulkanInstance, &count, physical_devices.data());
-            if (count <= deviceIndex) {
-                SGF::error("device index out of range for available devices!");
-            } else {
-                physical = physical_devices[deviceIndex];
-                if (!checkPhysicalDeviceRequirements(physical, extensionCount, pExtensions, requiredFeatures, minLimits,
-                        surface, g, c, t)) {
-                    SGF::info("physical device at index: ", deviceIndex, " not suitable!");
-                    physical = VK_NULL_HANDLE;
-                }
-            }
-        }
-        if (physical == VK_NULL_HANDLE) {
-            pickPhysicalDevice(extensionCount, pExtensions, requiredFeatures,
-                optionalFeatures, minLimits, surface);
-        }
-        createLogicalDevice(extensionCount, pExtensions, requiredFeatures,
-                optionalFeatures, minLimits, surface);
-    }
-    Device::Device(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, uint32_t g, uint32_t c, uint32_t t) {
-        createNew(extensionCount, pExtensions, requiredFeatures, optionalFeatures, minLimits, window, g, c, t);
-    }
-    void Device::createNew(uint32_t extensionCount, const char* const* pExtensions, const VkPhysicalDeviceFeatures* requiredFeatures,
-            const VkPhysicalDeviceFeatures* optionalFeatures, const VkPhysicalDeviceLimits* minLimits, Window* window, uint32_t g, uint32_t c, uint32_t t) {
+    void Device::createNew(const DeviceRequirements& r) {
         shutdown();
-        graphicsCount = g;
-        computeCount = c;
-        transferCount = t;
-        presentCount = (window == nullptr ? 0 : 1);
-        VkSurfaceKHR surface = (window != nullptr ? window->surface : VK_NULL_HANDLE);
-        pickPhysicalDevice(extensionCount, pExtensions, requiredFeatures,
-            optionalFeatures, minLimits, surface);
-        createLogicalDevice(extensionCount, pExtensions, requiredFeatures,
-                optionalFeatures, minLimits, surface);
+        graphicsCount = r.graphicsQueueCount;
+        computeCount = r.computeQueueCount;
+        transferCount = r.transferQueueCount;
+        presentCount = 1;
+        pickPhysicalDevice(r);
+        createLogicalDevice(r);
         // bind window
         //Device& d = (*this);
         //if (window != nullptr) {
@@ -647,7 +587,7 @@ namespace SGF {
 
 #pragma region DEVICE_BUILDER
 
-	constexpr VkPhysicalDeviceLimits defaultDeviceLimits {
+	constexpr VkPhysicalDeviceLimits DEFAULT_DEVICE_LIMITS {
 		0U,     //uint32_t              maxImageDimension1D;
 		0U,     //uint32_t              maxImageDimension2D;
 		0U,     //uint32_t              maxImageDimension3D;
@@ -758,14 +698,6 @@ namespace SGF {
 		0U,     //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
 		0U     //VkDeviceSize          nonCoherentAtomSize;
 	};
-
-	Device::Builder::Builder() : limits(defaultDeviceLimits) {}
-
-	constexpr VkPhysicalDeviceFeatures emptyFeatures = {};
-	void Device::Builder::build() {
-		PickNew(deviceExtensionCount, deviceExtensions, &features, &optional, &limits,
-				pWindow, graphicsQueueCount, computeQueueCount, transferQueueCount);
-	}
 
 #pragma endregion DEVICE_BUILDER
 
@@ -1304,7 +1236,7 @@ namespace SGF {
         TRACK_PIPELINE_LAYOUT(1);
         return layout;
     }
-    VkPipelineLayout Device::pipelineLayout(uint32_t descriptorLayoutCount, const VkDescriptorSetLayout* pLayouts, uint32_t pushConstantCount, const VkPushConstantRange* pPushConstantRanges) const {
+    VkPipelineLayout Device::pipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges, uint32_t pushConstantCount) const {
         VkPipelineLayoutCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         info.pNext = nullptr;

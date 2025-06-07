@@ -1,26 +1,19 @@
 #pragma once
+#include "SGF_Types.hpp"
+
+#ifndef SGF_MAX_FRAMES_IN_FLIGHT
+#define SGF_MAX_FRAMES_IN_FLIGHT 2
+#endif
 
 namespace SGF {
-    /**
-     * @brief Initializes the SGF backend
-     */
-    void Init();
-    /**
-     * @brief Terminates the SGF backend and frees allocated resources
-     */
-    void Terminate();
-
-    void Run();
-
-    /**
-     * @brief Tells wether the backend is initialized
-     */
-    bool IsInitialized();
+    void PreInit();
+    void Setup();
+    void Cleanup();
 }
 
-#include "SGF_Types.hpp"
 #include "Logging/Logger.hpp"
 #include "Logging/ErrorCodes.hpp"
+#include "Timer.hpp"
 
 #include <assert.h>
 #include <algorithm>
@@ -36,6 +29,3 @@ namespace SGF {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
-
-#define SGF_SINGLE_GRAPHICS_DEVICE

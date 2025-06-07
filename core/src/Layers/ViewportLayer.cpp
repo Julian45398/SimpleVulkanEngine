@@ -21,7 +21,7 @@ namespace SGF {
 			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
 		};
 		renderPass = device.renderPass(attachments, subpasses, dependencies);
-		pipelineLayout = device.pipelineLayout(0, nullptr, 0, nullptr);
+		pipelineLayout = device.pipelineLayout(nullptr, 0, nullptr, 0);
 		graphicsPipeline = device.graphicsPipeline(pipelineLayout, renderPass, 0).dynamicState(VK_DYNAMIC_STATE_SCISSOR).dynamicState(VK_DYNAMIC_STATE_VIEWPORT)
 				.vertexShader("shaders/test_triangle.vert").fragmentShader("shaders/test_triangle.frag").sampleCount(VK_SAMPLE_COUNT_1_BIT).build();
 		sampler = device.imageSampler(VK_FILTER_NEAREST);

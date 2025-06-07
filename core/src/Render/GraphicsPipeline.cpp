@@ -8,7 +8,7 @@ namespace SGF {
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::geometryShader(const char* filename) {
         auto& device = Device::Get();
-        assert(device.isFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
+        assert(device.hasFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_GEOMETRY_BIT);
         return *this;
     }
@@ -22,13 +22,13 @@ namespace SGF {
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationEvaluationShader(const char* filename) {
         auto& device = Device::Get();
-        assert(device.isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
+        assert(device.hasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
         return *this;
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationControlShader(const char* filename) {
         auto& device = Device::Get();
-        assert(device.isFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
+        assert(device.hasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
         return *this;
     }

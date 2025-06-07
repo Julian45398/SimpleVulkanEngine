@@ -13,10 +13,13 @@ namespace SGF {
     class Window {
     public:
         //inline static Window* getFocusedWindow() { return focusedWindow; }
-        inline static Window* GetFocused() { return FocusedWindow; }
+        //inline static Window* GetFocused() { return FocusedWindow; }
         static VkExtent2D getMonitorSize(uint32_t index);
         static VkExtent2D getMaxMonitorSize();
         static uint32_t getMonitorCount();
+        inline static Window& Get() { return s_MainWindow; }
+        static void Open() { Get().open(s_WindowSettings.title, s_WindowSettings.width, s_WindowSettings.height, s_WindowSettings.createFlags); }
+        inline static void Close() { Get().close(); }
 
         //====================================================================
         //========================Window Creation=============================
@@ -95,8 +98,8 @@ namespace SGF {
 		std::string openFileDialog(uint32_t filterCount, const FileFilter* pFilters) const;
 		std::string saveFileDialog(const FileFilter& filter) const;
 		std::string saveFileDialog(uint32_t filterCount, const FileFilter* pFilters) const;
-        Window(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags = FLAG_NONE);
     private:
+        Window(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags = FLAG_NONE);
         inline Window() {}
         friend Device;
         uint32_t width = 0;
@@ -104,6 +107,7 @@ namespace SGF {
         void* window = nullptr;
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         Display display;
-        inline static Window* FocusedWindow = nullptr;
+        static Window s_MainWindow;
+        static WindowSettings s_WindowSettings;
     };
 }

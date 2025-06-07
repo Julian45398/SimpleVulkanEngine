@@ -1,7 +1,7 @@
 #pragma once
 
 #ifndef BIT
-#define BIT(X) (1<<X)
+#define BIT(X) (1LL<<X)
 #else
 #error required macro BIT already defined!
 #endif

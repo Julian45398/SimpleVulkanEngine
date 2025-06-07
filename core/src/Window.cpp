@@ -34,6 +34,14 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
     
 
 #pragma endregion SWAPCHAIN_HELPER_FUNCTIONS
+    Window Window::s_MainWindow;
+    WindowSettings Window::s_WindowSettings = {
+        .title = "SGF window",
+        .createFlags = WINDOW_FLAG_RESIZABLE,
+        .width = 600,
+        .height = 400
+    };
+
     VkExtent2D Window::getMonitorSize(uint32_t index) {
         int count;
         auto monitors = glfwGetMonitors(&count);
@@ -231,11 +239,13 @@ constexpr VkFormat POSSIBLE_DEPTH_FORMATS[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_
             });
     }
     void Window::close() {
-        display.destroy();
-        vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
-        glfwDestroyWindow((GLFWwindow*)window);
-        window = nullptr;
-        surface = nullptr;
+        if (isOpen()) {
+            display.destroy();
+            vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
+            glfwDestroyWindow((GLFWwindow*)window);
+            window = nullptr;
+            surface = nullptr;
+        }
     }
     Window::Window(const char* name, uint32_t width, uint32_t height, WindowCreateFlags flags) {
         open(name, width, height, flags);
