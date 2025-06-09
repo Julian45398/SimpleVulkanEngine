@@ -82,6 +82,35 @@ namespace SGF {
     };
 
 
+    void Device::RequireFeatures(DeviceFeatureFlags requiredFeatures) {
+        s_Requirements.requiredFeatures = requiredFeatures;
+    }
+    void Device::RequestFeatures(DeviceFeatureFlags optionalFeatures) {
+        s_Requirements.optionalFeatures = optionalFeatures;
+    }
+    void Device::RequireExtensions(const char* const* pExtensionNames, uint32_t featureCount) {
+        s_Requirements.extensions.clear();
+        s_Requirements.extensions.resize(featureCount + 1);
+        if (pExtensionNames != nullptr) {
+            memcpy(s_Requirements.extensions.data(), pExtensionNames, sizeof(pExtensionNames[0]) * featureCount);
+        }
+        else {
+            assert(featureCount == 0);
+            s_Requirements.extensions.shrink_to_fit();
+        }
+        s_Requirements.extensions[featureCount] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    }
+
+    void Device::RequireGraphicsQueues(uint32_t queueCount) {
+        s_Requirements.graphicsQueueCount = queueCount;
+    }
+    void Device::RequireComputeQueues(uint32_t queueCount) {
+        s_Requirements.computeQueueCount = queueCount;
+    }
+    void Device::RequireTransferQueues(uint32_t queueCount) {
+        s_Requirements.transferQueueCount = queueCount;
+    }
+        
     void Device::PickNew() {
         s_Instance.createNew(s_Requirements);
     }
