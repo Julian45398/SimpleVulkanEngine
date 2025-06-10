@@ -104,7 +104,7 @@ namespace SGF {
     VkAllocationCallbacks* VulkanAllocator = &ALLOCATION_LOGGER;
 #else
     VkAllocationCallbacks* VulkanAllocator = nullptr;
-#endif SGF_LOG_VULKAN_ALLOCATIONS
+#endif
 #ifdef SGF_ENABLE_VALIDATION
 	const char* VULKAN_MESSENGER_NAME = "VK_LAYER_KHRONOS_validation";
     VkDebugUtilsMessengerEXT VulkanMessenger = VK_NULL_HANDLE;

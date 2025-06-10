@@ -325,28 +325,50 @@ namespace SGF {
         vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
         std::vector<VkQueueFamilyProperties> properties(count);
         vkGetPhysicalDeviceQueueFamilyProperties(device, &count, properties.data());
-        bool hasGraphics = false;
-        bool hasCompute = false;
-        bool hasTransfer = false;
+        bool hasComputeOnly = false;
+        bool hasTransferOnly = false;
         bool hasPresent = false;
+        uint32_t graphicsIndex = UINT32_MAX;
+        uint32_t computeIndex = UINT32_MAX;
+        uint32_t transferIndex = UINT32_MAX;
         for (uint32_t i = 0; i < count; ++i) {
             if (!hasPresent) {
                 hasPresent = glfwGetPhysicalDevicePresentationSupport(VulkanInstance, device, i) == GLFW_TRUE;
             }
-            if (!hasGraphics && (properties[i].queueFlags & graphicsQueueFlags) == graphicsQueueFlags && properties[i].queueCount >= graphicsCount) {
-                hasGraphics = true;
+            if (((properties[i].queueFlags & graphicsQueueFlags) == graphicsQueueFlags) && (properties[i].queueCount >= graphicsCount)) {
+                graphicsIndex = i;
+                if (properties[i].queueCount >= (graphicsCount + computeCount + transferCount)) {
+                    computeIndex = i;
+                    transferIndex = i;
+                } else if (properties[i].queueCount >= (graphicsCount + computeCount)) {
+                    computeIndex = i;
+                }
                 continue;
             }
-            if (!hasCompute && (properties[i].queueFlags & computeQueueFlags) == computeQueueFlags && properties[i].queueCount >= computeCount) {
-                hasCompute = true;
+            if (((properties[i].queueFlags & computeQueueFlags) == computeQueueFlags) &&
+                ((properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) && (properties[i].queueCount >= computeCount)) {
+                computeIndex = i;
+                hasComputeOnly = true;
+                if (properties[i].queueCount >= (computeCount + transferCount)) {
+                    transferIndex = i;
+                }
                 continue;
             }
-            if (!hasTransfer && (properties[i].queueFlags & transferQueueFlags) == transferQueueFlags && properties[i].queueCount >= computeCount) {
-                hasTransfer = true;
+            if (((properties[i].queueFlags & transferQueueFlags) == transferQueueFlags) 
+                && ((properties[i].queueFlags & (VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT)) == 0) && (properties[i].queueCount >= transferCount)) {
+                transferIndex = i;
+                hasTransferOnly = true;
                 continue;
             }
         }
-        if (!hasPresent || (!hasGraphics && graphicsCount != 0) || (!hasCompute && computeCount != 0) || (!hasTransfer && transferCount != 0)) {
+        if (!hasTransferOnly && transferCount != 0) {
+            SGF::info("Transfer Queue requested but no transfer-only queue available!");
+        }
+        if (!hasComputeOnly && computeCount != 0) {
+            SGF::info("Compute Queue requested but no compute-only queue available");
+        }
+        if (!hasPresent || (graphicsIndex == UINT32_MAX && graphicsCount != 0) || (computeIndex == UINT32_MAX && computeCount != 0) 
+            || (transferIndex == UINT32_MAX && transferCount != 0)) {
             SGF::warn("Device is missing queue support!");
             return false;
         } else {
