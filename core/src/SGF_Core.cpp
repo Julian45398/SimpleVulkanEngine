@@ -9,15 +9,6 @@
 
 #include <cstdlib>
 
-#define SGF_ENGINE_NAME "SGF"
-#define SGF_ENGINE_VERSION VK_MAKE_API_VERSION(0, 0, 0, 1)
-
-#ifndef SGF_APP_VERSION
-#define SGF_APP_VERSION SGF_ENGINE_VERSION
-#endif
-#ifndef SGF_APP_NAME
-#define SGF_APP_NAME SGF_ENGINE_NAME 
-#endif
 #include "Render/Device.hpp"
 #include "Render/RenderPass.hpp"
 #include "Render/CommandList.hpp"
@@ -228,6 +219,29 @@ namespace SGF {
 #endif
         glfwInit();
         initVulkan();
+		Device::PickNew();
+		Window::Open();
+		/*
+		const VkAttachmentDescription attachments[] = {
+			Window::createSwapchainAttachment(VK_ATTACHMENT_LOAD_OP_CLEAR),
+			//createDepthAttachment(VK_FORMAT_D16_UNORM, multisampleCount)
+			//createAttachmentDescription(device.pickSurfaceFormat(window, Swapchain::DEFAULT_SURFACE_FORMAT).format, multisampleCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR)
+		};
+		VkAttachmentReference swapchainRef = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+		//VkAttachmentReference depthRef = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+		//VkAttachmentReference colorRef = { 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+		const VkSubpassDescription subpasses[] = {
+			createSubpassDescription(&swapchainRef, 1, nullptr, nullptr)
+		};
+		const VkSubpassDependency dependencies[] {
+			{ VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
+		};
+		const VkClearValue clearValues[] {
+			createColorClearValue(0.f, 0.3f, 0.3f, 0.f)
+		};
+		Window::Get().setRenderPass(attachments, clearValues, subpasses, dependencies);
+		*/
     }
     void Terminate() {
 		Window::Close();
@@ -237,36 +251,19 @@ namespace SGF {
 #ifdef SGF_LOG_FILE
 		_LogFile.close();
 #endif
+
     }
 	bool IsInitialized() {
 		return VulkanInstance != VK_NULL_HANDLE;
 	}
 	void Run() {
-		Window::Open();
-		Device::PickNew();
 		auto& window = Window::Get();
-		const Device& device = Device::Get();
-		VkSampleCountFlagBits multisampleCount = VK_SAMPLE_COUNT_1_BIT;//device.getMaxSupportedSampleCount();
-		const std::vector<VkAttachmentDescription> attachments = {
-			Swapchain::createAttachment(device, window, VK_ATTACHMENT_LOAD_OP_CLEAR),
-			//createDepthAttachment(VK_FORMAT_D16_UNORM, multisampleCount)
-			//createAttachmentDescription(device.pickSurfaceFormat(window, Swapchain::DEFAULT_SURFACE_FORMAT).format, multisampleCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR)
-		};
-		VkAttachmentReference swapchainRef = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-		//VkAttachmentReference depthRef = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-		//VkAttachmentReference colorRef = { 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-		const std::vector<VkSubpassDescription> subpasses = {
-			createSubpassDescription(&swapchainRef, 1, nullptr, nullptr)
-		};
-		const std::vector<VkSubpassDependency> dependencies = {
-			{ VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
-		};
-		window.setRenderPass(attachments, subpasses, dependencies);
-
+		auto& device = Device::Get();
+		
 		VkSemaphore imageAvailable = device.semaphore();
 		VkSemaphore renderFinished = device.semaphore();
 		CommandList commands(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		const VkClearColorValue* pClearValues;
 		const std::vector<VkClearValue> clearValues = {
 			createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
 			//createDepthClearValue(1.0f, 0)
@@ -274,25 +271,21 @@ namespace SGF {
 		};
 		Timer timer;
 
-		ImGuiLayer imGuiLayer(window, multisampleCount);
-		ViewportLayer viewportLayer(VK_FORMAT_R8G8B8A8_SRGB);
-		LayerStack::pushOverlay(imGuiLayer);
-		LayerStack::push(viewportLayer);
 		double deltaTime = 0.0;
 		while (!window.shouldClose()) {
 			window.onUpdate();
 			UpdateEvent updateEvent(deltaTime);
-			LayerStack::onEvent(updateEvent);
+			LayerStack::OnEvent(updateEvent);
 			commands.begin();
 			window.nextFrame(imageAvailable, VK_NULL_HANDLE);
 			//LayerStack::onEvent()
 			//commands.beginRenderPass(window, clearValues);
 			//commands.bindGraphicsPipeline(pipeline);
 			//commands.setRenderArea(window);
-			RenderEvent renderEvent(window, deltaTime, commands, window.getFramebufferSize());
+			RenderEvent renderEvent(deltaTime, commands, window.getFramebufferSize());
 			renderEvent.addWait(imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 			renderEvent.addSignal(renderFinished);
-			LayerStack::onEvent(renderEvent);
+			LayerStack::OnEvent(renderEvent);
 			//commands.endRenderPass();
 			commands.end();
 			commands.submit(renderEvent.getWait().data(), renderEvent.getWaitStages().data(), renderEvent.getWait().size(), renderEvent.getSignal().data(), renderEvent.getSignal().size());
@@ -301,6 +294,7 @@ namespace SGF {
 		}
 		device.waitIdle();
 		device.destroy(imageAvailable, renderFinished);
+		LayerStack::Clear();
 	}
 }
 

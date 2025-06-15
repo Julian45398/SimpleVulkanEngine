@@ -9,7 +9,7 @@
 namespace SGF {
 	class ImGuiLayer : public Layer {
 	public:
-		ImGuiLayer(const Window& window, VkSampleCountFlagBits sampleCount);
+		ImGuiLayer(VkSampleCountFlagBits sampleCount);
 		virtual void onAttach() override;
 		virtual void onUpdate(const UpdateEvent& event) override;
 		virtual void onRender(RenderEvent& event) override;

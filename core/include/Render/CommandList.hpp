@@ -96,16 +96,13 @@ namespace SGF {
 		inline void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const std::vector<VkClearValue>& clearValues, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
 			beginRenderPass(renderPass, framebuffer, renderArea, clearValues.data(), (uint32_t)clearValues.size(), subpassContents);
 		}
-		inline void beginRenderPass(const Window& window, const VkClearValue* pClearValues, uint32_t clearValueCount, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
+		inline void beginRenderPass(const Window& window) const {
 			VkRect2D renderArea;
 			renderArea.extent.width = window.getWidth();
 			renderArea.extent.height = window.getHeight();
 			renderArea.offset.x = 0;
 			renderArea.offset.y = 0;
-			beginRenderPass(window.getRenderPass(), window.getCurrentFramebuffer(), renderArea, pClearValues, clearValueCount, subpassContents);
-		}
-		inline void beginRenderPass(const Window& window, const std::vector<VkClearValue>& clearValues, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
-			beginRenderPass(window, clearValues.data(), (uint32_t)clearValues.size(), subpassContents);
+			beginRenderPass(window.getRenderPass(), window.getCurrentFramebuffer(), renderArea, window.getClearValues(), window.getClearValueCount(), VK_SUBPASS_CONTENTS_INLINE);
 		}
 		inline void endRenderPass() const {
 			vkCmdEndRenderPass(commands);

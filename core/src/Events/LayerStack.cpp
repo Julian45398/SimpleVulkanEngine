@@ -2,9 +2,11 @@
 
 
 namespace SGF {
-    size_t LayerStack::layerCount = 0;
+    LayerStack LayerStack::s_MainStack;
 
-    void LayerStack::push(Layer& layer) {
+    void LayerStack::push(Layer* pLayer) {
+        assert(pLayer != nullptr);
+        auto& layer = *pLayer;
         assert(layer.layerIndex == SIZE_MAX);
         if (layerCount != layers.size()) {
             // has overlay
@@ -22,6 +24,7 @@ namespace SGF {
         assert(layers[layerCount]->layerIndex != SIZE_MAX);
         layers[layerCount]->onDetach();
         layers[layerCount]->layerIndex = SIZE_MAX; 
+        delete layers[layerCount];
         if (layerCount != layers.size()) {
             // has overlay
             layers.erase(layers.begin() + layerCount);
@@ -29,18 +32,24 @@ namespace SGF {
             layers.pop_back();
         }
     }
-    void LayerStack::pushOverlay(Layer& layer) {
+    void LayerStack::pushOverlay(Layer* pLayer) {
+        assert(pLayer != nullptr);
+        auto& layer = *pLayer;
         assert(layer.layerIndex == SIZE_MAX);
-        layers.push_back(&layer);
+        layers.push_back(pLayer);
         layer.layerIndex = layers.size();
         layer.onAttach();
     }
     void LayerStack::popOverlay() {
         layers.back()->onDetach();
+        auto pLayer = layers.back();
         layers.back()->layerIndex = SIZE_MAX;
+        delete pLayer;
         layers.pop_back();
     }
-    void LayerStack::insert(Layer& layer, size_t index) {
+    void LayerStack::insert(Layer* pLayer, size_t index) {
+        assert(pLayer != nullptr);
+        auto& layer = *pLayer;
         assert(layer.layerIndex == SIZE_MAX);
         assert(index < layerCount);
         layers.insert(layers.begin() + index, &layer);
@@ -51,24 +60,11 @@ namespace SGF {
         layerCount++;
         layer.onAttach();
     }
-    void LayerStack::erase(Layer& layer) {
-        assert(layer.layerIndex != SIZE_MAX);
-        auto it = std::find(layers.begin(), layers.begin() + layerCount, &layer);
-		if (it != layers.begin() + layerCount) {
-			layer.onDetach();
-            layer.layerIndex = SIZE_MAX;
-			layers.erase(it);
-			layerCount--;
-            for (size_t i = std::distance(layers.begin(), it); i < layers.size(); ++i) {
-                assert(layers[i]->layerIndex != i);
-                layers[i]->layerIndex = i;
-            }
-		}
-    }
     void LayerStack::clear() {
         for (auto& layer : layers) {
             layer->onDetach();
             layer->layerIndex = SIZE_MAX;
+            delete layer;
         }
         layers.clear();
         layers.shrink_to_fit();

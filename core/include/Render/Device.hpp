@@ -8,6 +8,14 @@
 #endif
 
 namespace SGF {
+    struct DeviceRequirements {
+        std::vector<const char*> extensions;
+        DeviceFeatureFlags requiredFeatures;
+        DeviceFeatureFlags optionalFeatures;
+        uint32_t graphicsQueueCount;
+        uint32_t computeQueueCount;
+        uint32_t transferQueueCount;
+    };
     class Device {
     public:
         static uint32_t getSupportedDeviceCount();
@@ -35,6 +43,11 @@ namespace SGF {
         inline bool hasFeaturesEnabled(DeviceFeatureFlags features) const { return (enabledFeatures & features) == features; }
         inline bool hasFeatureEnabled(DeviceFeatureFlagBits feature) const { return (enabledFeatures & feature); }
 
+        inline bool checkSurfaceSupport(VkSurfaceKHR surface) const {
+            error("TODO: implement surface support function!");
+            return true;
+        }
+
         void waitFence(VkFence fence) const;
         void waitFences(const VkFence* pFences, uint32_t count) const;
         inline void waitFences(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
@@ -44,7 +57,7 @@ namespace SGF {
         inline void reset(VkFence fence) const { reset(&fence, 1); }
 
         const char* getName() const;
-        bool isCreated() const;
+        inline bool isCreated() const {return logical != nullptr; }
     public:
         inline operator VkDevice() const { return logical; }
         inline operator VkPhysicalDevice() const { return physical; }
@@ -146,6 +159,7 @@ namespace SGF {
         VkFramebuffer framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const;
 
         VkRenderPass renderPass(const VkRenderPassCreateInfo& info) const;
+        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) const;
         VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies = nullptr, uint32_t dependencyCount = 0) const;
 
         template<size_t ATTACHMENT_COUNT, size_t SUBPASS_COUNT, size_t DEPENDENCY_COUNT>

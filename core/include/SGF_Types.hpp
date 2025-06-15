@@ -34,9 +34,13 @@ namespace SGF {
     enum WindowCreateFlagBits {
         WINDOW_FLAG_FULLSCREEN = BIT(0),
         WINDOW_FLAG_RESIZABLE = BIT(1),
-        WINDOW_FLAG_MINIMIZED = BIT(2),
-        WINDOW_FLAG_MAXIMIZED = BIT(3)
+        WINDOW_FLAG_DEPTH_ATTACHMENT = BIT(4),
+        WINDOW_FLAG_STENCIL_ATTACHMENT = BIT(6),
+        WINDOW_FLAG_NO_COLOR_CLEAR = BIT(7),
+        WINDOW_FLAG_VSYNC = BIT(8),
+        WINDOW_FLAG_CUSTOM_RENDER_PASS = BIT(9)
     };
+
     typedef Flags WindowCreateFlags;
 
     enum DeviceFeatureFlagBits : uint64_t {
@@ -107,20 +111,5 @@ namespace SGF {
         QUEUE_FAMILY_PRESENT = BIT(3)
     };
     typedef Flags QueueFamilyFlags;
-
-    struct WindowSettings {
-        char title[256];
-        WindowCreateFlags createFlags;
-        uint32_t width;
-        uint32_t height;
-    };
-    struct DeviceRequirements {
-        std::vector<const char*> extensions;
-        DeviceFeatureFlags requiredFeatures;
-        DeviceFeatureFlags optionalFeatures;
-        uint32_t graphicsQueueCount;
-        uint32_t computeQueueCount;
-        uint32_t transferQueueCount;
-    };
 }
 

@@ -1190,6 +1190,9 @@ namespace SGF {
     VkQueue Device::computeQueue(uint32_t index) const {
         assert(computeCount != 0);
         assert(computeFamilyIndex != UINT32_MAX);
+        if (computeFamilyIndex == graphicsFamilyIndex) {
+            index = index + graphicsCount;
+        }
         VkQueue queue;
         vkGetDeviceQueue(logical, computeFamilyIndex, index, &queue);
         return queue;
@@ -1197,6 +1200,12 @@ namespace SGF {
     VkQueue Device::transferQueue(uint32_t index) const {
         assert(transferCount != 0);
         assert(transferFamilyIndex != UINT32_MAX);
+        if (transferFamilyIndex == graphicsFamilyIndex) {
+            index = index + graphicsCount;
+        }
+        if (transferFamilyIndex == computeFamilyIndex) {
+            index = index + computeCount;
+        }
         VkQueue queue;
         vkGetDeviceQueue(logical, transferFamilyIndex, index, &queue);
         return queue;
@@ -1355,6 +1364,142 @@ namespace SGF {
         info.pDependencies = pDependencies;
         return renderPass(info);
     }
+    VkRenderPass Device::renderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) const {
+		assert(attCount > 0);
+		std::vector<VkSubpassDependency> dependencies(subpassCount);
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcAccessMask = 0;
+		dependencies[0].dstAccessMask = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[0].dstStageMask = 0;
+			
+		if (pSubpasses[0].colorAttachmentCount != 0) {
+			dependencies[0].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[0].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependencies[0].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		}
+		if (pSubpasses[0].pDepthStencilAttachment != nullptr) {
+			dependencies[0].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			dependencies[0].dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+			dependencies[0].srcStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		}
+		if (pSubpasses[0].inputAttachmentCount != 0) {
+			dependencies[0].dstAccessMask |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+			dependencies[0].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			dependencies[0].srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		}
+		for (uint32_t i = 1; i < subpassCount; ++i) {
+			dependencies[i].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+			dependencies[i].srcSubpass = i - 1;
+			dependencies[i].dstSubpass = i;
+			dependencies[i].srcAccessMask = 0;
+			dependencies[i].dstAccessMask = 0;
+			dependencies[i].srcStageMask = 0;
+			dependencies[i].dstStageMask = 0;
+			for (uint32_t j = 0; j < pSubpasses[i].colorAttachmentCount; ++j) {
+				const auto& dstAtt = pSubpasses[i].pColorAttachments[j];
+				for (uint32_t k = 0; k < pSubpasses[i - 1].colorAttachmentCount; ++k) {
+					const auto& srcAtt = pSubpasses[i - 1].pColorAttachments[k];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+					}
+					if (pSubpasses[i - 1].pResolveAttachments != nullptr) {
+						const auto& srcAttRes = pSubpasses[i - 1].pResolveAttachments[k];
+						if (srcAttRes.attachment == dstAtt.attachment) {
+							dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+							dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+							dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+						}
+					}
+				}
+				for (uint32_t k = 0; k < pSubpasses[i - 1].inputAttachmentCount; ++k) {
+					const auto& srcAtt = pSubpasses[i - 1].pInputAttachments[k];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+					}
+				}
+				if (pSubpasses[i - 1].pDepthStencilAttachment != nullptr) {
+					const auto& srcAtt = pSubpasses[i - 1].pDepthStencilAttachment[0];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+					}
+				}
+			}
+			for (uint32_t j = 0; j < pSubpasses[i].inputAttachmentCount; ++j) {
+				const auto& dstAtt = pSubpasses[i].pInputAttachments[j];
+				for (uint32_t k = 0; k < pSubpasses[i - 1].colorAttachmentCount; ++k) {
+					const auto& srcAtt = pSubpasses[i - 1].pColorAttachments[k];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+					}
+					if (pSubpasses[i - 1].pResolveAttachments != nullptr) {
+						const auto& srcAttRes = pSubpasses[i - 1].pResolveAttachments[k];
+						if (srcAttRes.attachment == dstAtt.attachment) {
+							dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+							dependencies[i].dstAccessMask |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+							dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+						}
+					}
+				}
+				if (pSubpasses[i - 1].pDepthStencilAttachment != nullptr) {
+					const auto& srcAtt = pSubpasses[i - 1].pDepthStencilAttachment[0];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+					}
+				}
+			}
+			if (pSubpasses[i].pDepthStencilAttachment != nullptr) {
+				const auto& dstAtt = pSubpasses[i].pDepthStencilAttachment[0];
+				for (uint32_t k = 0; k < pSubpasses[i - 1].colorAttachmentCount; ++k) {
+					const auto& srcAtt = pSubpasses[i - 1].pColorAttachments[k];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+					}
+					if (pSubpasses[i - 1].pResolveAttachments != nullptr) {
+						const auto& srcAttRes = pSubpasses[i - 1].pResolveAttachments[k];
+						if (srcAttRes.attachment == dstAtt.attachment) {
+							dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+							dependencies[i].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+							dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+							dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+						}
+					}
+				}
+				if (pSubpasses[i - 1].pDepthStencilAttachment != nullptr) {
+					const auto& srcAtt = pSubpasses[i - 1].pDepthStencilAttachment[0];
+					if (srcAtt.attachment == dstAtt.attachment) {
+						dependencies[i].srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+						dependencies[i].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+						dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+						dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+					}
+				}
+			}
+		}
+		return renderPass(pAttachments, attCount, pSubpasses, subpassCount, dependencies.data(), dependencies.size());
+	}
     VkSwapchainKHR Device::swapchain(const VkSwapchainCreateInfoKHR& info) const {
         VkSwapchainKHR swapchain;
         if (vkCreateSwapchainKHR(logical, &info, SGF::VulkanAllocator, &swapchain) != VK_SUCCESS) {
@@ -1468,7 +1613,6 @@ namespace SGF {
     void Device::descriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const {
         descriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
     }
-        
 
     void Device::getSwapchainImages(VkSwapchainKHR swapchain, uint32_t* pCount, VkImage* pImages) const {
         if (vkGetSwapchainImagesKHR(logical, swapchain, pCount, pImages) != VK_SUCCESS) {

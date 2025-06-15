@@ -15,7 +15,7 @@ namespace SGF {
 		}
 	}
 
-	ImGuiLayer::ImGuiLayer(const Window& window, VkSampleCountFlagBits sampleCount) : Layer("ImGuiLayer") {
+	ImGuiLayer::ImGuiLayer(VkSampleCountFlagBits sampleCount) : Layer("ImGuiLayer") {
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -25,6 +25,7 @@ namespace SGF {
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 		auto& device = Device::Get();
+		auto& window = Window::Get();
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
 		//ImGui::StyleColorsLight();
@@ -52,9 +53,9 @@ namespace SGF {
 		init_info.Allocator = VulkanAllocator;
 		init_info.CheckVkResultFn = imguiVulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
-		VkFormat requestedFormats[] = { Swapchain::DEFAULT_SURFACE_FORMAT.format, VK_FORMAT_B8G8R8A8_UNORM };
+		VkFormat requestedFormats[] = { Window::DEFAULT_SURFACE_FORMAT.format, VK_FORMAT_B8G8R8A8_UNORM };
 		ImGui_ImplVulkanH_SelectSurfaceFormat(device.getPhysical(), window.getSurface(), requestedFormats, 
-			ARRAY_SIZE(requestedFormats), Swapchain::DEFAULT_SURFACE_FORMAT.colorSpace);
+			ARRAY_SIZE(requestedFormats), Window::DEFAULT_SURFACE_FORMAT.colorSpace);
 	}
 	void ImGuiLayer::onUpdate(const UpdateEvent& event) {
 		static bool showDemo = true;
@@ -74,7 +75,7 @@ namespace SGF {
 				//SGF::createDepthClearValue(1.0f, 0)
 				//SGF::createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
 			};
-		commands.beginRenderPass(event.getWindow(), clearValues);
+		commands.beginRenderPass(Window::Get());
 		// Record dear imgui primitives into command buffer
 		ImGui_ImplVulkan_RenderDrawData(draw_data, commands.getCommands());
 		commands.endRenderPass();

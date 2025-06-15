@@ -6,12 +6,11 @@
 namespace SGF {
     class RenderEvent {
     public:
-        inline RenderEvent(const Window& win, double dTime, const CommandList& commandList, VkExtent2D framebufferSize) 
-            : window(&win), deltaTime(dTime), commands(&commandList), renderArea(framebufferSize) {}
+        inline RenderEvent(double dTime, const CommandList& commandList, VkExtent2D framebufferSize) 
+            : deltaTime(dTime), commands(&commandList), renderArea(framebufferSize) {}
         inline double getTime() const { return deltaTime; }
         inline const CommandList& getCommands() const { return *commands; }
         inline VkExtent2D getFramebufferSize() const { return renderArea; }
-        inline const Window& getWindow() const { return *window; }
         inline void addWait(VkSemaphore semaphore, VkPipelineStageFlags waitStage) {
             waitSemaphores.push_back(semaphore);
             waitStages.push_back(waitStage);
@@ -29,7 +28,6 @@ namespace SGF {
             return waitStages;
         }
     private:
-        const Window* window;
         const CommandList* commands;
         double deltaTime;
         const VkExtent2D renderArea;
@@ -62,7 +60,7 @@ namespace SGF {
         virtual ~Layer();
     protected:
         Layer(const Layer& other);
-        Layer(Layer&& other) noexcept;
+        Layer(Layer&& other) = delete;
         std::string debugName;
     private:
         friend LayerStack;
