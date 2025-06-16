@@ -38,6 +38,7 @@ namespace SGF {
     class UpdateEvent {
     public:
         inline UpdateEvent(double dTime) : deltaTime(dTime) {}
+        inline double getDeltaTime() const { return deltaTime; }
     private:
         double deltaTime;
     };

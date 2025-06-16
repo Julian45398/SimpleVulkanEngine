@@ -6,6 +6,14 @@
 #include <string.h>
 
 namespace SGF {
+    class Input {
+    public:
+        static void PollEvents();
+        static void WaitEvents();
+        static glm::dvec2 GetCursorPos();
+        static bool IsMouseButtonPressed(Mousecode button);
+        static bool IsKeyPressed(Keycode key);
+    };
     struct FileFilter {
 		const char* filterDescription;
 		const char* filters;
@@ -19,11 +27,46 @@ namespace SGF {
         VkFormat depthFormat;
         VkAttachmentLoadOp colorLoadOp;
     };
+    class WindowHandle {
+    public:
+        void open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags);
+        void close();
+        inline ~WindowHandle() { close(); }
+        inline WindowHandle(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags) 
+        { open(title, width, height, windowFlags); }
+        inline WindowHandle() : nativeHandle(nullptr) {};
+
+        bool shouldClose() const;
+        uint32_t getWidth() const;
+        uint32_t getHeight() const;
+        VkExtent2D getSize() const;
+        bool isKeyPressed(Keycode key) const;
+        bool isMouseButtonPressed(Mousecode button) const;
+        glm::dvec2 getCursorPos() const;
+        void captureCursor() const;
+        void freeCursor() const;
+        bool isFullscreen() const;
+        bool isMinimized() const;
+        bool isFocused() const;
+        inline bool isOpen() const { return nativeHandle != nullptr; }
+        inline void* getHandle() const { return nativeHandle; }
+
+        void setUserPointer(void* pUser) const;
+        void setTitle(const char* title) const;
+        const char* getTitle() const;
+        void setCursorPos(const glm::dvec2& newpos) const;
+        void setFullscreen() const;
+        void setWindowed(uint32_t width, uint32_t height) const;
+        void resize(uint32_t width, uint32_t height) const;
+        void minimize() const;
+    private:
+        void* nativeHandle;
+    };
     class Window {
     public:
 		inline static const VkSurfaceFormatKHR DEFAULT_SURFACE_FORMAT = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         static VkAttachmentDescription createSwapchainAttachment(VkAttachmentLoadOp loadOp);
-        //inline static Window* getFocusedWindow() { return focusedWindow; }
+        inline static void* GetNativeFocused() { return s_NativeFocused; }
         //inline static Window* GetFocused() { return FocusedWindow; }
         static VkExtent2D getMonitorSize(uint32_t index);
         static VkExtent2D getMaxMonitorSize();
@@ -89,7 +132,7 @@ namespace SGF {
         //====================================================================
         //========================Window Information==========================
         //====================================================================
-        bool isOpen() const { return window != nullptr; }
+        bool isOpen() const { return windowHandle.isOpen(); }
         bool hasRenderTarget() const { return renderPass != nullptr; }
         bool shouldClose() const;
 
@@ -103,7 +146,7 @@ namespace SGF {
         inline uint32_t getImageIndex() const { return imageIndex; }
         inline uint32_t getImageCount() const { return imageCount; }
         inline operator VkSurfaceKHR() const { return surface; }
-        inline const void* getNativeWindow() const { return window; }
+        inline const WindowHandle& getNativeWindow() const { return windowHandle; }
         const char* getName() const;
 
 
@@ -145,9 +188,8 @@ namespace SGF {
         //====================================================================
         //========================Window Modifiers============================
         //====================================================================
-        void onUpdate();
         bool isFullscreen() const;
-        bool isMinimized();
+        bool isMinimized() const;
         void enableVsync();
         void disableVsync();
         void setFullscreen();
@@ -194,7 +236,8 @@ namespace SGF {
         //VkExtent2D extent = { 0, 0 };
         uint32_t width = 0;
         uint32_t height = 0;
-        void* window = nullptr;
+        //void* window = nullptr;
+        WindowHandle windowHandle;
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     	VkQueue presentQueue = VK_NULL_HANDLE;
@@ -210,6 +253,7 @@ namespace SGF {
 
         //Display display;
         static Window s_MainWindow;
+        inline static void* s_NativeFocused = nullptr;
         static WindowSettings s_WindowSettings;
     };
 }

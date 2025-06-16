@@ -213,6 +213,10 @@ namespace SGF {
         volkFinalize();
     }
 
+	uint32_t s_InFlightIndex = 0;
+    uint32_t GetFrameIndex() {
+		return s_InFlightIndex;
+	}
     void Init() {
 #ifdef SGF_LOG_FILE
 		_LogFile.open(SGF_LOG_FILE);
@@ -221,27 +225,6 @@ namespace SGF {
         initVulkan();
 		Device::PickNew();
 		Window::Open();
-		/*
-		const VkAttachmentDescription attachments[] = {
-			Window::createSwapchainAttachment(VK_ATTACHMENT_LOAD_OP_CLEAR),
-			//createDepthAttachment(VK_FORMAT_D16_UNORM, multisampleCount)
-			//createAttachmentDescription(device.pickSurfaceFormat(window, Swapchain::DEFAULT_SURFACE_FORMAT).format, multisampleCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR)
-		};
-		VkAttachmentReference swapchainRef = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-		//VkAttachmentReference depthRef = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-		//VkAttachmentReference colorRef = { 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-		const VkSubpassDescription subpasses[] = {
-			createSubpassDescription(&swapchainRef, 1, nullptr, nullptr)
-		};
-		const VkSubpassDependency dependencies[] {
-			{ VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
-		};
-		const VkClearValue clearValues[] {
-			createColorClearValue(0.f, 0.3f, 0.3f, 0.f)
-		};
-		Window::Get().setRenderPass(attachments, clearValues, subpasses, dependencies);
-		*/
     }
     void Terminate() {
 		Window::Close();
@@ -260,40 +243,42 @@ namespace SGF {
 		auto& window = Window::Get();
 		auto& device = Device::Get();
 		
-		VkSemaphore imageAvailable = device.semaphore();
-		VkSemaphore renderFinished = device.semaphore();
-		CommandList commands(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-		const VkClearColorValue* pClearValues;
-		const std::vector<VkClearValue> clearValues = {
-			createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
-			//createDepthClearValue(1.0f, 0)
-			//createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
+		struct PerFrame {
+			VkSemaphore imageAvailable;
+			VkSemaphore renderFinished;
+			CommandList commands;
+		};
+		PerFrame perFrame[FRAMES_IN_FLIGHT] = {
+			{ device.semaphore(), device.semaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
+			{ device.semaphore(), device.semaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
 		};
 		Timer timer;
 
 		double deltaTime = 0.0;
+		uint32_t index = 0;
 		while (!window.shouldClose()) {
-			window.onUpdate();
+			Input::PollEvents();
+			if (Input::IsKeyPressed(KEY_G)) {
+				info("g is pressed!");
+			}
 			UpdateEvent updateEvent(deltaTime);
 			LayerStack::OnEvent(updateEvent);
-			commands.begin();
-			window.nextFrame(imageAvailable, VK_NULL_HANDLE);
-			//LayerStack::onEvent()
-			//commands.beginRenderPass(window, clearValues);
-			//commands.bindGraphicsPipeline(pipeline);
-			//commands.setRenderArea(window);
-			RenderEvent renderEvent(deltaTime, commands, window.getFramebufferSize());
-			renderEvent.addWait(imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-			renderEvent.addSignal(renderFinished);
+			perFrame[index].commands.begin();
+			window.nextFrame(perFrame[index].imageAvailable);
+			RenderEvent renderEvent(deltaTime, perFrame[index].commands, window.getFramebufferSize());
+			renderEvent.addWait(perFrame[index].imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+			renderEvent.addSignal(perFrame[index].renderFinished);
 			LayerStack::OnEvent(renderEvent);
-			//commands.endRenderPass();
-			commands.end();
-			commands.submit(renderEvent.getWait().data(), renderEvent.getWaitStages().data(), renderEvent.getWait().size(), renderEvent.getSignal().data(), renderEvent.getSignal().size());
-			window.presentFrame(renderFinished);
+			perFrame[index].commands.end();
+			perFrame[index].commands.submit(renderEvent.getWait().data(), renderEvent.getWaitStages().data(), renderEvent.getWait().size(), renderEvent.getSignal().data(), renderEvent.getSignal().size());
+			window.presentFrame(perFrame[index].renderFinished);
 			deltaTime = timer.ellapsedMillis();
+			index = (index + 1) % FRAMES_IN_FLIGHT;
 		}
 		device.waitIdle();
-		device.destroy(imageAvailable, renderFinished);
+		for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+			device.destroy(perFrame[i].imageAvailable, perFrame[i].renderFinished);
+		}
 		LayerStack::Clear();
 	}
 }

@@ -7,28 +7,27 @@ namespace SGF {
 	class Event {};
 	class WindowEvent : Event {
 	public:
-		inline WindowEvent(Window& window) : windowHandle(window) {};
-		inline Window& getWindow() const { return windowHandle; }
+		inline WindowEvent(WindowHandle& handle) : windowHandle(handle) {};
+		inline WindowHandle& getWindowHandle() const { return windowHandle; }
 	private:
-		Window& windowHandle;
+		WindowHandle& windowHandle;
 	};
 	class WindowResizeEvent : public WindowEvent {
 	public:
-		inline WindowResizeEvent(Window& window, uint32_t newWidth, uint32_t newHeight) : WindowEvent(window), width(newWidth), height(newHeight) {}
+		inline WindowResizeEvent(WindowHandle& window, uint32_t newWidth, uint32_t newHeight) : WindowEvent(window), width(newWidth), height(newHeight) {}
 		inline uint32_t getWidth() const { return width; }
 		inline uint32_t getHeight() const { return height; }
 	private:
-		friend Window;
 		uint32_t width;
 		uint32_t height;
 	};
 	class WindowCloseEvent : public WindowEvent {
 	public:
-		inline WindowCloseEvent(Window& window) : WindowEvent(window) {}
+		inline WindowCloseEvent(WindowHandle& window) : WindowEvent(window) {}
 	};
 	class WindowMinimizeEvent : public WindowEvent {
 	public:
-		inline WindowMinimizeEvent(Window& window, bool wasMinimized) : WindowEvent(window) {}
+		inline WindowMinimizeEvent(WindowHandle& window, bool wasMinimized) : WindowEvent(window) {}
 		inline bool wasMinimized() { return minimized; }
 	private:
 		bool minimized;
@@ -36,7 +35,7 @@ namespace SGF {
 
 	class InputEvent : public WindowEvent {
 	public:	
-		inline InputEvent(Window& window) : WindowEvent(window), handled(false) {}
+		inline InputEvent(WindowHandle& window) : WindowEvent(window), handled(false) {}
 		inline void setHandled() { handled = true; }
 		inline bool isHandle() { return handled; }
 	private:
@@ -45,19 +44,19 @@ namespace SGF {
 
 	class MousePressedEvent : public InputEvent {
 	public:
-		inline MousePressedEvent(Window& window, uint32_t mousecode) : InputEvent(window), mouseCode(mousecode) {}
+		inline MousePressedEvent(WindowHandle& window, uint32_t mousecode) : InputEvent(window), mouseCode(mousecode) {}
 	private:
 		uint32_t mouseCode;
 	};
 	class MouseReleasedEvent : public InputEvent {
 	public:
-		inline MouseReleasedEvent(Window& window, uint32_t mousecode) : InputEvent(window), mouseCode(mousecode) {}
+		inline MouseReleasedEvent(WindowHandle& window, uint32_t mousecode) : InputEvent(window), mouseCode(mousecode) {}
 	private:
 		uint32_t mouseCode;
 	};
 	class MouseScrollEvent : public InputEvent {
 	public:
-		inline MouseScrollEvent(Window& window, double xOffset, double yOffset) : InputEvent(window), x(xOffset), y(yOffset) {}
+		inline MouseScrollEvent(WindowHandle& window, double xOffset, double yOffset) : InputEvent(window), x(xOffset), y(yOffset) {}
 		inline double xOffset() { return x; }
 		inline double yOffset() { return y; }
 	private:
@@ -66,7 +65,7 @@ namespace SGF {
 	};
 	class MouseMovedEvent : public InputEvent {
 	public:
-		inline MouseMovedEvent(Window& window, double xpos, double ypos) : InputEvent(window), xPos(xpos), yPos(ypos) {}
+		inline MouseMovedEvent(WindowHandle& window, double xpos, double ypos) : InputEvent(window), xPos(xpos), yPos(ypos) {}
 		inline double getX() { return xPos; }
 		inline double getY() { return yPos; }
 	private:
@@ -76,7 +75,7 @@ namespace SGF {
 
 	class KeyTypedEvent : public InputEvent {
 	public:
-		inline KeyTypedEvent(Window& window, uint32_t codepoint): InputEvent(window), charCode(codepoint) {}
+		inline KeyTypedEvent(WindowHandle& window, uint32_t codepoint): InputEvent(window), charCode(codepoint) {}
 		inline uint32_t getChar() { return charCode; }
 	private:
 		uint32_t charCode;
@@ -84,7 +83,7 @@ namespace SGF {
 
 	class KeyEvent : public InputEvent {
 	public:
-		inline KeyEvent(Window& window, uint32_t keycode, uint32_t mods) : InputEvent(window), keyCode(keycode), modifier(mods) {}
+		inline KeyEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : InputEvent(window), keyCode(keycode), modifier(mods) {}
 		inline uint32_t getKey() { return keyCode; }
 		inline uint32_t getMod() { return modifier; }
 	private:
@@ -93,14 +92,14 @@ namespace SGF {
 	};
 	class KeyPressedEvent : public KeyEvent {
 	public:
-		inline KeyPressedEvent(Window& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
+		inline KeyPressedEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
 	};
 	class KeyReleasedEvent : public KeyEvent {
 	public:
-		inline KeyReleasedEvent(Window& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
+		inline KeyReleasedEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
 	};
 	class KeyRepeatEvent : public KeyEvent {
 	public:
-		inline KeyRepeatEvent(Window& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
+		inline KeyRepeatEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
 	};
 }

@@ -70,9 +70,10 @@ namespace SGF {
 		ImGui::End();
 		ImGui::PopStyleVar();
 		ImGui::Begin("Other Window");
+		ImGui::Text("Application average %.3f ms/frame", event.getDeltaTime());
 		ImGui::ColorButton("ColorButton", ImVec4(0.2, 0.8, 0.1, 1.0), 0, ImVec2(20.f, 20.f));
+		//ImGui::Text("Frame time: {d}", event.get);
 		ImGui::End();
-
 	}
 	//void ViewportLayer::resizeFramebuffer(float width, float height) {
 	void ViewportLayer::resizeFramebuffer(uint32_t w, uint32_t h) {

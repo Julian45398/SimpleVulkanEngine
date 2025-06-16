@@ -36,7 +36,9 @@ namespace SGF {
 		descriptorPool = device.descriptorPool(window.getImageCount(), pool_sizes, ARRAY_SIZE(pool_sizes), VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
 		// Setup Platform/Renderer backends
-		ImGui_ImplGlfw_InitForVulkan((GLFWwindow*)window.getNativeWindow(), true);
+		ImGui_ImplGlfw_InitForVulkan((GLFWwindow*)window.getNativeWindow().getHandle(), false);
+		ImGui_ImplGlfw_SetCallbacksChainForAllWindows(true);
+		ImGui_ImplGlfw_InstallCallbacks((GLFWwindow*)window.getNativeWindow().getHandle());
 		ImGui_ImplVulkan_InitInfo init_info = {};
 		init_info.Instance = VulkanInstance;
 		init_info.PhysicalDevice = device;

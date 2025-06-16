@@ -7,6 +7,7 @@
 namespace SGF {
     typedef uint32_t Flags;
     inline constexpr Flags FLAG_NONE = 0;
+    class WindowHandle;
     class Window;
     class Device;
     class Swapchain;
@@ -34,11 +35,12 @@ namespace SGF {
     enum WindowCreateFlagBits {
         WINDOW_FLAG_FULLSCREEN = BIT(0),
         WINDOW_FLAG_RESIZABLE = BIT(1),
-        WINDOW_FLAG_DEPTH_ATTACHMENT = BIT(4),
-        WINDOW_FLAG_STENCIL_ATTACHMENT = BIT(6),
-        WINDOW_FLAG_NO_COLOR_CLEAR = BIT(7),
+        WINDOW_FLAG_BORDERLESS = BIT(2),
         WINDOW_FLAG_VSYNC = BIT(8),
-        WINDOW_FLAG_CUSTOM_RENDER_PASS = BIT(9)
+        WINDOW_FLAG_DEPTH_ATTACHMENT = BIT(9),
+        WINDOW_FLAG_STENCIL_ATTACHMENT = BIT(10),
+        WINDOW_FLAG_NO_COLOR_CLEAR = BIT(11),
+        WINDOW_FLAG_CUSTOM_RENDER_PASS = BIT(12)
     };
 
     typedef Flags WindowCreateFlags;

@@ -32,6 +32,127 @@ namespace SGF {
     extern VkInstance VulkanInstance;
     extern VkAllocationCallbacks* VulkanAllocator;
 
+    void Input::PollEvents() {
+        glfwPollEvents();
+    }
+    void Input::WaitEvents() {
+        glfwWaitEvents();
+    }
+    glm::dvec2 Input::GetCursorPos() {
+        static glm::dvec2 pos(0, 0);
+        GLFWwindow* win = (GLFWwindow*)Window::GetNativeFocused();
+        if (win != nullptr) {
+            glfwGetCursorPos(win, &pos.x, &pos.y);
+        }
+        return pos;
+    }
+    bool Input::IsMouseButtonPressed(Mousecode button) {
+        GLFWwindow* win = (GLFWwindow*)Window::GetNativeFocused();
+        return win != nullptr && glfwGetMouseButton(win, button) == GLFW_PRESS;
+    }
+    bool Input::IsKeyPressed(Keycode key) {
+        GLFWwindow* win = (GLFWwindow*)Window::GetNativeFocused();
+        return win != nullptr && glfwGetKey(win, key) == GLFW_PRESS;
+    }
+    void WindowHandle::open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags flags) {
+        assert(nativeHandle == nullptr);
+        
+        GLFWmonitor* monitor = nullptr;
+        if (flags & WINDOW_FLAG_FULLSCREEN) {
+            monitor = glfwGetPrimaryMonitor();
+            const auto mode = glfwGetVideoMode(monitor);
+            width = mode->width;
+            height = mode->height;
+        }
+        
+        nativeHandle = glfwCreateWindow(width, height, title, monitor, nullptr);
+        if (nativeHandle == nullptr) {
+            SGF::fatal(ERROR_CREATE_WINDOW);
+        }
+        if (flags & WINDOW_FLAG_RESIZABLE) {
+            glfwSetWindowAttrib((GLFWwindow*)nativeHandle, GLFW_RESIZABLE, GLFW_TRUE);
+        } 
+        if (flags & WINDOW_FLAG_BORDERLESS) {
+            glfwSetWindowAttrib((GLFWwindow*)nativeHandle, GLFW_DECORATED, GLFW_FALSE);
+        }
+    }
+    void WindowHandle::close() {
+        glfwDestroyWindow((GLFWwindow*)nativeHandle);
+        nativeHandle = nullptr;
+    }
+    bool WindowHandle::shouldClose() const {
+        return glfwWindowShouldClose((GLFWwindow*)nativeHandle);
+    }
+    uint32_t WindowHandle::getWidth() const {
+        int width;
+        glfwGetWindowSize((GLFWwindow*)nativeHandle, &width, nullptr);
+        return width;
+    }
+    uint32_t WindowHandle::getHeight() const {
+        int height;
+        glfwGetWindowSize((GLFWwindow*)nativeHandle, nullptr, &height);
+        return height;
+    }
+    VkExtent2D WindowHandle::getSize() const {
+        static_assert(sizeof(int) == sizeof(uint32_t));
+        VkExtent2D size;
+        glfwGetWindowSize((GLFWwindow*)nativeHandle, (int*)&size.width, (int*)&size.height);
+        return size;
+    }
+    bool WindowHandle::isKeyPressed(Keycode key) const {
+        return glfwGetKey((GLFWwindow*)nativeHandle, key) == GLFW_PRESS;
+    }
+    bool WindowHandle::isMouseButtonPressed(Mousecode button) const {
+        return glfwGetMouseButton((GLFWwindow*)nativeHandle, button) == GLFW_PRESS;
+    }
+    glm::dvec2 WindowHandle::getCursorPos() const  {
+        glm::dvec2 pos;
+        glfwGetCursorPos((GLFWwindow*)nativeHandle, &pos.x, &pos.y);
+        return pos;
+    }
+    void WindowHandle::captureCursor() const {
+        glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+    void WindowHandle::freeCursor() const {
+        glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+    bool WindowHandle::isFullscreen() const {
+        return glfwGetWindowMonitor((GLFWwindow*)nativeHandle) != nullptr;
+    }
+    bool WindowHandle::isMinimized() const  {
+        auto size = getSize();
+        return size.width == 0 || size.height == 0;
+    }
+    void WindowHandle::setUserPointer(void* pUser) const {
+        glfwSetWindowUserPointer((GLFWwindow*)nativeHandle, pUser);
+    }
+    void WindowHandle::setTitle(const char* title) const {
+        glfwSetWindowTitle((GLFWwindow*)nativeHandle, title);
+    }
+    
+
+    const char* WindowHandle::getTitle() const {
+        return glfwGetWindowTitle((GLFWwindow*)nativeHandle);
+    }
+
+    void WindowHandle::setCursorPos(const glm::dvec2& pos) const {
+        glfwSetCursorPos((GLFWwindow*)nativeHandle, pos.x, pos.y);
+    }
+    void WindowHandle::setFullscreen() const {
+        auto m = glfwGetPrimaryMonitor();
+        auto mode = glfwGetVideoMode(m);
+        glfwSetWindowMonitor((GLFWwindow*)nativeHandle, m, 0, 0, mode->width, mode->height, GLFW_DONT_CARE);
+    }
+    void WindowHandle::setWindowed(uint32_t width, uint32_t height) const {
+        glfwSetWindowMonitor((GLFWwindow*)nativeHandle, nullptr, (int)(width / 2), (int)(height / 2), (int)width, (int)height, GLFW_DONT_CARE);
+    }
+    void WindowHandle::resize(uint32_t width, uint32_t height) const {
+        glfwSetWindowSize((GLFWwindow*)nativeHandle, (int)width, (int)height);
+    }
+    void WindowHandle::minimize() const {
+        glfwIconifyWindow((GLFWwindow*)nativeHandle);
+    }
+
     constexpr VkFormat POSSIBLE_STENCIL_FORMATS[] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT };
 
     VkAttachmentDescription Window::createSwapchainAttachment(VkAttachmentLoadOp loadOp) {
@@ -70,6 +191,9 @@ namespace SGF {
         VkExtent2D extent{};
         int count;
         auto monitors = glfwGetMonitors(&count);
+        if (monitors == nullptr) {
+            return {0, 0};
+        }
         for (uint32_t i = 0; i < count; ++i) {
             auto vidmode = glfwGetVideoMode(monitors[i]);
             extent.width = std::max(extent.width, (uint32_t)vidmode->width);
@@ -82,6 +206,7 @@ namespace SGF {
         glfwGetMonitors(&count);
         return (uint32_t)count;
     }
+
     void Window::nextFrame(VkSemaphore imageAvailableSignal, VkFence fence) {
 		assert(swapchain != VK_NULL_HANDLE);
 		auto& device = Device::Get();
@@ -90,10 +215,10 @@ namespace SGF {
 		while (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			debug("swapchain out of date!");
             int w = 0, h = 0;
-            glfwGetFramebufferSize((GLFWwindow*)window, &w, &h);
+            glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
             while (w == 0 || h == 0) {
                 glfwWaitEvents();
-                glfwGetFramebufferSize((GLFWwindow*)window, &w, &h);
+                glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
             }
             width = w;
             height = h;
@@ -122,10 +247,10 @@ namespace SGF {
 		if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
 			SGF::info("swapchain out of date!");
             int w = 0, h = 0;
-            glfwGetFramebufferSize((GLFWwindow*)window, &w, &h);
+            glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
             while (w == 0 || h == 0) {
                 glfwWaitEvents();
-                glfwGetFramebufferSize((GLFWwindow*)window, &w, &h);
+                glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
             }
             width = w;
             height = h;
@@ -141,28 +266,11 @@ namespace SGF {
             close();
         }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        if (flags & WINDOW_FLAG_RESIZABLE) {
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-        }
-        GLFWmonitor* monitor = nullptr;
-        if (flags & WINDOW_FLAG_FULLSCREEN) {
-            monitor = glfwGetPrimaryMonitor();
-			if (newWidth == 0 && newHeight == 0) {
-                const auto mode = glfwGetVideoMode(monitor);
-                newWidth = mode->width;
-                newHeight = mode->height;
-			}
-        }
-        width = newWidth;
-        height = newHeight;
+        windowHandle.open(name, newWidth, newHeight, flags);
         
-        window = glfwCreateWindow(width, height, name, monitor, nullptr);
-        if (window == nullptr) {
-            SGF::fatal(ERROR_CREATE_WINDOW);
-        }
-        glfwSetWindowUserPointer((GLFWwindow*)window, this);
+        windowHandle.setUserPointer(this);
 
-        if (glfwCreateWindowSurface(SGF::VulkanInstance, (GLFWwindow*)window, SGF::VulkanAllocator, &surface) != VK_SUCCESS) {
+        if (glfwCreateWindowSurface(SGF::VulkanInstance, (GLFWwindow*)windowHandle.getHandle(), SGF::VulkanAllocator, &surface) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_SURFACE);
         }
 
@@ -178,113 +286,131 @@ namespace SGF {
         updateSwapchain();
 
         // Set GLFW callbacks
-        glfwSetFramebufferSizeCallback((GLFWwindow*)window, [](GLFWwindow* window, int width, int height) {
-            Window& win = *(Window*)glfwGetWindowUserPointer(window);
+        glfwSetFramebufferSizeCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int width, int height) {
+            WindowHandle& windowHandle = *(WindowHandle*)&window;
+            SGF::info("framebuffersizecallback ....");
+            
+
             if (width == 0 || height == 0) {
                 SGF::info("window is minimized!");
-                WindowMinimizeEvent event(win, true);
+                WindowMinimizeEvent event(windowHandle, true);
 				EventManager::dispatch(event);
                 do {
                     glfwGetFramebufferSize(window, &width, &height);
                     glfwWaitEvents();
                     SGF::info("polled events finished!");
                 } while (width == 0 || height == 0);
-                WindowMinimizeEvent maxEvent(win, false);
+                WindowMinimizeEvent maxEvent(windowHandle, false);
                 EventManager::dispatch(maxEvent);
                 SGF::info("window is maximized again!");
             }
-            Device::Get().waitIdle();
-            win.resizeFramebuffers(width, height);
-            WindowResizeEvent event(win, width, height);
+			auto pWindow = (Window*)glfwGetWindowUserPointer(window);
+            if (pWindow != nullptr) {
+                Window& win = *pWindow;
+                Device::Get().waitIdle();
+                win.resizeFramebuffers(width, height);
+            }
+            WindowResizeEvent event(windowHandle, width, height);
             EventManager::dispatch(event);
 		});
 
-		glfwSetWindowCloseCallback((GLFWwindow*)window, [](GLFWwindow* window)
+		glfwSetWindowCloseCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window)
 		{
-			Window& win = *(Window*)glfwGetWindowUserPointer(window);
+			WindowHandle& win = *(WindowHandle*)&window;
             WindowCloseEvent event(win);
             EventManager::dispatch(event);
 		});
 
-		glfwSetKeyCallback((GLFWwindow*)window, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+		glfwSetKeyCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int key, int scancode, int action, int mods)
 		{
-			Window& win = *(Window*)glfwGetWindowUserPointer(window);
+			WindowHandle& win = *(WindowHandle*)&window;
 			switch (action)
 			{
 			case GLFW_PRESS:
 			{
 				KeyPressedEvent event(win, key, mods);
-				//WindowEvents.dispatch(event);
+                LayerStack::OnEvent(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				KeyReleasedEvent event(win, key, mods);
-				//WindowEvents.dispatch(event);
+                LayerStack::OnEvent(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
 				KeyRepeatEvent event(win, key, mods);
-				//WindowEvents.dispatch(event);
+                LayerStack::OnEvent(event);
 				break;
 			}
 			}
 		});
 
-        glfwSetCharCallback((GLFWwindow*)window, [](GLFWwindow* window, unsigned int codepoint)
-            {
-                Window& win = *(Window*)glfwGetWindowUserPointer(window);
+        glfwSetCharCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, unsigned int codepoint)
+        {
+            WindowHandle& win = *(WindowHandle*)&window;
 
-                KeyTypedEvent event(win, codepoint);
+            KeyTypedEvent event(win, codepoint);
+            LayerStack::OnEvent(event);
+            //WindowEvents.dispatch(event);
+        });
+
+        glfwSetMouseButtonCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int button, int action, int mods)
+        {
+            WindowHandle& win = *(WindowHandle*)&window;
+
+            switch (action)
+            {
+            case GLFW_PRESS:
+            {
+                MousePressedEvent event(win, button);
+                LayerStack::OnEvent(event);
                 //WindowEvents.dispatch(event);
-            });
-
-        glfwSetMouseButtonCallback((GLFWwindow*)window, [](GLFWwindow* window, int button, int action, int mods)
+                break;
+            }
+            case GLFW_RELEASE:
             {
-                Window& win = *(Window*)glfwGetWindowUserPointer(window);
-
-                switch (action)
-                {
-                case GLFW_PRESS:
-                {
-                    MousePressedEvent event(win, button);
-                    //WindowEvents.dispatch(event);
-                    break;
+                MouseReleasedEvent event(win, button);
+                LayerStack::OnEvent(event);
+                break;
+            }
+            }
+        });
+        glfwSetWindowFocusCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int focus) 
+        {
+            WindowHandle* win = (WindowHandle*)&window;
+            if (win == nullptr) {
+                return;
+                SGF::warn("window user pointer is null!");
+            }
+            if (focus == GLFW_TRUE) {
+                SGF::info("Window: ", win->getTitle(), " is now focused!");
+                s_NativeFocused = window;
+            } else if (focus == GLFW_FALSE) {
+                SGF::info("Window: ", win->getTitle(), " lost focus");
+                if (s_NativeFocused == window) {
+                    s_NativeFocused == nullptr;
                 }
-                case GLFW_RELEASE:
-                {
-                    MouseReleasedEvent event(win, button);
-                    //WindowEvents.dispatch(event);
-                    break;
-                }
-                }
-            });
-        glfwSetWindowFocusCallback((GLFWwindow*)window, [](GLFWwindow* window, int focus) 
-            {
-                Window* win = (Window*)glfwGetWindowUserPointer(window);
-                if (focus == GLFW_TRUE) {
-                    SGF::info("Window: ", win->getName(), " is now focused!");
-                } else if (focus == GLFW_FALSE) {
-                    SGF::info("Window: ", win->getName(), " lost focus");
-                }
-            });
+            }
+        });
 
-        glfwSetScrollCallback((GLFWwindow*)window, [](GLFWwindow* window, double xOffset, double yOffset)
-            {
-                Window& win = *(Window*)glfwGetWindowUserPointer(window);
+        glfwSetScrollCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, double xOffset, double yOffset)
+        {
+            WindowHandle& win = *(WindowHandle*)window;
 
-                MouseScrollEvent event(win, xOffset, yOffset);
-                //LayerStack.dispatch(event);
-            });
-        glfwSetCursorPosCallback((GLFWwindow*)window, [](GLFWwindow* window, double xPos, double yPos)
-            {
-                Window& win = *(Window*)glfwGetWindowUserPointer(window);
+            MouseScrollEvent event(win, xOffset, yOffset);
+            LayerStack::OnEvent(event);
+        });
+        glfwSetCursorPosCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, double xPos, double yPos)
+        {
+            WindowHandle& win = *(WindowHandle*)window;
 
-                MouseMovedEvent event(win, xPos, yPos);
-                //LayerStack.dispatch(event);
-            });
+            MouseMovedEvent event(win, xPos, yPos);
+            LayerStack::OnEvent(event);
+        });
 
+        if (flags & WINDOW_FLAG_CUSTOM_RENDER_PASS) return;
         std::vector<VkAttachmentDescription> attachments;
         attachments.reserve(3);
         std::vector<VkClearValue> clearValues;
@@ -340,61 +466,51 @@ namespace SGF {
             freeAttachmentData();
             Device::Get().destroy(swapchain, renderPass);
             vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
-            glfwDestroyWindow((GLFWwindow*)window);
-            window = nullptr;
+            windowHandle.close();
             surface = nullptr;
         }
     }
 
     const char* Window::getName() const {
-        return glfwGetWindowTitle((GLFWwindow*)window);
+        return windowHandle.getTitle();
     }
 
     bool Window::isFullscreen() const {
-        return glfwGetWindowMonitor((GLFWwindow*)window) != nullptr;
+        return windowHandle.isFullscreen();
     }
-    bool Window::isMinimized() {
+    bool Window::isMinimized() const {
         return (width == 0 && height == 0);
     }
     void Window::setFullscreen() {
-        if (glfwGetWindowMonitor((GLFWwindow*)window) != nullptr) {
-            GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-            const auto mode = glfwGetVideoMode(monitor);
-            glfwSetWindowMonitor((GLFWwindow*)window, monitor, 0, 0, mode->width, mode->height, GLFW_DONT_CARE);
-        }
+        windowHandle.setFullscreen();
     }
     void Window::setWindowed(uint32_t newWidth, uint32_t newHeight) {
         width = newWidth;
         height = newHeight;
-        if (glfwGetWindowMonitor((GLFWwindow*)window) != nullptr) {
-            glfwSetWindowMonitor((GLFWwindow*)window, nullptr, 0, 0, newWidth, newHeight, GLFW_DONT_CARE);
+        if (windowHandle.isFullscreen()) {
+            windowHandle.setWindowed(newWidth, newHeight);
         }
         else {
-            glfwSetWindowSize((GLFWwindow*)window, newWidth, newHeight);
+            windowHandle.resize(newWidth, newHeight);
         }
     }
     void Window::minimize() {
         width = 0;
         height = 0;
-        glfwSetWindowSize((GLFWwindow*)window, width, height);
+        windowHandle.minimize();
     }
     bool Window::shouldClose() const {
-        return glfwWindowShouldClose((GLFWwindow*)window);
+        return windowHandle.shouldClose();
     }
     
     bool Window::isKeyPressed(Keycode key) const {
-        return glfwGetKey((GLFWwindow*)window, (int)key) == GLFW_PRESS;
+        return windowHandle.isKeyPressed(key);
     }
     bool Window::isMousePressed(Mousecode button) const {
-        return glfwGetMouseButton((GLFWwindow*)window, (int)button) == GLFW_PRESS;
+        return windowHandle.isMouseButtonPressed(button);
     }
     glm::dvec2 Window::getCursorPos() const {
-        glm::dvec2 pos;
-        glfwGetCursorPos((GLFWwindow*)window, &pos.x, &pos.y);
-        return pos;
-    }
-    void Window::onUpdate() {
-        glfwPollEvents();
+        return windowHandle.getCursorPos();
     }
 
     std::string Window::openFileDialog(const FileFilter& filter) const {
@@ -407,7 +523,7 @@ namespace SGF {
 		nfdopendialogu8args_t args = { 0 };
 
 		std::string filepath;
-        if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)window, &args.parentWindow)) {
+        if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.getHandle(), &args.parentWindow)) {
             SGF::error(ERROR_OPEN_FILE_DIALOG);
         }
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
@@ -439,7 +555,7 @@ namespace SGF {
 
 		nfdu8char_t* outPath;
 		nfdsavedialogu8args_t args = {};
-		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)window, &args.parentWindow)) {
+		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.getHandle(), &args.parentWindow)) {
 			SGF::error(ERROR_OPEN_FILE_DIALOG);
 		}
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
