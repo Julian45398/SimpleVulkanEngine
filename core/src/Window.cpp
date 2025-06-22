@@ -75,8 +75,12 @@ namespace SGF {
         if (flags & WINDOW_FLAG_BORDERLESS) {
             glfwSetWindowAttrib((GLFWwindow*)nativeHandle, GLFW_DECORATED, GLFW_FALSE);
         }
+        glfwSetWindowCloseCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window) {
+            SGF::info("Window should close: ", glfwGetWindowTitle(window));
+        });
     }
     void WindowHandle::close() {
+        
         glfwDestroyWindow((GLFWwindow*)nativeHandle);
         nativeHandle = nullptr;
     }
@@ -582,52 +586,11 @@ namespace SGF {
 		return filepath;
 	}
 
-    
-    VkImage* Window::getImagesMod() const {
-		assert(attachmentData != nullptr);
-		return (VkImage*)attachmentData;
-	}
-	VkImageView* Window::getImageViewsMod() const {
-		assert(attachmentData != nullptr);
-		return (VkImageView*)((char*)getImagesMod() + sizeof(VkImage) * getImageCount());
-	}
-	VkFramebuffer* Window::getFramebuffersMod() const {
-		assert(attachmentData != nullptr);
-		return (VkFramebuffer*)((char*)getImageViewsMod() + sizeof(VkImageView) * getImageCount());
-	}
-	VkImage* Window::getAttachmentImagesMod() const {
-		assert(attachmentData != nullptr);
-		return (VkImage*)((char*)getFramebuffersMod() + sizeof(VkFramebuffer) * getImageCount());
-	}
-	VkImageView* Window::getAttachmentImageViewsMod() const {
-		assert(attachmentData != nullptr);
-		return (VkImageView*)((char*)getAttachmentImagesMod() +  sizeof(VkImage) * getAttachmentCount());
-	}
-	VkDeviceMemory& Window::getAttachmentMemory() const {
-		assert(attachmentData != nullptr);
-		return *(VkDeviceMemory*)((char*)getAttachmentImageViewsMod() + sizeof(VkImageView) * getAttachmentCount());
-	}
-	VkFormat* Window::getAttachmentFormatsMod() const {
-		assert(attachmentData != nullptr);
-		return (VkFormat*)((char*)getAttachmentImageViewsMod() + sizeof(VkImageView) * getAttachmentCount() + sizeof(VkDeviceMemory));
-	}
-	VkImageUsageFlags* Window::getAttachmentUsagesMod() const {
-		assert(attachmentData != nullptr);
-		return (VkImageUsageFlags*)((char*)getAttachmentFormatsMod() + sizeof(VkFormat) * getAttachmentCount());
-	}
-	VkSampleCountFlagBits* Window::getAttachmentSampleCountsMod() const {
-		assert(attachmentData != nullptr);
-		return (VkSampleCountFlagBits*)((char*)getAttachmentUsagesMod() + sizeof(VkImageUsageFlags) * getAttachmentCount());
-	}
-
-	VkClearValue* Window::getClearValuesMod() const {
-		assert(attachmentData != nullptr);
-		return (VkClearValue*)((char*)getAttachmentSampleCountsMod() + sizeof(VkSampleCountFlagBits) * getAttachmentCount());
-	}
     void Window::freeAttachmentData() {
 		assert(attachmentData != nullptr);
 		destroyFramebuffers();
-		delete[] attachmentData;
+        free(attachmentData);
+        info("freed memory!");
 		attachmentData = nullptr;
 	}
     void Window::setRenderPass(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) {
@@ -691,12 +654,17 @@ namespace SGF {
 	void Window::allocateAttachmentData(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
 		assert(attCount > 0);
 		attachmentCount = attCount - 1;
+        assert(swapchain != VK_NULL_HANDLE);
+        assert(imageCount != 0);
 		assert(attachmentData == nullptr);
-		size_t allocSize = (sizeof(VkImage) + sizeof(VkFramebuffer) + sizeof(VkImageView)) * imageCount + sizeof(VkClearValue) * attCount;
+		size_t allocSize = (sizeof(VkImage) + sizeof(VkFramebuffer) + sizeof(VkImageView)) * imageCount + sizeof(pClearValues[0]) * attCount;
 		if (attachmentCount != 0) {
 			allocSize += (sizeof(VkImage) + sizeof(VkImageView) + sizeof(VkFormat) + sizeof(VkImageUsageFlags) + sizeof(VkSampleCountFlags)) * attachmentCount + sizeof(VkDeviceMemory);
 		}
-		attachmentData = new char[allocSize];
+		attachmentData = (char*)malloc(allocSize);
+        if (attachmentData == nullptr) {
+            fatal("failed to allocate attachment data!");
+        }
 
 		memcpy(getClearValuesMod(), pClearValues, sizeof(pClearValues[0]) * attCount);
 		if (attachmentCount != 0) {

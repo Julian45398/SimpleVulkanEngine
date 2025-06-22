@@ -220,17 +220,29 @@ namespace SGF {
         void createSwapchain();
         void destroySwapchain();
 
-		VkImage* getImagesMod() const;
-		VkImageView* getImageViewsMod() const;
-		VkFramebuffer* getFramebuffersMod() const;
-		VkImage* getAttachmentImagesMod() const;
-		VkImageView* getAttachmentImageViewsMod() const;
-		VkDeviceMemory& getAttachmentMemory() const;
-		void setAttachmentMemory(VkDeviceMemory memory) const;
-		VkFormat* getAttachmentFormatsMod() const;
-		VkImageUsageFlags* getAttachmentUsagesMod() const;
-		VkSampleCountFlagBits* getAttachmentSampleCountsMod() const;
-		VkClearValue* getClearValuesMod() const;
+        inline size_t getImageOffset() const { return 0; }
+        inline size_t getImageViewOffset() const { return sizeof(VkImage) * imageCount; }
+        inline size_t getFramebufferOffset() const { return getImageViewOffset() + sizeof(VkImageView) * imageCount; }
+        inline size_t getAttachmentImagesOffset() const { return getFramebufferOffset() + sizeof(VkFramebuffer) * imageCount; }
+        inline size_t getAttachmentImageViewsOffset() const { return getAttachmentImagesOffset() + sizeof(VkImage) * attachmentCount; }
+        inline size_t getAttachmentMemoryOffset() const { return getAttachmentImageViewsOffset() + sizeof(VkImageView) * attachmentCount; }
+        inline size_t getAttachmentFormatsOffset() const { return getAttachmentMemoryOffset() + sizeof(VkDeviceMemory) * (attachmentCount % 1); }
+        inline size_t getAttachmentUsagesOffset() const { return getAttachmentFormatsOffset() + sizeof(VkFormat) * attachmentCount; }
+        inline size_t getAttachmentSampleOffset() const { return getAttachmentUsagesOffset() + sizeof(VkImageUsageFlags) * attachmentCount; }
+        inline size_t getClearValuesOffset() const { return getAttachmentSampleOffset() + sizeof(VkSampleCountFlagBits) * attachmentCount; }
+
+        inline VkImage* getImagesMod() const { assert(attachmentData != nullptr); return (VkImage*)(attachmentData + getImageOffset()); }
+        inline VkImageView* getImageViewsMod() const { assert(attachmentData != nullptr); return (VkImageView*)(attachmentData + getImageViewOffset()); }
+        inline VkFramebuffer* getFramebuffersMod() const { assert(attachmentData != nullptr); return (VkFramebuffer*)(attachmentData + getFramebufferOffset()); }
+        inline VkImage* getAttachmentImagesMod() const { assert(attachmentData != nullptr); return (VkImage*)(attachmentData + getAttachmentImagesOffset()); }
+        inline VkImageView* getAttachmentImageViewsMod() const { assert(attachmentData != nullptr); return (VkImageView*)(attachmentData + getAttachmentImageViewsOffset()); }
+        inline VkDeviceMemory& getAttachmentMemory() const { assert(attachmentData != nullptr && attachmentCount != 0); return *(VkDeviceMemory*)(attachmentData + getAttachmentMemoryOffset()); }
+        inline void setAttachmentMemory(VkDeviceMemory memory) const { getAttachmentMemory() = memory; }
+        inline VkFormat* getAttachmentFormatsMod() const { assert(attachmentData != nullptr); return (VkFormat*)(attachmentData + getAttachmentFormatsOffset()); }
+        inline VkImageUsageFlags* getAttachmentUsagesMod() const { assert(attachmentData != nullptr); return (VkImageUsageFlags*)(attachmentData + getAttachmentUsagesOffset()); }
+        inline VkSampleCountFlagBits* getAttachmentSampleCountsMod() const { assert(attachmentData != nullptr); return (VkSampleCountFlagBits*)(attachmentData + getAttachmentSampleOffset()); }
+        inline VkClearValue* getClearValuesMod() const { assert(attachmentData != nullptr); return (VkClearValue*)(attachmentData + getClearValuesOffset()); }
+        
 
         friend Device;
         //VkExtent2D extent = { 0, 0 };
