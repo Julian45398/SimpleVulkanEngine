@@ -17,6 +17,10 @@ namespace SGF {
 		virtual void onDetach() override;
         virtual void onRender(RenderEvent& event) override;
         virtual void onUpdate(const UpdateEvent& event) override;
+
+        void renderViewport(RenderEvent& event);
+	    void updateViewport(const UpdateEvent& event);
+
         inline VkRenderPass getRenderPass() { return renderPass; }
         //virtual bool onKeyPress(const KeyPressedEvent& event) override;
         //virtual bool onKeyRelease(const KeyReleasedEvent& event) override;
@@ -25,8 +29,7 @@ namespace SGF {
         //virtual bool onMousePress(const MousePressedEvent& event) override;
         //virtual bool onMouseRelease(const MouseReleasedEvent& event) override;
         //virtual bool onMouseScroll(const MouseScrollEvent& event) override;
-        //virtual bool onKeyTyped(const KeyTypedEvent& event) override;
-        
+        //virtual bool onEvent(const KeyTypedEvent& event) override;
     private:
         void resizeFramebuffer(uint32_t width, uint32_t height);
         void createFramebuffer();

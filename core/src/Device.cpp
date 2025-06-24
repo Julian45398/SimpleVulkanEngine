@@ -1152,6 +1152,7 @@ namespace SGF {
         if (vkCreateSampler(logical, &info, VulkanAllocator, &sampler) != VK_SUCCESS) {
             fatal(ERROR_CREATE_SAMPLER);
         }
+        TRACK_SAMPLER(1);
         return sampler;
     }
 
@@ -1522,6 +1523,7 @@ namespace SGF {
         info.pNext = nullptr;
         info.flags = flags;
         info.queueFamilyIndex = queueIndex;
+        TRACK_COMMAND_POOL(1);
         return commandPool(info);
     }
     VkCommandBuffer Device::commandBuffer(VkCommandPool pool, VkCommandBufferLevel level) const {
@@ -1572,6 +1574,7 @@ namespace SGF {
         if (vkCreateDescriptorPool(logical, &info, VulkanAllocator, &pool) != VK_SUCCESS) {
             fatal(ERROR_CREATE_DESCRIPTOR_POOL);
         }
+        TRACK_DESCRIPTOR_POOL(1);
         return pool;
     }
 

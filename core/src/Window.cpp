@@ -39,20 +39,21 @@ namespace SGF {
         glfwWaitEvents();
     }
     glm::dvec2 Input::GetCursorPos() {
-        static glm::dvec2 pos(0, 0);
-        GLFWwindow* win = (GLFWwindow*)Window::GetNativeFocused();
-        if (win != nullptr) {
-            glfwGetCursorPos(win, &pos.x, &pos.y);
+        static glm::dvec2 pos(0,0);
+        assert(HasFocus());
+        if (HasFocus()) {
+            pos = s_FocusedWindow.getCursorPos();
         }
         return pos;
     }
     bool Input::IsMouseButtonPressed(Mousecode button) {
-        GLFWwindow* win = (GLFWwindow*)Window::GetNativeFocused();
-        return win != nullptr && glfwGetMouseButton(win, button) == GLFW_PRESS;
+        return HasFocus() && GetFocusedWindow().isMouseButtonPressed(button);
     }
     bool Input::IsKeyPressed(Keycode key) {
-        GLFWwindow* win = (GLFWwindow*)Window::GetNativeFocused();
-        return win != nullptr && glfwGetKey(win, key) == GLFW_PRESS;
+        return HasFocus() && GetFocusedWindow().isKeyPressed(key);
+    }
+    bool Input::HasFocus() {
+        return s_FocusedWindow.isOpen();
     }
     void WindowHandle::open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags flags) {
         assert(nativeHandle == nullptr);
@@ -75,12 +76,99 @@ namespace SGF {
         if (flags & WINDOW_FLAG_BORDERLESS) {
             glfwSetWindowAttrib((GLFWwindow*)nativeHandle, GLFW_DECORATED, GLFW_FALSE);
         }
-        glfwSetWindowCloseCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window) {
-            SGF::info("Window should close: ", glfwGetWindowTitle(window));
+        glfwSetWindowCloseCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window)
+		{
+			WindowHandle& win = *(WindowHandle*)&window;
+            WindowCloseEvent event(win);
+            EventManager::dispatch(event);
+		});
+		glfwSetKeyCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+		{
+			WindowHandle& win = *(WindowHandle*)&window;
+			switch (action)
+			{
+			case GLFW_PRESS:
+			{
+				KeyPressedEvent event(win, key, mods);
+                LayerStack::OnEvent(event);
+				break;
+			}
+			case GLFW_RELEASE:
+			{
+				KeyReleasedEvent event(win, key, mods);
+                LayerStack::OnEvent(event);
+				break;
+			}
+			case GLFW_REPEAT:
+			{
+				KeyRepeatEvent event(win, key, mods);
+                LayerStack::OnEvent(event);
+				break;
+			}
+			}
+		});
+
+        glfwSetCharCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, unsigned int codepoint)
+        {
+            WindowHandle& win = *(WindowHandle*)&window;
+
+            KeyTypedEvent event(win, codepoint);
+            LayerStack::OnEvent(event);
+            //WindowEvents.dispatch(event);
+        });
+
+        glfwSetMouseButtonCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, int button, int action, int mods)
+        {
+            WindowHandle& win = *(WindowHandle*)&window;
+
+            switch (action)
+            {
+            case GLFW_PRESS:
+            {
+                MousePressedEvent event(win, button);
+                LayerStack::OnEvent(event);
+                //WindowEvents.dispatch(event);
+                break;
+            }
+            case GLFW_RELEASE:
+            {
+                MouseReleasedEvent event(win, button);
+                LayerStack::OnEvent(event);
+                break;
+            }
+            }
+        });
+        glfwSetWindowFocusCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, int focus) 
+        {
+            assert(window != nullptr);
+            WindowHandle& win = *(WindowHandle*)&window;
+            if (focus == GLFW_TRUE) {
+                SGF::info("Window: ", win.getTitle(), " is now focused!");
+                Input::s_FocusedWindow.setHandle(window);
+            } else if (focus == GLFW_FALSE) {
+                SGF::info("Window: ", win.getTitle(), " lost focus");
+                if (Input::s_FocusedWindow.getHandle() == window) {
+                    Input::s_FocusedWindow.setHandle(nullptr);
+                }
+            }
+        });
+
+        glfwSetScrollCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, double xOffset, double yOffset)
+        {
+            WindowHandle& win = *(WindowHandle*)&window;
+
+            MouseScrollEvent event(win, xOffset, yOffset);
+            LayerStack::OnEvent(event);
+        });
+        glfwSetCursorPosCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, double xPos, double yPos)
+        {
+            WindowHandle& win = *(WindowHandle*)&window;
+
+            MouseMovedEvent event(win, xPos, yPos);
+            LayerStack::OnEvent(event);
         });
     }
     void WindowHandle::close() {
-        
         glfwDestroyWindow((GLFWwindow*)nativeHandle);
         nativeHandle = nullptr;
     }
@@ -318,101 +406,7 @@ namespace SGF {
             EventManager::dispatch(event);
 		});
 
-		glfwSetWindowCloseCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window)
-		{
-			WindowHandle& win = *(WindowHandle*)&window;
-            WindowCloseEvent event(win);
-            EventManager::dispatch(event);
-		});
-
-		glfwSetKeyCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int key, int scancode, int action, int mods)
-		{
-			WindowHandle& win = *(WindowHandle*)&window;
-			switch (action)
-			{
-			case GLFW_PRESS:
-			{
-				KeyPressedEvent event(win, key, mods);
-                LayerStack::OnEvent(event);
-				break;
-			}
-			case GLFW_RELEASE:
-			{
-				KeyReleasedEvent event(win, key, mods);
-                LayerStack::OnEvent(event);
-				break;
-			}
-			case GLFW_REPEAT:
-			{
-				KeyRepeatEvent event(win, key, mods);
-                LayerStack::OnEvent(event);
-				break;
-			}
-			}
-		});
-
-        glfwSetCharCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, unsigned int codepoint)
-        {
-            WindowHandle& win = *(WindowHandle*)&window;
-
-            KeyTypedEvent event(win, codepoint);
-            LayerStack::OnEvent(event);
-            //WindowEvents.dispatch(event);
-        });
-
-        glfwSetMouseButtonCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int button, int action, int mods)
-        {
-            WindowHandle& win = *(WindowHandle*)&window;
-
-            switch (action)
-            {
-            case GLFW_PRESS:
-            {
-                MousePressedEvent event(win, button);
-                LayerStack::OnEvent(event);
-                //WindowEvents.dispatch(event);
-                break;
-            }
-            case GLFW_RELEASE:
-            {
-                MouseReleasedEvent event(win, button);
-                LayerStack::OnEvent(event);
-                break;
-            }
-            }
-        });
-        glfwSetWindowFocusCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int focus) 
-        {
-            WindowHandle* win = (WindowHandle*)&window;
-            if (win == nullptr) {
-                return;
-                SGF::warn("window user pointer is null!");
-            }
-            if (focus == GLFW_TRUE) {
-                SGF::info("Window: ", win->getTitle(), " is now focused!");
-                s_NativeFocused = window;
-            } else if (focus == GLFW_FALSE) {
-                SGF::info("Window: ", win->getTitle(), " lost focus");
-                if (s_NativeFocused == window) {
-                    s_NativeFocused == nullptr;
-                }
-            }
-        });
-
-        glfwSetScrollCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, double xOffset, double yOffset)
-        {
-            WindowHandle& win = *(WindowHandle*)window;
-
-            MouseScrollEvent event(win, xOffset, yOffset);
-            LayerStack::OnEvent(event);
-        });
-        glfwSetCursorPosCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, double xPos, double yPos)
-        {
-            WindowHandle& win = *(WindowHandle*)window;
-
-            MouseMovedEvent event(win, xPos, yPos);
-            LayerStack::OnEvent(event);
-        });
+		
 
         if (flags & WINDOW_FLAG_CUSTOM_RENDER_PASS) return;
         std::vector<VkAttachmentDescription> attachments;

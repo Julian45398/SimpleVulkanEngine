@@ -6,14 +6,7 @@
 #include <string.h>
 
 namespace SGF {
-    class Input {
-    public:
-        static void PollEvents();
-        static void WaitEvents();
-        static glm::dvec2 GetCursorPos();
-        static bool IsMouseButtonPressed(Mousecode button);
-        static bool IsKeyPressed(Keycode key);
-    };
+    
     struct FileFilter {
 		const char* filterDescription;
 		const char* filters;
@@ -29,12 +22,15 @@ namespace SGF {
     };
     class WindowHandle {
     public:
+
         void open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags);
         void close();
-        inline ~WindowHandle() { close(); }
+        inline ~WindowHandle() { if (nativeHandle) warn("window handle destroyed but window: ", getTitle(), " is still active!"); }
         inline WindowHandle(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags) 
         { open(title, width, height, windowFlags); }
         inline WindowHandle() : nativeHandle(nullptr) {};
+        inline WindowHandle(void* handle) : nativeHandle(handle) {};
+        inline void setHandle(void* handle) { nativeHandle = handle; }
 
         bool shouldClose() const;
         uint32_t getWidth() const;
@@ -62,11 +58,25 @@ namespace SGF {
     private:
         void* nativeHandle;
     };
+    class Input {
+    public:
+        static void PollEvents();
+        static void WaitEvents();
+        static bool HasFocus();
+        static glm::dvec2 GetCursorPos();
+        static bool IsMouseButtonPressed(Mousecode button);
+        static bool IsKeyPressed(Keycode key);
+        inline static WindowHandle& GetFocusedWindow() { return s_FocusedWindow; }
+    private:
+        friend WindowHandle;
+        inline static WindowHandle s_FocusedWindow;
+    };
+
     class Window {
     public:
 		inline static const VkSurfaceFormatKHR DEFAULT_SURFACE_FORMAT = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         static VkAttachmentDescription createSwapchainAttachment(VkAttachmentLoadOp loadOp);
-        inline static void* GetNativeFocused() { return s_NativeFocused; }
+        inline static WindowHandle GetFocusedHandle() { return Input::GetFocusedWindow(); }
         //inline static Window* GetFocused() { return FocusedWindow; }
         static VkExtent2D getMonitorSize(uint32_t index);
         static VkExtent2D getMaxMonitorSize();
@@ -265,7 +275,7 @@ namespace SGF {
 
         //Display display;
         static Window s_MainWindow;
-        inline static void* s_NativeFocused = nullptr;
+        inline static WindowHandle* s_NativeFocused = nullptr;
         static WindowSettings s_WindowSettings;
     };
 }

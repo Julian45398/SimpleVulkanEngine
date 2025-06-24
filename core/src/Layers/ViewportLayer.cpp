@@ -38,6 +38,20 @@ namespace SGF {
 
 	}
 	void ViewportLayer::onRender(RenderEvent& event) {
+		renderViewport(event);
+	}
+
+	
+	void ViewportLayer::onUpdate(const UpdateEvent& event) {
+		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+		updateViewport(event);
+		ImGui::Begin("Other Window");
+		ImGui::Text("Application average %.3f ms/frame", event.getDeltaTime());
+		ImGui::ColorButton("ColorButton", ImVec4(0.2, 0.8, 0.1, 1.0), 0, ImVec2(20.f, 20.f));
+		//ImGui::Text("Frame time: {d}", event.get);
+		ImGui::End();
+	}
+	void ViewportLayer::renderViewport(RenderEvent& event) {
 		VkClearValue clearValues[] = {
 			SGF::createColorClearValue(0.f, 0.f, 1.f, 1.f),
 			SGF::createDepthClearValue(1.f, 0)
@@ -58,24 +72,22 @@ namespace SGF {
 		commands.submit(nullptr, FLAG_NONE, signalSemaphore);
 		event.addWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
-	void ViewportLayer::onUpdate(const UpdateEvent& event) {
-		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+	void ViewportLayer::updateViewport(const UpdateEvent& event) {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Viewport");
 		ImVec2 size = ImGui::GetContentRegionAvail();
 		if ((uint32_t)size.x != width || (uint32_t)size.y != height) {
 			resizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
 		}
+		if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
+			if (Input::IsKeyPressed(KEY_T)) {
+				info("is key pressed!");
+			}
+		}
 		ImGui::Image(imGuiImageID, size);
 		ImGui::End();
 		ImGui::PopStyleVar();
-		ImGui::Begin("Other Window");
-		ImGui::Text("Application average %.3f ms/frame", event.getDeltaTime());
-		ImGui::ColorButton("ColorButton", ImVec4(0.2, 0.8, 0.1, 1.0), 0, ImVec2(20.f, 20.f));
-		//ImGui::Text("Frame time: {d}", event.get);
-		ImGui::End();
 	}
-	//void ViewportLayer::resizeFramebuffer(float width, float height) {
 	void ViewportLayer::resizeFramebuffer(uint32_t w, uint32_t h) {
 		width = w;
 		height = h;
@@ -112,7 +124,6 @@ namespace SGF {
 			write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			write_desc[0].pImageInfo = desc_image;
 			vkUpdateDescriptorSets(device.getLogical(), 1, write_desc, 0, nullptr);
-			SGF::info("DescriptorSet updated");
 		}
 		else {
 			descriptorSet = ImGui_ImplVulkan_AddTexture(sampler, colorImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -120,7 +131,6 @@ namespace SGF {
 		}
 	}
 	void ViewportLayer::destroyFramebuffer() {
-		info("Destroying framebuffer");
 		auto& device = Device::Get();
 		device.waitIdle();
 		device.destroy(framebuffer, colorImageView, colorImage, depthImageView, depthImage, deviceMemory);
