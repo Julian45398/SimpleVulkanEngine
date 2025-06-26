@@ -59,13 +59,13 @@ namespace SGF {
 		ImGui_ImplVulkanH_SelectSurfaceFormat(device.GetPhysical(), window.GetSurface(), requestedFormats, 
 			ARRAY_SIZE(requestedFormats), Window::DEFAULT_SURFACE_FORMAT.colorSpace);
 	}
-	void ImGuiLayer::onUpdate(const UpdateEvent& event) {
+	void ImGuiLayer::OnEvent(const UpdateEvent& event) {
 		static bool showDemo = true;
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 	}
-	void ImGuiLayer::onRender(RenderEvent& event) {
+	void ImGuiLayer::OnEvent(RenderEvent& event) {
 		ImGui::Render();
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
@@ -87,7 +87,7 @@ namespace SGF {
 		auto& device = Device::Get();
 		device.Destroy(descriptorPool);
 	}
-	void ImGuiLayer::onAttach() {
+	void ImGuiLayer::OnAttach() {
 		//ImGui_ImplGlfw_InstallCallbacks();
 	}
 }

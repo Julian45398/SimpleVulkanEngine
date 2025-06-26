@@ -15,8 +15,8 @@ void SGF::PreInit() {
 }
 
 void SGF::Setup() {
-	LayerStack::PushOverlay(new ImGuiLayer(VK_SAMPLE_COUNT_1_BIT));
-	LayerStack::Push(new ViewportLayer(VK_FORMAT_R8G8B8A8_SRGB));
+	LayerStack::Get().PushOverlay(new ImGuiLayer(VK_SAMPLE_COUNT_1_BIT));
+	LayerStack::Get().Push(new ViewportLayer(VK_FORMAT_R8G8B8A8_SRGB));
 }
 void SGF::Cleanup() {
 

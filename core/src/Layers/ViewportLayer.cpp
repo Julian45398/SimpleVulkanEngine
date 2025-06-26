@@ -32,17 +32,17 @@ namespace SGF {
 		destroyFramebuffer();
 		device.Destroy(renderPass, graphicsPipeline, pipelineLayout, sampler, signalSemaphore);
 	}
-	void ViewportLayer::onAttach() {
+	void ViewportLayer::OnAttach() {
 	}
-	void ViewportLayer::onDetach() {
+	void ViewportLayer::OnDetach() {
 
 	}
-	void ViewportLayer::onRender(RenderEvent& event) {
+	void ViewportLayer::OnEvent(RenderEvent& event) {
 		renderViewport(event);
 	}
 
 	
-	void ViewportLayer::onUpdate(const UpdateEvent& event) {
+	void ViewportLayer::OnEvent(const UpdateEvent& event) {
 		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 		updateViewport(event);
 		ImGui::Begin("Other Window");

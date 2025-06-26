@@ -13,10 +13,10 @@ namespace SGF {
     public:
         ViewportLayer(VkFormat imageFormat);
         ~ViewportLayer();
-		virtual void onAttach() override;
-		virtual void onDetach() override;
-        virtual void onRender(RenderEvent& event) override;
-        virtual void onUpdate(const UpdateEvent& event) override;
+		virtual void OnAttach() override;
+		virtual void OnDetach() override;
+        virtual void OnEvent(RenderEvent& event) override;
+        virtual void OnEvent(const UpdateEvent& event) override;
 
         void renderViewport(RenderEvent& event);
 	    void updateViewport(const UpdateEvent& event);

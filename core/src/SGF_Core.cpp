@@ -262,13 +262,13 @@ namespace SGF {
 				info("g is pressed!");
 			}
 			UpdateEvent updateEvent(deltaTime);
-			LayerStack::OnEvent(updateEvent);
+			LayerStack::Get().OnEvent(updateEvent);
 			perFrame[index].commands.Begin();
 			window.NextFrame(perFrame[index].imageAvailable);
 			RenderEvent renderEvent(deltaTime, perFrame[index].commands, window.GetFramebufferSize());
 			renderEvent.addWait(perFrame[index].imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 			renderEvent.addSignal(perFrame[index].renderFinished);
-			LayerStack::OnEvent(renderEvent);
+			LayerStack::Get().OnEvent(renderEvent);
 			perFrame[index].commands.End();
 			perFrame[index].commands.Submit(renderEvent.getWait().data(), renderEvent.getWaitStages().data(), renderEvent.getWait().size(), renderEvent.getSignal().data(), renderEvent.getSignal().size());
 			window.PresentFrame(perFrame[index].renderFinished);
@@ -279,7 +279,7 @@ namespace SGF {
 		for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
 			device.Destroy(perFrame[i].imageAvailable, perFrame[i].renderFinished);
 		}
-		LayerStack::Clear();
+		LayerStack::Get().Clear();
 	}
 }
 

@@ -6,9 +6,9 @@ namespace SGF {
 	class DockspaceLayer : public Layer {
 		DockspaceLayer();
 		~DockspaceLayer();
-        virtual void onRender(RenderEvent& event) override;
-        virtual void onUpdate(const UpdateEvent& event) override;
-        virtual void onAttach() override;
-        virtual void onDetach() override;
+        virtual void OnEvent(RenderEvent& event) override;
+        virtual void OnEvent(const UpdateEvent& event) override;
+        virtual void OnAttach() override;
+        virtual void OnDetach() override;
 	};
 }

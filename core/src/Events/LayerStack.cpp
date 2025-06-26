@@ -4,7 +4,7 @@
 namespace SGF {
     LayerStack LayerStack::s_MainStack;
 
-    void LayerStack::push(Layer* pLayer) {
+    void LayerStack::Push(Layer* pLayer) {
         assert(pLayer != nullptr);
         auto& layer = *pLayer;
         assert(layer.layerIndex == SIZE_MAX);
@@ -16,13 +16,13 @@ namespace SGF {
         }
         layer.layerIndex = layerCount;
         layerCount++;
-        layer.onAttach();
+        layer.OnAttach();
     }
-    void LayerStack::pop() {
+    void LayerStack::Pop() {
         assert(layerCount != 0);
         layerCount--;
         assert(layers[layerCount]->layerIndex != SIZE_MAX);
-        layers[layerCount]->onDetach();
+        layers[layerCount]->OnDetach();
         layers[layerCount]->layerIndex = SIZE_MAX; 
         delete layers[layerCount];
         if (layerCount != layers.size()) {
@@ -32,22 +32,22 @@ namespace SGF {
             layers.pop_back();
         }
     }
-    void LayerStack::pushOverlay(Layer* pLayer) {
+    void LayerStack::PushOverlay(Layer* pLayer) {
         assert(pLayer != nullptr);
         auto& layer = *pLayer;
         assert(layer.layerIndex == SIZE_MAX);
         layers.push_back(pLayer);
         layer.layerIndex = layers.size();
-        layer.onAttach();
+        layer.OnAttach();
     }
-    void LayerStack::popOverlay() {
-        layers.back()->onDetach();
+    void LayerStack::PopOverlay() {
+        layers.back()->OnDetach();
         auto pLayer = layers.back();
         layers.back()->layerIndex = SIZE_MAX;
         delete pLayer;
         layers.pop_back();
     }
-    void LayerStack::insert(Layer* pLayer, size_t index) {
+    void LayerStack::Insert(Layer* pLayer, size_t index) {
         assert(pLayer != nullptr);
         auto& layer = *pLayer;
         assert(layer.layerIndex == SIZE_MAX);
@@ -58,11 +58,11 @@ namespace SGF {
             layers[i]->layerIndex = i;
         }
         layerCount++;
-        layer.onAttach();
+        layer.OnAttach();
     }
-    void LayerStack::clear() {
+    void LayerStack::Clear() {
         for (auto& layer : layers) {
-            layer->onDetach();
+            layer->OnDetach();
             layer->layerIndex = SIZE_MAX;
             delete layer;
         }
@@ -70,68 +70,68 @@ namespace SGF {
         layers.shrink_to_fit();
     }
 
-    void LayerStack::onEvent(RenderEvent& event) {
+    void LayerStack::OnEvent(RenderEvent& event) {
         for (auto& lay : layers) {
-            lay->onRender(event);
+            lay->OnEvent(event);
         }
     }
-    void LayerStack::onEvent(const UpdateEvent& event) {
+    void LayerStack::OnEvent(const UpdateEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            layers[i - 1]->onUpdate(event);
+            layers[i - 1]->OnEvent(event);
         }
     }
-    void LayerStack::onEvent(const KeyPressedEvent& event) {
+    void LayerStack::OnEvent(const KeyPressedEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onKeyPress(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const KeyReleasedEvent& event) {
+    void LayerStack::OnEvent(const KeyReleasedEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onKeyRelease(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const KeyRepeatEvent& event) {
+    void LayerStack::OnEvent(const KeyRepeatEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onKeyRepeat(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const KeyTypedEvent& event) {
+    void LayerStack::OnEvent(const KeyTypedEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onKeyTyped(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const MousePressedEvent& event) {
+    void LayerStack::OnEvent(const MousePressedEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onMousePress(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const MouseReleasedEvent& event) {
+    void LayerStack::OnEvent(const MouseReleasedEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onMouseRelease(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const MouseMovedEvent& event) {
+    void LayerStack::OnEvent(const MouseMovedEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onMouseMove(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }
     }
-    void LayerStack::onEvent(const MouseScrollEvent& event) {
+    void LayerStack::OnEvent(const MouseScrollEvent& event) {
         for (size_t i = layers.size(); i != 0; --i) {
-            if (layers[i-1]->onMouseScroll(event)) {
+            if (layers[i-1]->OnEvent(event)) {
                 break;
             }
         }

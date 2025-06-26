@@ -10,9 +10,9 @@ namespace SGF {
 	class ImGuiLayer : public Layer {
 	public:
 		ImGuiLayer(VkSampleCountFlagBits sampleCount);
-		virtual void onAttach() override;
-		virtual void onUpdate(const UpdateEvent& event) override;
-		virtual void onRender(RenderEvent& event) override;
+		virtual void OnAttach() override;
+		virtual void OnEvent(const UpdateEvent& event) override;
+		virtual void OnEvent(RenderEvent& event) override;
 		~ImGuiLayer();
 	private:
 		VkDescriptorPool descriptorPool;

@@ -34,106 +34,106 @@ namespace SGF {
 		: pos(glm::vec3(xpos, ypos, zpos)), yaw(yaw), pitch(pitch), roll(roll)
 		{}
 
-		inline void setPos(float xpos, float ypos, float zpos) {
+		inline void SetPos(float xpos, float ypos, float zpos) {
 			pos = { xpos, ypos, zpos };
 		}
-		inline const glm::vec3& getPos() const {
+		inline const glm::vec3& GetPos() const {
 			return pos;
 		}
-		inline void moveForward(float amount) {
-			pos += getForward() * amount;
+		inline void MoveForward(float amount) {
+			pos += GetForward() * amount;
 		}
-		inline void moveUp(float amount) {
-			pos += getUp() * amount;
+		inline void MoveUp(float amount) {
+			pos += GetUp() * amount;
 		}
-		inline void moveRight(float amount) {
-			pos += getRight() * amount;
+		inline void MoveRight(float amount) {
+			pos += GetRight() * amount;
 		}
-		inline void moveBack(float amount) {
-			pos -= getForward() * amount;
+		inline void MoveBack(float amount) {
+			pos -= GetForward() * amount;
 		}
-		inline void moveLeft(float amount) {
-			pos -= getRight() * amount;
+		inline void MoveLeft(float amount) {
+			pos -= GetRight() * amount;
 		}
-		inline void moveDown(float amount) {
-			pos -= getUp() *amount;
+		inline void MoveDown(float amount) {
+			pos -= GetUp() *amount;
 		}
-		inline glm::vec3 getForward() const {
+		inline glm::vec3 GetForward() const {
 			return transform[2];
 		}
-		inline glm::vec3 getRight() const {
+		inline glm::vec3 GetRight() const {
 			return -transform[0];
 		}
-		inline glm::vec3 getUp() const {
+		inline glm::vec3 GetUp() const {
 			return transform[1];
 		}
-		inline glm::vec3 getEuler() const {
+		inline glm::vec3 GetEuler() const {
 			return glm::vec3(yaw, pitch, roll);
 		}
-		inline float getRoll() const {
+		inline float GetRoll() const {
 			return roll;
 		}
-		inline float getYaw() const {
+		inline float GetYaw() const {
 			return yaw;
 		}
-		inline float getPitch() const {
+		inline float GetPitch() const {
 			return pitch;
 		}
-		inline const glm::mat3& getRotationMatrix() const {
+		inline const glm::mat3& GetRotationMatrix() const {
 			return transform;
 		}
-		inline void setRotation(float yawRadians, float pitchRadians, float rollRadians) {
+		inline void SetRotation(float yawRadians, float pitchRadians, float rollRadians) {
 			this->yaw = yawRadians;
 			this->pitch = pitchRadians;
 			this->roll = rollRadians;
-			updateRotation();
+			UpdateRotation();
 		}
-		inline void rotate(float yawRadians, float pitchRadians, float rollRadians) {
+		inline void Rotate(float yawRadians, float pitchRadians, float rollRadians) {
 			this->yaw += yawRadians;
 			this->pitch += pitchRadians;
 			this->roll += rollRadians;
-			updateRotation();
+			UpdateRotation();
 		}
 		
-		inline void setForward(const glm::vec3& forward) {
+		inline void SetForward(const glm::vec3& forward) {
 			warn("TODO: implement Camera::setForward()");
 			//rotation = glm::quatLookAt(forward, getUp());
 		}
-		inline glm::mat4 getView() const {
-			glm::vec3 forward = getForward();
+		inline glm::mat4 GetView() const {
+			glm::vec3 forward = GetForward();
 			//glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.5f * glm::pi<float>(), -forward);
-			return glm::lookAt(pos, pos + getForward(), getUp());
+			return glm::lookAt(pos, pos + GetForward(), GetUp());
 		}
-		inline glm::mat4 getProj(float fov, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
+		inline glm::mat4 GetProj(float fov, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
 			glm::mat4 proj = glm::perspective(fov, aspectRatio, 0.1f, 10000.0f);
 			proj[1][1] *= -1;
 			return proj;
 		}
-		inline glm::mat4 getOrtho(float viewSize, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
+		inline glm::mat4 GetOrtho(float viewSize, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
 			glm::mat4 ortho = glm::ortho(-viewSize * 0.5f * aspectRatio, viewSize * 0.5f * aspectRatio,  viewSize * 0.5f, -viewSize * 0.5f, nearClip, farClip);
 			return ortho;
 		}
-		inline glm::mat4 getOrthoView(float viewSize, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
+		inline glm::mat4 GetOrthoView(float viewSize, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
 			//glm::mat4 model = glm::rotate(glm::mat4(1.0f), 2.0f * roll, -forward);
-			glm::mat4 view = getView();
+			glm::mat4 view = GetView();
 			//glm::mat4 view = glm::lookAt(pos, Pos + Transform[0], glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::mat4 proj = getOrtho(viewSize, aspectRatio, nearClip, farClip);
+			glm::mat4 proj = GetOrtho(viewSize, aspectRatio, nearClip, farClip);
 
 			return proj * view;
 		}
-		inline glm::mat4 getViewProj(float fovRadians, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
-			glm::mat4 view = getView();
+		inline glm::mat4 GetViewProj(float fovRadians, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
+			glm::mat4 view = GetView();
 			//glm::mat4 view = glm::lookAt(pos, Pos + Transform[0], glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::mat4 proj = getProj(fovRadians, aspectRatio, nearClip, farClip);
+			glm::mat4 proj = GetProj(fovRadians, aspectRatio, nearClip, farClip);
 
-			glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.5f * glm::pi<float>(), -getForward());
+			glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.5f * glm::pi<float>(), -GetForward());
 			//glm::mat4 rot = glm::toMat4(rotation);
 			glm::mat4 res = proj * view;// *model;
 			return res;
 		}
 		//inline Ray createRay(float xCenter, float yCenter) {
 		//}
-		void recalculateTransform() {
+		void RecalculateTransform() {
 			float sin_yaw = glm::sin(roll);
 			float cos_yaw = glm::cos(roll);
 			float sin_pitch = glm::sin(yaw);
@@ -153,7 +153,7 @@ namespace SGF {
 			transform[2][1] = cos_roll * sin_pitch * sin_yaw - sin_roll * cos_yaw;
 			transform[2][2] = cos_roll * cos_pitch;
 		}
-		void updateRotation() {
+		void UpdateRotation() {
 			constexpr float MAX_PITCH = glm::pi<float>() * 0.499f;
 			if (this->roll < -glm::pi<float>()) {
 				this->roll += 2 * glm::pi<float>();
@@ -173,7 +173,7 @@ namespace SGF {
 			else if (glm::pi<float>() < this->yaw) {
 				this->yaw -= 2.f * glm::pi<float>();
 			}
-			recalculateTransform();
+			RecalculateTransform();
 		}
 	};
 }

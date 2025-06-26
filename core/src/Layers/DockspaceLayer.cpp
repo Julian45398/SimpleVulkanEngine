@@ -6,12 +6,12 @@ namespace SGF {
 	}
 	DockspaceLayer::~DockspaceLayer() {
 	}
-	void DockspaceLayer::onRender(RenderEvent& event) {
+	void DockspaceLayer::OnEvent(RenderEvent& event) {
 	}
-	void DockspaceLayer::onUpdate(const UpdateEvent& event) {
+	void DockspaceLayer::OnEvent(const UpdateEvent& event) {
 	}
-	void DockspaceLayer::onAttach() {
+	void DockspaceLayer::OnAttach() {
 	}
-	void DockspaceLayer::onDetach() {
+	void DockspaceLayer::OnDetach() {
 	}
 }

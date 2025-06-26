@@ -22,7 +22,6 @@ namespace SGF {
     };
     class WindowHandle {
     public:
-
         void Open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags);
         void Close();
         inline ~WindowHandle() { if (nativeHandle) warn("window handle destroyed but window: ", GetTitle(), " is still active!"); }

@@ -90,19 +90,19 @@ namespace SGF {
 			case GLFW_PRESS:
 			{
 				KeyPressedEvent event(win, key, mods);
-                LayerStack::OnEvent(event);
+                LayerStack::Get().OnEvent(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				KeyReleasedEvent event(win, key, mods);
-                LayerStack::OnEvent(event);
+                LayerStack::Get().OnEvent(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
 				KeyRepeatEvent event(win, key, mods);
-                LayerStack::OnEvent(event);
+                LayerStack::Get().OnEvent(event);
 				break;
 			}
 			}
@@ -113,7 +113,7 @@ namespace SGF {
             WindowHandle& win = *(WindowHandle*)&window;
 
             KeyTypedEvent event(win, codepoint);
-            LayerStack::OnEvent(event);
+            LayerStack::Get().OnEvent(event);
             //WindowEvents.dispatch(event);
         });
 
@@ -126,14 +126,14 @@ namespace SGF {
             case GLFW_PRESS:
             {
                 MousePressedEvent event(win, button);
-                LayerStack::OnEvent(event);
+                LayerStack::Get().OnEvent(event);
                 //WindowEvents.dispatch(event);
                 break;
             }
             case GLFW_RELEASE:
             {
                 MouseReleasedEvent event(win, button);
-                LayerStack::OnEvent(event);
+                LayerStack::Get().OnEvent(event);
                 break;
             }
             }
@@ -158,14 +158,14 @@ namespace SGF {
             WindowHandle& win = *(WindowHandle*)&window;
 
             MouseScrollEvent event(win, xOffset, yOffset);
-            LayerStack::OnEvent(event);
+            LayerStack::Get().OnEvent(event);
         });
         glfwSetCursorPosCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, double xPos, double yPos)
         {
             WindowHandle& win = *(WindowHandle*)&window;
 
             MouseMovedEvent event(win, xPos, yPos);
-            LayerStack::OnEvent(event);
+            LayerStack::Get().OnEvent(event);
         });
     }
     void WindowHandle::Close() {

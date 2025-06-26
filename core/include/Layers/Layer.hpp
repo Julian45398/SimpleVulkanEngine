@@ -45,19 +45,19 @@ namespace SGF {
     class Layer {
     public:
         inline Layer(const char* name) : debugName(name) {}
-        inline virtual bool onKeyPress(const KeyPressedEvent& event) { return false; }
-        inline virtual bool onKeyRelease(const KeyReleasedEvent& event) { return false; }
-        inline virtual bool onKeyRepeat(const KeyRepeatEvent& event) { return false; }
-        inline virtual bool onMouseMove(const MouseMovedEvent& event) { return false; }
-        inline virtual bool onMousePress(const MousePressedEvent& event) { return false; }
-        inline virtual bool onMouseRelease(const MouseReleasedEvent& event) { return false; }
-        inline virtual bool onMouseScroll(const MouseScrollEvent& event) { return false; }
-        inline virtual bool onKeyTyped(const KeyTypedEvent& event) { return false; }
-        inline virtual void onRender(RenderEvent& event) {}
-        inline virtual void onUpdate(const UpdateEvent& event) {}
-        inline virtual void onAttach() {}
-        inline virtual void onDetach() {}
-        inline const char* getName() const { return debugName.c_str(); }
+        inline virtual bool OnEvent(const KeyPressedEvent& event) { return false; }
+        inline virtual bool OnEvent(const KeyReleasedEvent& event) { return false; }
+        inline virtual bool OnEvent(const KeyRepeatEvent& event) { return false; }
+        inline virtual bool OnEvent(const MouseMovedEvent& event) { return false; }
+        inline virtual bool OnEvent(const MousePressedEvent& event) { return false; }
+        inline virtual bool OnEvent(const MouseReleasedEvent& event) { return false; }
+        inline virtual bool OnEvent(const MouseScrollEvent& event) { return false; }
+        inline virtual bool OnEvent(const KeyTypedEvent& event) { return false; }
+        inline virtual void OnEvent(RenderEvent& event) {}
+        inline virtual void OnEvent(const UpdateEvent& event) {}
+        inline virtual void OnAttach() {}
+        inline virtual void OnDetach() {}
+        inline const char* GetName() const { return debugName.c_str(); }
         virtual ~Layer();
     protected:
         Layer(const Layer& other);
@@ -70,11 +70,11 @@ namespace SGF {
     class TestLayer : public Layer {
     public:
         inline TestLayer(uint32_t num) : number(num), Layer("test_layer") {}
-        inline void onRender(RenderEvent& event) override {
-            SGF::info("hello world: ", number, " ", getName());
+        inline void OnEvent(RenderEvent& event) override {
+            SGF::info("hello world: ", number, " ", GetName());
         }
-        inline void onUpdate(const UpdateEvent& event) override {
-            SGF::info("how are you???, ", number, getName());
+        inline void OnEvent(const UpdateEvent& event) override {
+            SGF::info("how are you???, ", number, GetName());
         }
     private:
         uint32_t number;
