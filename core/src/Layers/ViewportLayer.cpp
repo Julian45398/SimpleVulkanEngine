@@ -61,15 +61,15 @@ namespace SGF {
 		renderArea.extent.height = height;
 		renderArea.offset.x = 0;
 		renderArea.offset.y = 0;
-		commands.begin();
+		commands.Begin();
 		//auto& c = event.getCommands();
-		commands.beginRenderPass(renderPass,framebuffer, renderArea, clearValues, ARRAY_SIZE(clearValues), VK_SUBPASS_CONTENTS_INLINE);
-		commands.bindGraphicsPipeline(graphicsPipeline);
-		commands.setRenderArea(width, height);
-		commands.draw(3);
-		commands.endRenderPass();
-		commands.end();
-		commands.submit(nullptr, FLAG_NONE, signalSemaphore);
+		commands.BeginRenderPass(renderPass,framebuffer, renderArea, clearValues, ARRAY_SIZE(clearValues), VK_SUBPASS_CONTENTS_INLINE);
+		commands.BindGraphicsPipeline(graphicsPipeline);
+		commands.SetRenderArea(width, height);
+		commands.Draw(3);
+		commands.EndRenderPass();
+		commands.End();
+		commands.Submit(nullptr, FLAG_NONE, signalSemaphore);
 		event.addWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
 	void ViewportLayer::updateViewport(const UpdateEvent& event) {

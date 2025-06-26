@@ -43,7 +43,7 @@ namespace SGF {
 		}
 		inline VkBuffer GetBuffer(uint32_t index) { return buffers[index]; }
 		inline operator const VkBuffer*() { return buffers.data(); }
-		inline VkDeviceSize size() { return uniformSize; }
+		inline VkDeviceSize Size() { return uniformSize; }
 		inline const VkBuffer* GetBuffers() { return buffers.data(); }
 	};
 }

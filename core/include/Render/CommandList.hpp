@@ -39,9 +39,9 @@ namespace SGF {
 		}
 		inline operator VkCommandBuffer() const { return commands; }
 		inline operator VkCommandPool() const { return commandPool; }
-		inline VkCommandBuffer getCommands() const { return commands; }
-		inline VkCommandPool getCommandPool() const { return commandPool; }
-		inline void begin(VkCommandBufferUsageFlags flags = FLAG_NONE) {
+		inline VkCommandBuffer GetCommands() const { return commands; }
+		inline VkCommandPool GetCommandPool() const { return commandPool; }
+		inline void Begin(VkCommandBufferUsageFlags flags = FLAG_NONE) {
 			auto& device = Device::Get();
 			device.WaitFence(fence);
 			device.Reset(fence);
@@ -53,7 +53,7 @@ namespace SGF {
 			info.pNext = nullptr;
 			vkBeginCommandBuffer(commands, &info);
 		}
-		inline void continueRenderPass(VkRenderPass renderPass, uint32_t subpass, VkFramebuffer framebuffer, VkCommandBufferUsageFlags flags, VkBool32 occlusionQueryEnable = VK_FALSE, VkQueryControlFlags queryFlags = FLAG_NONE, VkQueryPipelineStatisticFlags pipelineStatistics = FLAG_NONE) {
+		inline void ContinueRenderPass(VkRenderPass renderPass, uint32_t subpass, VkFramebuffer framebuffer, VkCommandBufferUsageFlags flags, VkBool32 occlusionQueryEnable = VK_FALSE, VkQueryControlFlags queryFlags = FLAG_NONE, VkQueryPipelineStatisticFlags pipelineStatistics = FLAG_NONE) {
 			VkCommandBufferInheritanceInfo inheritanceInfo;
 			inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 			inheritanceInfo.pNext = nullptr;
@@ -69,13 +69,13 @@ namespace SGF {
 			info.pNext = nullptr;
 			vkBeginCommandBuffer(commands, &info);
 		}
-		inline void end() {
+		inline void End() {
 			vkEndCommandBuffer(commands);
 		}
-		inline void beginRenderPass(const VkRenderPassBeginInfo& info, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
+		inline void BeginRenderPass(const VkRenderPassBeginInfo& info, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
 			vkCmdBeginRenderPass(commands, &info, subpassContents);
 		}
-		inline void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const VkClearValue* pClearValues, uint32_t clearValueCount, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
+		inline void BeginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const VkClearValue* pClearValues, uint32_t clearValueCount, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
 			VkRenderPassBeginInfo info;
 			info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 			info.pNext = nullptr;
@@ -84,59 +84,59 @@ namespace SGF {
 			info.renderArea = renderArea;
 			info.pClearValues = pClearValues;
 			info.clearValueCount = clearValueCount;
-			beginRenderPass(info, subpassContents);
+			BeginRenderPass(info, subpassContents);
 		}
-		inline void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const std::vector<VkClearValue>& clearValues, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
-			beginRenderPass(renderPass, framebuffer, renderArea, clearValues.data(), (uint32_t)clearValues.size(), subpassContents);
+		inline void BeginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, const std::vector<VkClearValue>& clearValues, VkSubpassContents subpassContents = VK_SUBPASS_CONTENTS_INLINE) const {
+			BeginRenderPass(renderPass, framebuffer, renderArea, clearValues.data(), (uint32_t)clearValues.size(), subpassContents);
 		}
-		inline void beginRenderPass(const Window& window) const {
+		inline void BeginRenderPass(const Window& window) const {
 			VkRect2D renderArea;
 			renderArea.extent.width = window.GetWidth();
 			renderArea.extent.height = window.GetHeight();
 			renderArea.offset.x = 0;
 			renderArea.offset.y = 0;
-			beginRenderPass(window.GetRenderPass(), window.GetCurrentFramebuffer(), renderArea, window.GetClearValues(), window.GetClearValueCount(), VK_SUBPASS_CONTENTS_INLINE);
+			BeginRenderPass(window.GetRenderPass(), window.GetCurrentFramebuffer(), renderArea, window.GetClearValues(), window.GetClearValueCount(), VK_SUBPASS_CONTENTS_INLINE);
 		}
-		inline void endRenderPass() const {
+		inline void EndRenderPass() const {
 			vkCmdEndRenderPass(commands);
 		}
-		inline void bindGraphicsPipeline(VkPipeline pipeline) const {
+		inline void BindGraphicsPipeline(VkPipeline pipeline) const {
 			vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		}
-		inline void bindComputePipeline(VkPipeline pipeline) const {
+		inline void BindComputePipeline(VkPipeline pipeline) const {
 			vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 		}
-		inline void bindVertexBuffers(const VkBuffer* pBuffers, uint32_t bufferCount, const VkDeviceSize* pOffsets, uint32_t firstBinding) const {
+		inline void BindVertexBuffers(const VkBuffer* pBuffers, uint32_t bufferCount, const VkDeviceSize* pOffsets, uint32_t firstBinding) const {
 			vkCmdBindVertexBuffers(commands, firstBinding, bufferCount, pBuffers, pOffsets);
 		}
-		inline void bindIndexBuffer(VkBuffer indexBuffer, VkDeviceSize indexOffset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32) const {
+		inline void BindIndexBuffer(VkBuffer indexBuffer, VkDeviceSize indexOffset = 0, VkIndexType indexType = VK_INDEX_TYPE_UINT32) const {
 			vkCmdBindIndexBuffer(commands, indexBuffer, indexOffset, indexType);
 		}
-		inline void setScissors(const VkRect2D* pScissors, uint32_t scissorCount, uint32_t firstScissor = 0) const {
+		inline void SetScissors(const VkRect2D* pScissors, uint32_t scissorCount, uint32_t firstScissor = 0) const {
 			vkCmdSetScissor(commands, firstScissor, scissorCount, pScissors);
 		}
 		
-		inline void setScissor(const VkRect2D& scissor) const { setScissors(&scissor, 1, 0); }
-		inline void setViewports(const VkViewport* pViewports, uint32_t viewportCount, uint32_t firstViewport = 0) const {
+		inline void SetScissor(const VkRect2D& scissor) const { SetScissors(&scissor, 1, 0); }
+		inline void SetViewports(const VkViewport* pViewports, uint32_t viewportCount, uint32_t firstViewport = 0) const {
 			vkCmdSetViewport(commands, firstViewport, viewportCount, pViewports);
 		}
-		inline void setViewport(const VkViewport& viewport) const { setViewports(&viewport, 1, 0); }
-		inline void setRenderArea(const VkViewport& viewport) const {
-			setViewport(viewport);
+		inline void SetViewport(const VkViewport& viewport) const { SetViewports(&viewport, 1, 0); }
+		inline void SetRenderArea(const VkViewport& viewport) const {
+			SetViewport(viewport);
 			VkRect2D area;
 			area.extent.width = (uint32_t)viewport.width;
 			area.extent.height = (uint32_t)viewport.height;
 			area.offset.x = (int32_t)viewport.x;
 			area.offset.y = (int32_t)viewport.y;
-			setScissor(area);
+			SetScissor(area);
 		}
-		inline void setRenderArea(uint32_t width, uint32_t height, int32_t xOffset = 0, int32_t yOffset = 0, float minDepth = 0.f, float maxDepth = 1.f) const {
+		inline void SetRenderArea(uint32_t width, uint32_t height, int32_t xOffset = 0, int32_t yOffset = 0, float minDepth = 0.f, float maxDepth = 1.f) const {
 			VkRect2D area;
 			area.extent.width = width;
 			area.extent.height = height;
 			area.offset.x = xOffset;
 			area.offset.y = yOffset;
-			setScissor(area);
+			SetScissor(area);
 			VkViewport viewport;
 			viewport.width = (float)width;
 			viewport.height = (float)height;
@@ -144,23 +144,23 @@ namespace SGF {
 			viewport.y = (float)yOffset;
 			viewport.maxDepth = maxDepth;
 			viewport.minDepth = minDepth;
-			setViewport(viewport);
+			SetViewport(viewport);
 		}
-		inline void setRenderArea(const Window& window) const {
-			setRenderArea(window.GetWidth(), window.GetHeight());
+		inline void SetRenderArea(const Window& window) const {
+			SetRenderArea(window.GetWidth(), window.GetHeight());
 		}
-		inline void draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) const { 
+		inline void Draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) const { 
 			vkCmdDraw(commands, vertexCount, instanceCount, firstVertex, firstInstance);
 		}
-		inline void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) const {
+		inline void DrawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) const {
 			vkCmdDrawIndexed(commands, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 		}
 
-		inline void reset() {
+		inline void Reset() {
 			auto& device = Device::Get();
 			device.Reset(commandPool);
 		}
-		inline void submit(const VkSemaphore* pWaitSemaphores, const VkShaderStageFlags* pWaitStages, uint32_t waitCount, const VkSemaphore* pSignalSemaphores, uint32_t signalCount) {
+		inline void Submit(const VkSemaphore* pWaitSemaphores, const VkShaderStageFlags* pWaitStages, uint32_t waitCount, const VkSemaphore* pSignalSemaphores, uint32_t signalCount) {
 			VkSubmitInfo info;
 			info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			info.pNext = nullptr;
@@ -175,11 +175,11 @@ namespace SGF {
 				fatal(ERROR_QUEUE_SUBMIT);
 			}
 		}
-		inline void submit(const std::vector<VkSemaphore>& waitSemaphores, const std::vector<VkShaderStageFlags>& waitStages, const std::vector<VkSemaphore>& signalSemaphores) {
+		inline void Submit(const std::vector<VkSemaphore>& waitSemaphores, const std::vector<VkShaderStageFlags>& waitStages, const std::vector<VkSemaphore>& signalSemaphores) {
 			assert(waitSemaphores.size() == waitStages.size());
-			submit(waitSemaphores.data(), waitStages.data(), (uint32_t)waitStages.size(), signalSemaphores.data(), signalSemaphores.size());
+			Submit(waitSemaphores.data(), waitStages.data(), (uint32_t)waitStages.size(), signalSemaphores.data(), signalSemaphores.size());
 		}
-		inline void submit(VkSemaphore waitSemaphore, VkShaderStageFlags waitStage, VkSemaphore signalSemaphore) {
+		inline void Submit(VkSemaphore waitSemaphore, VkShaderStageFlags waitStage, VkSemaphore signalSemaphore) {
 			VkSubmitInfo info;
 			info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			info.pNext = nullptr;

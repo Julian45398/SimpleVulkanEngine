@@ -76,10 +76,10 @@ namespace SGF {
 				//SGF::createDepthClearValue(1.0f, 0)
 				//SGF::createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
 			};
-		commands.beginRenderPass(Window::Get());
+		commands.BeginRenderPass(Window::Get());
 		// Record dear imgui primitives into command buffer
-		ImGui_ImplVulkan_RenderDrawData(draw_data, commands.getCommands());
-		commands.endRenderPass();
+		ImGui_ImplVulkan_RenderDrawData(draw_data, commands.GetCommands());
+		commands.EndRenderPass();
 	}
 	ImGuiLayer::~ImGuiLayer() {
 		ImGui_ImplGlfw_Shutdown();
