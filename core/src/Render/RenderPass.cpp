@@ -48,7 +48,7 @@ namespace SGF {
 	RenderPass RenderPass::Builder::build() {
 		createDependency(0, info.subpassCount);
 		info.subpassCount++;
-		return RenderPass(pDevice->renderPass(info));
+		return RenderPass(pDevice->CreateRenderPass(info));
 	}
 	RenderPass::Builder& RenderPass::Builder::addSubpass() {
 		if (info.subpassCount != 0) {

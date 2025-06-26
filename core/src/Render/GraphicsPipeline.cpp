@@ -4,11 +4,11 @@
 namespace SGF {
 
     VkPipeline GraphicsPipelineBuilder::build() {
-        return Device::Get().pipeline(info);
+        return Device::Get().CreatePipeline(info);
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::geometryShader(const char* filename) {
         auto& device = Device::Get();
-        assert(device.hasFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
+        assert(device.HasFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_GEOMETRY_BIT);
         return *this;
     }
@@ -22,13 +22,13 @@ namespace SGF {
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationEvaluationShader(const char* filename) {
         auto& device = Device::Get();
-        assert(device.hasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
+        assert(device.HasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
         return *this;
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationControlShader(const char* filename) {
         auto& device = Device::Get();
-        assert(device.hasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
+        assert(device.HasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
         addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
         return *this;
     }
@@ -36,7 +36,7 @@ namespace SGF {
     GraphicsPipelineBuilder::~GraphicsPipelineBuilder() {
         auto& device = Device::Get();
         for (uint32_t i = 0; i < info.stageCount; ++i) {
-            device.destroy(pipelineStages[i].module);
+            device.Destroy(pipelineStages[i].module);
         }
     }
     GraphicsPipelineBuilder::GraphicsPipelineBuilder(const Device* device, VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass)
@@ -159,7 +159,7 @@ namespace SGF {
         assert(info.stageCount < SGF_PIPELINE_MAX_PIPELINE_STAGES);
 
         auto& device = Device::Get();
-        VkShaderModule shader = device.shaderModule(filename);
+        VkShaderModule shader = device.CreateShaderModule(filename);
         pipelineStages[info.stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineStages[info.stageCount].stage = stage;
         pipelineStages[info.stageCount].pName = "main";

@@ -13,19 +13,19 @@ private:
 	SveUniformBuffer<glm::mat4> uniformBuffer;
 	std::vector<VkDescriptorSet> uniformDescriptors;
 
-	SveModelRenderer modelRenderer;
+	//SveModelRenderer modelRenderer;
 	SveGridRenderer gridRenderer;
 public:
 	SveSceneRenderer();
 	~SveSceneRenderer();
 
 	inline void addModel(const SveModel& model) {
-		modelRenderer.addModel(model);
+		//modelRenderer.addModel(model);
 	}
 
 	inline void draw(VkCommandBuffer commands, const glm::mat4& viewMatrix) {
 		uniformBuffer.update(viewMatrix);
-		modelRenderer.draw(commands, uniformDescriptors[SVE::getImageIndex()]);
+		//modelRenderer.draw(commands, uniformDescriptors[SVE::getImageIndex()]);
 		gridRenderer.draw(commands, uniformDescriptors[SVE::getImageIndex()]);
 	}
 };

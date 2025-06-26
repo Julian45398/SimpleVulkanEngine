@@ -18,7 +18,7 @@ VkDescriptorSetLayout createUniformLayout() {
 	return vkl::createDescriptorSetLayout(SVE::getDevice(), ARRAY_SIZE(uniform_bindings), uniform_bindings);
 }
 
-SveSceneRenderer::SveSceneRenderer() : descriptorPool(createDescriptorPool()), uniformLayout(createUniformLayout()), gridRenderer(uniformLayout), modelRenderer(descriptorPool, uniformLayout) 
+SveSceneRenderer::SveSceneRenderer() : descriptorPool(createDescriptorPool()), uniformLayout(createUniformLayout()), gridRenderer(uniformLayout)/*, modelRenderer(descriptorPool, uniformLayout)*/ 
 {
 	// Allocating Descriptor Sets:
 	uniformDescriptors.resize(SVE::getImageCount());

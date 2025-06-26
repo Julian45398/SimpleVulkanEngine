@@ -8,6 +8,42 @@
 #endif
 
 namespace SGF {
+    namespace Vk {
+        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorBufferInfo* pBufferInfos, const void* pNext = nullptr) 
+        { return { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, pNext, dstSet, dstBinding, dstArrayElement, descriptorCount, descriptorType, nullptr, pBufferInfos, nullptr }; }
+        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorImageInfo* pImageInfos, const void* pNext = nullptr) 
+        { return { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, pNext, dstSet, dstBinding, dstArrayElement, descriptorCount, descriptorType, pImageInfos, nullptr, nullptr }; }
+        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkBufferView* pBufferViews, const void* pNext = nullptr) 
+        { return { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, pNext, dstSet, dstBinding, dstArrayElement, descriptorCount, descriptorType, nullptr, nullptr, pBufferViews }; }
+
+        VkCommandBufferInheritanceInfo CreateCommandBufferInheritanceInfo(VkRenderPass renderPass, uint32_t subpass, VkFramebuffer framebuffer = VK_NULL_HANDLE, VkBool32 occlusionQueryEnable = VK_FALSE, VkQueryControlFlags queryFlags = FLAG_NONE, VkQueryPipelineStatisticFlags pipelineStatistics = FLAG_NONE, const void* pNext = nullptr);
+        void BeginCommandBuffer(VkCommandBuffer commands, VkCommandBufferUsageFlags usage = FLAG_NONE, const void* pNext = nullptr);
+        void BeginSecondaryCommands(VkCommandBuffer commands, VkRenderPass renderPass, VkFramebuffer framebuffer, uint32_t subpass = 0, VkCommandBufferUsageFlags usage = FLAG_NONE, const void* pNext = nullptr);
+        void EndCommandBuffer(VkCommandBuffer commandBuffer);
+
+
+        VkSubmitInfo CreateSubmitInfo(const VkCommandBuffer* pCommandBuffers, uint32_t commandBufferCount, 
+            const VkSemaphore* pWaitSemaphores, const VkPipelineStageFlags* pWaitDstStageMask, uint32_t waitSemaphoreCount,
+            const VkSemaphore* pSignalSemaphores, uint32_t signalSemaphoreCount, const void* pNext = nullptr);
+
+        void SubmitCommands(VkQueue queue, const VkSubmitInfo& submitInfo, VkFence fence = VK_NULL_HANDLE);
+        void SubmitCommands(VkQueue queue, VkCommandBuffer commands, VkFence fence = VK_NULL_HANDLE);
+        void SubmitCommands(VkQueue queue, VkCommandBuffer commands, VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage, VkSemaphore signalSemaphore, VkFence fence = VK_NULL_HANDLE);       
+        void SubmitCommands(VkQueue queue, VkCommandBuffer commands, const VkSemaphore* pWaitSemaphore, const VkPipelineStageFlags* pWaitStage, uint32_t waitCount,
+            const VkSemaphore* pSignalSemaphore, uint32_t signalCount, VkFence fence = VK_NULL_HANDLE);
+        template<uint32_t WAIT_COUNT, uint32_t SIGNAL_COUNT>
+        inline void SubmitCommands(VkQueue queue, VkCommandBuffer commands, const VkSemaphore(&waitSemaphores)[WAIT_COUNT], const VkPipelineStageFlags(&waitStages)[WAIT_COUNT], const VkSemaphore(&signalSemaphores)[SIGNAL_COUNT], VkFence fence = VK_NULL_HANDLE) 
+        { SubmitCommands(queue, commands, waitSemaphores, waitStages, WAIT_COUNT, signalSemaphores, SIGNAL_COUNT, fence); }
+        void SubmitCommands(VkQueue queue, const VkCommandBuffer* pCommands, uint32_t commandBufferCount, const VkSemaphore* pWaitSemaphore, const VkPipelineStageFlags* pWaitStage, uint32_t waitCount,
+            const VkSemaphore* pSignalSemaphore, uint32_t signalCount, VkFence fence = VK_NULL_HANDLE);
+        template<uint32_t COMMAND_COUNT, uint32_t WAIT_COUNT, uint32_t SIGNAL_COUNT>
+        inline void SubmitCommands(VkQueue queue, const VkCommandBuffer(&commands)[COMMAND_COUNT], const VkSemaphore(&waitSemaphores)[WAIT_COUNT], const VkPipelineStageFlags(&waitStages)[WAIT_COUNT], const VkSemaphore(&signalSemaphores)[SIGNAL_COUNT], VkFence fence = VK_NULL_HANDLE) 
+        { SubmitCommands(queue, commands, COMMAND_COUNT, waitSemaphores, waitStages, WAIT_COUNT, signalSemaphores, SIGNAL_COUNT, fence); }
+        void SubmitCommands(VkQueue queue, const VkCommandBuffer* pCommands, uint32_t commandBufferCount, VkFence fence);
+        template<uint32_t COUNT>
+        inline void SubmitCommands(VkQueue queue, const VkCommandBuffer(&commands)[COUNT], VkFence fence) { SubmitCommands(queue, commands, COUNT, fence); }
+    }
+
     struct DeviceRequirements {
         std::vector<const char*> extensions;
         DeviceFeatureFlags requiredFeatures;
@@ -33,62 +69,67 @@ namespace SGF {
         static void RequireTransferQueues(uint32_t queueCount);
         static void PickNew();
 
-        inline static void Shutdown() { s_Instance.shutdown(); }
-        inline static bool IsInitialized() { return s_Instance.isCreated(); }
+        inline static void Shutdown() { s_Instance.Terminate(); }
+        inline static bool IsInitialized() { return s_Instance.IsCreated(); }
     public:
         
-        inline ~Device() { shutdown(); }
-        void waitIdle() const;
+        inline ~Device() { Terminate(); }
+        void WaitIdle() const;
 
-        inline bool hasFeaturesEnabled(DeviceFeatureFlags features) const { return (enabledFeatures & features) == features; }
-        inline bool hasFeatureEnabled(DeviceFeatureFlagBits feature) const { return (enabledFeatures & feature); }
+        inline bool HasFeaturesEnabled(DeviceFeatureFlags features) const { return (enabledFeatures & features) == features; }
+        inline bool HasFeatureEnabled(DeviceFeatureFlagBits feature) const { return (enabledFeatures & feature); }
 
-        inline bool checkSurfaceSupport(VkSurfaceKHR surface) const {
+        inline bool CheckSurfaceSupport(VkSurfaceKHR surface) const {
             error("TODO: implement surface support function!");
             return true;
         }
 
-        void waitFence(VkFence fence) const;
-        void waitFences(const VkFence* pFences, uint32_t count) const;
-        inline void waitFences(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
+        void WaitFence(VkFence fence) const;
+        void WaitFences(const VkFence* pFences, uint32_t count) const;
+        inline void WaitFences(const std::vector<VkFence>& fences) const { WaitFences(fences.data(), (uint32_t)fences.size()); }
+        template<uint32_t COUNT>
+        inline void WaitFences(const VkFence(&fences)[COUNT]) const { WaitFences(fences, COUNT); }
 
-        void reset(const VkFence* pFences, uint32_t count) const;
-        inline void reset(const std::vector<VkFence>& fences) const { waitFences(fences.data(), (uint32_t)fences.size()); }
-        inline void reset(VkFence fence) const { reset(&fence, 1); }
+        void Reset(const VkFence* pFences, uint32_t count) const;
+        inline void Reset(const std::vector<VkFence>& fences) const { Reset(fences.data(), (uint32_t)fences.size()); }
+        template<uint32_t COUNT>
+        inline void Reset(const VkFence(&fences)[COUNT]) const { Reset(fences, COUNT); }
+        inline void Reset(VkFence fence) const { Reset(&fence, 1); }
+        bool IsFenceSignaled(VkFence fence) const;
 
-        const char* getName() const;
-        inline bool isCreated() const {return logical != nullptr; }
+        const char* GetName() const;
+        inline bool IsCreated() const {return logical != nullptr; }
     public:
         inline operator VkDevice() const { return logical; }
         inline operator VkPhysicalDevice() const { return physical; }
-        inline VkDevice getLogical() const { return logical; }
-        inline VkPhysicalDevice getPhysical() const { return physical; }
+        inline VkDevice GetLogical() const { return logical; }
+        inline VkPhysicalDevice GetPhysical() const { return physical; }
         // Queue functions:
-        inline uint32_t graphicsFamily() const { return graphicsFamilyIndex; }
-        inline uint32_t computeFamily() const { return computeFamilyIndex; }
-        inline uint32_t transferFamily() const { return transferFamilyIndex; }
-        inline uint32_t presentFamily() const { return presentFamilyIndex; }
+        inline uint32_t GetGraphicsFamily() const { return graphicsFamilyIndex; }
+        inline uint32_t GetComputeFamily() const { return computeFamilyIndex; }
+        inline uint32_t GetTransferFamily() const { return transferFamilyIndex; }
+        inline uint32_t GetPresentFamily() const { return presentFamilyIndex; }
 
-        inline uint32_t graphicsQueueCount() const { return graphicsCount; }
-        inline uint32_t computeQueueCount() const { return computeCount; }
-        inline uint32_t transferQueueCount() const { return transferCount; }
-        inline uint32_t presentQueueCount() const { return presentCount; }
+        inline uint32_t GetGraphicsQueueCount() const { return graphicsCount; }
+        inline uint32_t GetComputeQueueCount() const { return computeCount; }
+        inline uint32_t GetTransferQueueCount() const { return transferCount; }
+        inline uint32_t GetPresentQueueCount() const { return presentCount; }
 
-        VkQueue graphicsQueue(uint32_t index) const;
-        VkQueue computeQueue(uint32_t index) const;
-        VkQueue transferQueue(uint32_t index) const;
-        VkQueue presentQueue() const;
+        VkQueue GetGraphicsQueue(uint32_t index) const;
+        VkQueue GetComputeQueue(uint32_t index) const;
+        VkQueue GetTransferQueue(uint32_t index) const;
+        VkQueue GetPresentQueue() const;
 
-        VkFence fence() const;
-        VkFence fenceSignaled() const;
-        VkSemaphore semaphore() const;
+        VkFence CreateFence() const;
+        VkFence CreateFenceSignaled() const;
+        VkSemaphore CreateSemaphore() const;
         //void signalSemaphore(VkSemaphore semaphore, uint64_t value) const;
 
-        VkBuffer buffer(const VkBufferCreateInfo& info) const;
-        VkBuffer buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = 0) const;
-        VkBuffer bufferShared(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags flags, VkBufferCreateFlags createFlags = 0) const;
+        VkBuffer CreateBuffer(const VkBufferCreateInfo& info) const;
+        VkBuffer CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags createFlags = 0) const;
+        VkBuffer CreateBufferShared(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags flags, VkBufferCreateFlags createFlags = 0) const;
 
-        VkImage image(const VkImageCreateInfo& info) const;
+        VkImage CreateImage(const VkImageCreateInfo& info) const;
         /**
          * @brief creates an 1D-image for use with the graphics queue-family
          * 
@@ -96,148 +137,188 @@ namespace SGF {
          * 
          * @return 1D-image
          */
-        VkImage image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
-        VkImage image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
-        VkImage image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
-        VkImage imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
-        VkImage imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
-        VkImage imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImage1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImage3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, VkImageCreateFlags flags = 0) const;
 
-        VkImage image1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        VkImage image2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        VkImage image3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        VkImage imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        VkImage imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
-        VkImage imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImage1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImage2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImage3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
+        VkImage CreateImageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, uint32_t mipLevelCount = 1, QueueFamilyFlags queueFamilies = QUEUE_FAMILY_GRAPHICS, VkImageCreateFlags flags = 0) const;
 
-        VkImageView imageView(const VkImageViewCreateInfo& info) const;
-        VkImageView imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
-        VkImageView imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
-        VkImageView imageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
-        VkImageView imageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
-        VkImageView imageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
-        VkImageView imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
-        VkImageView imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
+        VkImageView CreateImageView(const VkImageViewCreateInfo& info) const;
+        VkImageView CreateImageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        VkImageView CreateImageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        VkImageView CreateImageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        VkImageView CreateImageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0) const;
+        VkImageView CreateImageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
+        VkImageView CreateImageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
+        VkImageView CreateImageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t mipLevel = 0, uint32_t levelCount = 1, uint32_t arrayLayer = 0, uint32_t arraySize = 1) const;
 
-        VkSampler imageSampler(const VkSamplerCreateInfo& info) const;
-        VkSampler imageSampler(VkFilter filterType = VK_FILTER_NEAREST, VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 
+        VkSampler CreateImageSampler(const VkSamplerCreateInfo& info) const;
+        VkSampler CreateImageSampler(VkFilter filterType = VK_FILTER_NEAREST, VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 
             float mipLodBias = 0.0f, VkBool32 anisotropyEnable = VK_FALSE, float maxAnisotropy = 0.0f, VkBool32 compareEnable = VK_FALSE, VkCompareOp compareOp = VK_COMPARE_OP_ALWAYS, 
             float minLod = 0.0f, float maxLod = 0.0f, VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK, VkBool32 unnormalizedCoordinates = VK_FALSE, VkSamplerCreateFlags flags = FLAG_NONE, const void* pNext = nullptr) const;
 
-        VkDeviceMemory allocate(const VkMemoryAllocateInfo& info) const;
-        VkDeviceMemory allocate(const VkMemoryRequirements& memReq, VkMemoryPropertyFlags flags) const;
+        VkMemoryRequirements GetMemoryRequirements(VkBuffer buffer) const;
+        VkMemoryRequirements GetMemoryRequirements(VkImage image) const;
 
-        VkDeviceMemory allocate(VkBuffer buffer, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
-        VkDeviceMemory allocate(VkImage image, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        void BindMemory(VkDeviceMemory memory, VkBuffer buffer, VkDeviceSize offset = 0) const;
+        void BindMemory(VkDeviceMemory memory, VkImage image, VkDeviceSize offset = 0) const;
+        void* MapMemory(VkDeviceMemory memory, size_t size = VK_WHOLE_SIZE, size_t offset = 0) const;
 
-        VkDeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
-        inline VkDeviceMemory allocate(const std::vector<VkBuffer>& buffers, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
-        { return allocate(buffers.data(), (uint32_t)buffers.size(), flags); }
-        VkDeviceMemory allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
-        inline VkDeviceMemory allocate(const std::vector<VkImage>& images, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
-        { return allocate(images.data(), (uint32_t)images.size(), flags); }
+        VkDeviceMemory AllocateMemory(const VkMemoryAllocateInfo& info) const;
+        VkDeviceMemory AllocateMemory(const VkMemoryRequirements& memReq, VkMemoryPropertyFlags flags) const;
 
-        VkDeviceMemory allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
-        inline VkDeviceMemory allocate(const std::vector<VkBuffer>& buffers, const std::vector<VkImage>& images, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
-        { return allocate(buffers.data(), (uint32_t)buffers.size(), images.data(), (uint32_t)images.size(), flags); }
+        VkDeviceMemory AllocateMemory(VkBuffer buffer, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        VkDeviceMemory AllocateMemory(VkImage image, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+
+        VkDeviceMemory AllocateMemory(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        inline VkDeviceMemory AllocateMemory(const std::vector<VkBuffer>& buffers, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
+        { return AllocateMemory(buffers.data(), (uint32_t)buffers.size(), flags); }
+        VkDeviceMemory AllocateMemory(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        inline VkDeviceMemory AllocateMemory(const std::vector<VkImage>& images, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
+        { return AllocateMemory(images.data(), (uint32_t)images.size(), flags); }
+
+        VkDeviceMemory AllocateMemory(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const;
+        inline VkDeviceMemory AllocateMemory(const std::vector<VkBuffer>& buffers, const std::vector<VkImage>& images, VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) const 
+        { return AllocateMemory(buffers.data(), (uint32_t)buffers.size(), images.data(), (uint32_t)images.size(), flags); }
 
 
-        VkShaderModule shaderModule(const char* filename) const;
-        VkShaderModule shaderModule(const VkShaderModuleCreateInfo& info) const;
-        VkPipelineLayout pipelineLayout(const VkPipelineLayoutCreateInfo& info) const;
-        VkPipelineLayout pipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges = nullptr, uint32_t pushConstantCount = 0) const;
+        VkShaderModule CreateShaderModule(const char* filename) const;
+        VkShaderModule CreateShaderModule(const VkShaderModuleCreateInfo& info) const;
+        VkPipelineLayout CreatePipelineLayout(const VkPipelineLayoutCreateInfo& info) const;
+        VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges = nullptr, uint32_t pushConstantCount = 0) const;
+
         template<size_t DESCRIPTOR_COUNT, size_t PUSH_CONSTANT_COUNT>
-        VkPipelineLayout pipelineLayout(const VkDescriptorSetLayout(&layouts)[DESCRIPTOR_COUNT], const VkPushConstantRange(&pushConstants)[PUSH_CONSTANT_COUNT]) const;
-        VkPipelineLayout pipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts, const std::vector<VkPushConstantRange>& pushConstants) const;
-        VkPipeline pipeline(const VkGraphicsPipelineCreateInfo& info) const;
-        VkPipeline pipeline(const VkComputePipelineCreateInfo& info) const;
-        inline GraphicsPipelineBuilder graphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) const { return GraphicsPipelineBuilder(this, layout, renderPass, subpass); };
+        inline VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout(&layouts)[DESCRIPTOR_COUNT], const VkPushConstantRange(&pushConstants)[PUSH_CONSTANT_COUNT]) const
+        { return CreatePipelineLayout(layouts, DESCRIPTOR_COUNT, pushConstants, PUSH_CONSTANT_COUNT); }
+        inline VkPipelineLayout CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts, const std::vector<VkPushConstantRange>& pushConstants) const
+        { return CreatePipelineLayout(layouts.data(), (uint32_t)layouts.size(), pushConstants.data(), (uint32_t)pushConstants.size()); }
+        VkPipeline CreatePipeline(const VkGraphicsPipelineCreateInfo& info) const;
+        VkPipeline CreatePipeline(const VkComputePipelineCreateInfo& info) const;
+        inline GraphicsPipelineBuilder CreateGraphicsPipeline(VkPipelineLayout layout, VkRenderPass renderPass, uint32_t subpass) const { return GraphicsPipelineBuilder(this, layout, renderPass, subpass); };
 
-        VkSwapchainKHR swapchain(const VkSwapchainCreateInfoKHR& info) const;
+        VkSwapchainKHR CreateSwapchain(const VkSwapchainCreateInfoKHR& info) const;
 
-        VkFramebuffer framebuffer(const VkFramebufferCreateInfo& info) const;
-        VkFramebuffer framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const;
+        VkFramebuffer CreateFramebuffer(const VkFramebufferCreateInfo& info) const;
+        VkFramebuffer CreateFramebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const;
 
-        VkRenderPass renderPass(const VkRenderPassCreateInfo& info) const;
-        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) const;
-        VkRenderPass renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies = nullptr, uint32_t dependencyCount = 0) const;
+        VkRenderPass CreateRenderPass(const VkRenderPassCreateInfo& info) const;
+        VkRenderPass CreateRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) const;
+        VkRenderPass CreateRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies = nullptr, uint32_t dependencyCount = 0) const;
 
-        template<size_t ATTACHMENT_COUNT, size_t SUBPASS_COUNT, size_t DEPENDENCY_COUNT>
-        inline VkRenderPass renderPass(const VkAttachmentDescription(&attachments)[ATTACHMENT_COUNT], const VkSubpassDescription(&subpasses)[SUBPASS_COUNT], const VkSubpassDependency(&dependencies)[DEPENDENCY_COUNT]) const {
-            return renderPass(attachments, ATTACHMENT_COUNT, subpasses, SUBPASS_COUNT, dependencies, DEPENDENCY_COUNT); }
-        inline VkRenderPass renderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies) const {
-            return renderPass(attachments.data(), (uint32_t)attachments.size(), subpasses.data(), (uint32_t)subpasses.size(), dependencies.data(), (uint32_t)dependencies.size());
+        template<uint32_t ATTACHMENT_COUNT, uint32_t SUBPASS_COUNT, uint32_t DEPENDENCY_COUNT>
+        inline VkRenderPass CreateRenderPass(const VkAttachmentDescription(&attachments)[ATTACHMENT_COUNT], const VkSubpassDescription(&subpasses)[SUBPASS_COUNT], const VkSubpassDependency(&dependencies)[DEPENDENCY_COUNT]) const {
+            return CreateRenderPass(attachments, ATTACHMENT_COUNT, subpasses, SUBPASS_COUNT, dependencies, DEPENDENCY_COUNT); }
+        inline VkRenderPass CreateRenderPass(const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses, const std::vector<VkSubpassDependency>& dependencies) const {
+            return CreateRenderPass(attachments.data(), (uint32_t)attachments.size(), subpasses.data(), (uint32_t)subpasses.size(), dependencies.data(), (uint32_t)dependencies.size());
         }
 
-        VkCommandPool commandPool(const VkCommandPoolCreateInfo& info) const;
-        VkCommandPool commandPool(uint32_t queueIndex, VkCommandPoolCreateFlags flags = FLAG_NONE) const;
-        VkCommandBuffer commandBuffer(VkCommandPool pool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const;
-        void commandBuffers(const VkCommandBufferAllocateInfo& info, VkCommandBuffer* pBuffers) const;
-        void commandBuffers(VkCommandPool pool, VkCommandBufferLevel level, uint32_t allocationCount, VkCommandBuffer* pBuffers) const;
+        VkCommandPool CreateCommandPool(const VkCommandPoolCreateInfo& info) const;
+        VkCommandPool CreateCommandPool(uint32_t queueIndex, VkCommandPoolCreateFlags flags = FLAG_NONE) const;
+        inline VkCommandPool CreateGraphicsCommandPool(VkCommandPoolCreateFlags flags = FLAG_NONE) const { return CreateCommandPool(graphicsFamilyIndex, flags); }
+        inline VkCommandPool CreateTransferCommandPool(VkCommandPoolCreateFlags flags = FLAG_NONE) const { return CreateCommandPool(transferFamilyIndex, flags); }
+        inline VkCommandPool CreateComputeCommandPool(VkCommandPoolCreateFlags flags = FLAG_NONE) const { return CreateCommandPool(computeFamilyIndex, flags); }
+        VkCommandBuffer AllocateCommandBuffer(VkCommandPool pool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const;
+        void AllocateCommandBuffers(const VkCommandBufferAllocateInfo& info, VkCommandBuffer* pBuffers) const;
+        void AllocateCommandBuffers(VkCommandPool pool, VkCommandBufferLevel level, uint32_t allocationCount, VkCommandBuffer* pBuffers) const;
+        template<uint32_t COUNT>
+        void AllocateCommandBuffers(VkCommandPool pool, VkCommandBufferLevel level, VkCommandBuffer(&buffers)[COUNT]) const { AllocateCommandBuffers(pool, level, COUNT, buffers); }
 
-        VkDescriptorSetLayout descriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) const;
-        VkDescriptorSetLayout descriptorSetLayout(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags = FLAG_NONE) const;
-        VkDescriptorSetLayout descriptorSetLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags = FLAG_NONE) const;
 
-        VkDescriptorPool descriptorPool(const VkDescriptorPoolCreateInfo& info) const;
-        VkDescriptorPool descriptorPool(uint32_t maxSets, const VkDescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, VkDescriptorPoolCreateFlags flags = FLAG_NONE) const;
-        VkDescriptorPool descriptorPool(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = FLAG_NONE) const;
+        VkDescriptorSetLayout CreateDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) const;
+        VkDescriptorSetLayout CreateDescriptorSetLayout(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags = FLAG_NONE) const;
+        VkDescriptorSetLayout CreateDescriptorSetLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags = FLAG_NONE) const;
+        template<uint32_t COUNT>
+        inline VkDescriptorSetLayout CreateDescriptorSetLayout(const VkDescriptorSetLayoutBinding(&bindings)[COUNT], VkDescriptorSetLayoutCreateFlags flags = FLAG_NONE) const { return CreateDescriptorSetLayout(bindings, COUNT, flags); }
+        
 
-        VkDescriptorSet descriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const;
-        void descriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* pSets) const;
-        void descriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const;
-        void descriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const;
+        VkDescriptorPool CreateDescriptorPool(const VkDescriptorPoolCreateInfo& info) const;
+        VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const VkDescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, VkDescriptorPoolCreateFlags flags = FLAG_NONE) const;
+        VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = FLAG_NONE) const;
+        template<uint32_t COUNT>
+        inline VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const VkDescriptorPoolSize(&poolSizes)[COUNT], VkDescriptorPoolCreateFlags flags = FLAG_NONE) const { return descriptorPool(maxSets, poolSizes, COUNT, flags); }
+
+
+        VkDescriptorSet CreateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const;
+        void CreateDescriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* pSets) const;
+        void CreateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const;
+        void CreateDescriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const;
+        template<uint32_t COUNT>
+        inline void CreateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout(&setLayouts)[COUNT], VkDescriptorSet(&pDescriptorSets)[COUNT]) const { CreateDescriptorSets(pool, setLayouts, COUNT, pDescriptorSets); }
+
+        void UpdateDescriptors(const VkWriteDescriptorSet* pDescriptorWrites, uint32_t writeCount, const VkCopyDescriptorSet* pDescriptorCopies = nullptr, uint32_t copyCount = 0) const;
+        template<uint32_t WRITE_COUNT, uint32_t COPY_COUNT>
+        inline void UpdateDescriptors(const VkWriteDescriptorSet(&descriptorWrites)[WRITE_COUNT], const VkCopyDescriptorSet(&descriptorCopies)[COPY_COUNT]) const
+        { UpdateDescriptors(descriptorWrites, WRITE_COUNT, descriptorCopies, COPY_COUNT); }
+
+        template<uint32_t WRITE_COUNT>
+        inline void UpdateDescriptors(const VkWriteDescriptorSet(&descriptorWrites)[WRITE_COUNT]) const
+        { UpdateDescriptors(descriptorWrites, WRITE_COUNT, nullptr, 0); }
+        
+
+        
+        inline void UpdateDescriptor(const VkWriteDescriptorSet& descriptorWrite) const { UpdateDescriptors(&descriptorWrite, 1, nullptr, 0); }
+
+        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorBufferInfo* pBufferInfos, const void* pNext = nullptr) const
+        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, descriptorCount, pBufferInfos, pNext)); }
+        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorImageInfo* pImageInfos, const void* pNext = nullptr) const
+        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, descriptorCount, pImageInfos, pNext)); }
+        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkBufferView* pBufferViews, const void* pNext = nullptr) const
+        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, descriptorCount, pBufferViews, pNext)); }
+        
         /**
          * @brief gets the first supported format for the requested feature and tiling from supplied candidates.
          * 
          * @return first supported candidate or VK_FORMAT_MAX_ENUM when none are supported.
          */
-        VkFormat getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL) const;
-        VkFormat getSwapchainFormat(VkSurfaceKHR surface) const;
-        void getSwapchainImages(VkSwapchainKHR swapchain, uint32_t* count, VkImage* pImages) const;
-        VkSurfaceFormatKHR pickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR preference) const;
-        VkPresentModeKHR pickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const;
-        uint32_t findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const;
+        VkFormat GetSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL) const;
+        VkFormat GetSwapchainFormat(VkSurfaceKHR surface) const;
+        void GetSwapchainImages(VkSwapchainKHR swapchain, uint32_t* count, VkImage* pImages) const;
+        VkSurfaceFormatKHR PickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR preference) const;
+        VkPresentModeKHR PickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const;
+        uint32_t FindMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const;
 
-        VkSampleCountFlagBits getMaxSupportedSampleCount() const;
+        VkSampleCountFlagBits GetMaxSupportedSampleCount() const;
 
-        inline void reset(VkCommandPool commandPool, VkCommandPoolResetFlags flags = FLAG_NONE) const { vkResetCommandPool(logical, commandPool, flags); }
+        inline void Reset(VkCommandPool commandPool, VkCommandPoolResetFlags flags = FLAG_NONE) const { vkResetCommandPool(logical, commandPool, flags); }
 
-        void shutdown();
-    private:
-        inline void destroyType() const {}
-        void destroyType(VkFence fence) const;
-        void destroyType(VkSemaphore semaphore) const;
-        void destroyType(VkBuffer buffer) const;
-        void destroyType(VkImage image) const;
-        void destroyType(VkImageView imageView) const;
-        void destroyType(VkFramebuffer framebuffer) const;
-        void destroyType(VkRenderPass renderPass) const;
-        void destroyType(VkPipeline pipeline) const;
-        void destroyType(VkPipelineLayout pipelineLayout) const;
-        void destroyType(VkDescriptorSetLayout descriptorSetLayout) const;
-        void destroyType(VkDescriptorPool descriptorPool) const;
-        void destroyType(VkDeviceMemory memory) const;
-        void destroyType(VkCommandPool commandPool) const;
-        void destroyType(VkSampler sampler) const;
-        void destroyType(VkSwapchainKHR swapchain) const;
-        void destroyType(VkShaderModule shaderModule) const;
+        void Terminate();
     public:
-        template<typename T>
-        inline void destroy(T type) const {
-            destroyType(type);
-        }
+        inline void Destroy() const {}
+        void Destroy(VkFence fence) const;
+        void Destroy(VkSemaphore semaphore) const;
+        void Destroy(VkBuffer buffer) const;
+        void Destroy(VkImage image) const;
+        void Destroy(VkImageView imageView) const;
+        void Destroy(VkFramebuffer framebuffer) const;
+        void Destroy(VkRenderPass renderPass) const;
+        void Destroy(VkPipeline pipeline) const;
+        void Destroy(VkPipelineLayout pipelineLayout) const;
+        void Destroy(VkDescriptorSetLayout descriptorSetLayout) const;
+        void Destroy(VkDescriptorPool descriptorPool) const;
+        void Destroy(VkDeviceMemory memory) const;
+        void Destroy(VkCommandPool commandPool) const;
+        void Destroy(VkSampler sampler) const;
+        void Destroy(VkSwapchainKHR swapchain) const;
+        void Destroy(VkShaderModule shaderModule) const;
         template<typename T, typename ...Args>
-        inline void destroy(T type, Args... args) const {
-            destroyType(type);
-            destroy(args...);
+        inline void Destroy(T type, Args... args) const {
+            Destroy(type);
+            Destroy(args...);
         }
     private:
         inline Device() {};
         Device(Device&& other) noexcept;
         Device(const Device& other) = delete;
         Device(Device& other) = delete;
-        void createNew(const DeviceRequirements& requirements);
+        void CreateNew(const DeviceRequirements& requirements);
         void getQueueCreateInfos(VkPhysicalDevice device, uint32_t* pIndexCount, VkDeviceQueueCreateInfo* pQueueCreateInfos, float* pQueuePriorityBuffer);
         void pickPhysicalDevice(const DeviceRequirements& requirements);
         void createLogicalDevice(const DeviceRequirements& requirements);

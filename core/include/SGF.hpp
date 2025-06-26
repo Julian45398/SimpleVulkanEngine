@@ -15,3 +15,5 @@
 #include "Filesystem/File.hpp"
 #include "Render/CommandList.hpp"
 #include "Render/GraphicsPipeline.hpp"
+#include "Render/Camera.hpp"
+#include "Render/UniformBuffer.hpp"

@@ -20,17 +20,17 @@ namespace SGF {
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
 			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
 		};
-		renderPass = device.renderPass(attachments, subpasses, dependencies);
-		pipelineLayout = device.pipelineLayout(nullptr, 0, nullptr, 0);
-		graphicsPipeline = device.graphicsPipeline(pipelineLayout, renderPass, 0).dynamicState(VK_DYNAMIC_STATE_SCISSOR).dynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+		renderPass = device.CreateRenderPass(attachments, subpasses, dependencies);
+		pipelineLayout = device.CreatePipelineLayout(nullptr, 0, nullptr, 0);
+		graphicsPipeline = device.CreateGraphicsPipeline(pipelineLayout, renderPass, 0).dynamicState(VK_DYNAMIC_STATE_SCISSOR).dynamicState(VK_DYNAMIC_STATE_VIEWPORT)
 				.vertexShader("shaders/test_triangle.vert").fragmentShader("shaders/test_triangle.frag").sampleCount(VK_SAMPLE_COUNT_1_BIT).build();
-		sampler = device.imageSampler(VK_FILTER_NEAREST);
-		signalSemaphore = device.semaphore();
+		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
+		signalSemaphore = device.CreateSemaphore();
 	}
 	ViewportLayer::~ViewportLayer() {
 		auto& device = Device::Get();
 		destroyFramebuffer();
-		device.destroy(renderPass, graphicsPipeline, pipelineLayout, sampler, signalSemaphore);
+		device.Destroy(renderPass, graphicsPipeline, pipelineLayout, sampler, signalSemaphore);
 	}
 	void ViewportLayer::onAttach() {
 	}
@@ -80,14 +80,15 @@ namespace SGF {
 			resizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
 		}
 		if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
-			if (Input::IsKeyPressed(KEY_T)) {
-				info("is key pressed!");
-			}
+
 		}
 		ImGui::Image(imGuiImageID, size);
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}
+	class SceneManager {
+
+	};
 	void ViewportLayer::resizeFramebuffer(uint32_t w, uint32_t h) {
 		width = w;
 		height = h;
@@ -101,17 +102,17 @@ namespace SGF {
 	void ViewportLayer::createFramebuffer() {
 		auto& device = Device::Get();
 
-		colorImage = device.image2D((uint32_t)width, (uint32_t)height, imageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-		depthImage = device.image2D((uint32_t)width, (uint32_t)height, VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-		//depthImage = device.image(info);
+		colorImage = device.CreateImage2D((uint32_t)width, (uint32_t)height, imageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		depthImage = device.CreateImage2D((uint32_t)width, (uint32_t)height, VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+		//depthImage = CreateImage(info);
 
-		device.waitIdle();
+		device.WaitIdle();
 		VkImage images[] = { colorImage, depthImage };
-		deviceMemory = device.allocate(images, ARRAY_SIZE(images));
-		colorImageView = device.imageView2D(colorImage, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-		depthImageView = device.imageView2D(depthImage, VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT);
+		deviceMemory = device.AllocateMemory(images, ARRAY_SIZE(images));
+		colorImageView = device.CreateImageView2D(colorImage, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+		depthImageView = device.CreateImageView2D(depthImage, VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT);
 		VkImageView imageViews[] = { colorImageView, depthImageView };
-		framebuffer = device.framebuffer(renderPass, imageViews, ARRAY_SIZE(imageViews), (uint32_t)width, (uint32_t)height, 1);
+		framebuffer = device.CreateFramebuffer(renderPass, imageViews, ARRAY_SIZE(imageViews), (uint32_t)width, (uint32_t)height, 1);
 		if (descriptorSet != VK_NULL_HANDLE) {
 			VkDescriptorImageInfo desc_image[1] = {};
 			desc_image[0].sampler = sampler;
@@ -123,7 +124,8 @@ namespace SGF {
 			write_desc[0].descriptorCount = 1;
 			write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			write_desc[0].pImageInfo = desc_image;
-			vkUpdateDescriptorSets(device.getLogical(), 1, write_desc, 0, nullptr);
+			//vkUpdateDescriptorSets(device.getLogical(), 1, write_desc, 0, nullptr);
+			device.UpdateDescriptors(write_desc);
 		}
 		else {
 			descriptorSet = ImGui_ImplVulkan_AddTexture(sampler, colorImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -132,7 +134,7 @@ namespace SGF {
 	}
 	void ViewportLayer::destroyFramebuffer() {
 		auto& device = Device::Get();
-		device.waitIdle();
-		device.destroy(framebuffer, colorImageView, colorImage, depthImageView, depthImage, deviceMemory);
+		device.WaitIdle();
+		device.Destroy(framebuffer, colorImageView, colorImage, depthImageView, depthImage, deviceMemory);
 	}
 }

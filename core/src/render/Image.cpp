@@ -2,6 +2,7 @@
 #include "Render/Device.hpp"
 
 namespace SGF {
+    /*
     Image::Image(const Device& device, uint32_t length, VkFormat f, VkImageUsageFlags u, VkSampleCountFlagBits samples, uint32_t arrSize, uint32_t mipLevels, QueueFamilyFlags simultaneousUsage) {
         if (simultaneousUsage == FLAG_NONE) {
             handle = device.image1D(length, f, u, samples, mipLevelCount);
@@ -74,4 +75,5 @@ namespace SGF {
         auto& device = Device::Get();
         device.destroy(handle);
     }
+    */
 }

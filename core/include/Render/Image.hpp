@@ -3,6 +3,7 @@
 #include "SGF_Core.hpp"
 
 namespace SGF {
+    /*
     class Image {
     public:
         inline operator VkImage() const { return handle; }
@@ -92,4 +93,5 @@ namespace SGF {
         VkDeviceMemory handle;
         VkDeviceSize memorySize;
     };
+    */
 }

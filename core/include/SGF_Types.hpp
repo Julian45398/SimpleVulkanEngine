@@ -12,11 +12,11 @@ namespace SGF {
     class Device;
     class Swapchain;
     class Display;
-    class RenderPass;
-    class DeviceMemory;
-    class Buffer;
-    class Image;
-    class ImageView;
+    //class RenderPass;
+    //class DeviceMemory;
+    //class Buffer;
+    //class Image;
+    //class ImageView;
     class CommandList;
 
     // Events: 

@@ -249,8 +249,8 @@ namespace SGF {
 			CommandList commands;
 		};
 		PerFrame perFrame[FRAMES_IN_FLIGHT] = {
-			{ device.semaphore(), device.semaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
-			{ device.semaphore(), device.semaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
+			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
+			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
 		};
 		Timer timer;
 
@@ -275,9 +275,9 @@ namespace SGF {
 			deltaTime = timer.ellapsedMillis();
 			index = (index + 1) % FRAMES_IN_FLIGHT;
 		}
-		device.waitIdle();
+		device.WaitIdle();
 		for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
-			device.destroy(perFrame[i].imageAvailable, perFrame[i].renderFinished);
+			device.Destroy(perFrame[i].imageAvailable, perFrame[i].renderFinished);
 		}
 		LayerStack::Clear();
 	}

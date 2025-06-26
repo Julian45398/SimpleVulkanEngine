@@ -11,10 +11,15 @@
 namespace SGF {
     SGF_ERROR(1420, DEVICE_MEM_ALLOCATION, "failed to allocate device memory!");
     SGF_ERROR(1421, BIND_DEVICE_MEMORY, "failed to bind device memory");
+    SGF_ERROR(1421, MAP_DEVICE_MEMORY, "failed to map device memory");
     SGF_ERROR(1422, UNSUPPORTED_MEMORY_TYPE, "unsupported memory type");
     SGF_ERROR(1422, DEVICE_WAIT_IDLE, "failed waiting for device idling");
     SGF_ERROR(1422, WAIT_FENCE, "failed waiting for fence");
     SGF_ERROR(1422, RESET_FENCE, "failed resetting fences");
+
+    SGF_ERROR(1422, BEGIN_COMMAND_BUFFER, "failed to begin command buffer");
+    SGF_ERROR(1422, END_COMMAND_BUFFER, "failed to begin command buffer");
+
     SGF_ERROR(1422, QUEUE_SUBMIT, "failed to submit commands");
     SGF_ERROR(1422, VULKAN_IMGUI, "vulkan error for imgui operation");
 
@@ -36,6 +41,8 @@ namespace SGF {
     SGF_ERROR(1108, ALLOCATE_DESCRIPTOR_SETS, "failed to allocate descriptor sets");
     SGF_ERROR(1109, CREATE_FENCE, "failed to create fence");
     SGF_ERROR(1110, CREATE_SEMAPHORE, "failed to create semaphore");
+
+
 
     SGF_ERROR(1006, CREATE_SWAPCHAIN, "failed to create swapchain");
     SGF_ERROR(1006, ACQUIRE_NEXT_IMAGE, "failed to acquire next swapchain image");

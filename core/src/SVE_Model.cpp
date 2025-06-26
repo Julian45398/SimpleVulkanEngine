@@ -1,6 +1,7 @@
 #include "SVE_Model.h"
 
 
+/*
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -598,3 +599,4 @@ SveModel::SveModel(const char* filename) {
 	shl::logDebug("total vertex count: ", total_vertex_count);
 	shl::logDebug("total index count: ", total_index_count);
 }
+*/

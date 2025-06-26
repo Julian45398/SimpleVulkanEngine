@@ -367,11 +367,11 @@ namespace SGF {
         }
 
         auto& device = Device::Get();
-        assert(device.isCreated());
-        if (!device.checkSurfaceSupport(surface)) {
+        assert(device.IsCreated());
+        if (!device.CheckSurfaceSupport(surface)) {
             SGF::fatal("device is missing surface support!");
         }
-        presentQueue = device.presentQueue();
+        presentQueue = device.GetPresentQueue();
         if (!(flags & WINDOW_FLAG_VSYNC)) {
             presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
         }
@@ -399,7 +399,7 @@ namespace SGF {
 			auto pWindow = (Window*)glfwGetWindowUserPointer(window);
             if (pWindow != nullptr) {
                 Window& win = *pWindow;
-                Device::Get().waitIdle();
+                Device::Get().WaitIdle();
                 win.resizeFramebuffers(width, height);
             }
             WindowResizeEvent event(windowHandle, width, height);
@@ -437,7 +437,7 @@ namespace SGF {
         clearValues.push_back(createColorClearValue(0.f, 0.f, 0.f, 0.f));
         VkFormat depthFormat = VK_FORMAT_D16_UNORM;
         if (WINDOW_FLAG_STENCIL_ATTACHMENT & flags) {
-            depthFormat = device.getSupportedFormat(POSSIBLE_STENCIL_FORMATS, ARRAY_SIZE(POSSIBLE_STENCIL_FORMATS), VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            depthFormat = device.GetSupportedFormat(POSSIBLE_STENCIL_FORMATS, ARRAY_SIZE(POSSIBLE_STENCIL_FORMATS), VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
         }
         if (flags & (WINDOW_FLAG_STENCIL_ATTACHMENT | WINDOW_FLAG_DEPTH_ATTACHMENT)) {
 			auto depthAttachment = createDepthAttachment(depthFormat, multisampleCount);
@@ -460,9 +460,9 @@ namespace SGF {
     }
     void Window::close() {
         if (isOpen()) {
-            Device::Get().waitIdle();
+            Device::Get().WaitIdle();
             freeAttachmentData();
-            Device::Get().destroy(swapchain, renderPass);
+            Device::Get().Destroy(swapchain, renderPass);
             vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
             windowHandle.close();
             surface = nullptr;
@@ -593,17 +593,17 @@ namespace SGF {
             freeAttachmentData();
         }
         if (renderPass != nullptr) {
-            device.destroy(renderPass);
+            device.Destroy(renderPass);
         }
-        renderPass = device.renderPass(pAttachments, attCount, pSubpasses, subpassCount, pDependencies, dependencyCount);
+        renderPass = device.CreateRenderPass(pAttachments, attCount, pSubpasses, subpassCount, pDependencies, dependencyCount);
         allocateAttachmentData(pAttachments, pClearValues, attCount, pSubpasses, subpassCount);
     }
 
     void Window::updateSwapchain() {
 		imageCount = 0;
 		const auto& device = Device::Get();
-		presentMode = device.pickPresentMode(surface, presentMode);
-		surfaceFormat = device.pickSurfaceFormat(surface, surfaceFormat);
+		presentMode = device.PickPresentMode(surface, presentMode);
+		surfaceFormat = device.PickSurfaceFormat(surface, surfaceFormat);
         VkSwapchainCreateInfoKHR info{};
         info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         VkSurfaceCapabilitiesKHR capabilities;
@@ -637,10 +637,10 @@ namespace SGF {
         info.clipped = VK_TRUE;
 		info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		swapchain = device.swapchain(info);
-		device.getSwapchainImages(swapchain, &imageCount, nullptr);
+		swapchain = device.CreateSwapchain(info);
+		device.GetSwapchainImages(swapchain, &imageCount, nullptr);
 		if (old != VK_NULL_HANDLE) {
-			device.destroy(old);
+			device.Destroy(old);
 		}
 		assert(imageCount != 0);
 	}
@@ -698,7 +698,7 @@ namespace SGF {
 		assert(attachmentData != nullptr);
         {
             uint32_t count = imageCount;
-		    dev.getSwapchainImages(swapchain, &count, getImagesMod());
+		    dev.GetSwapchainImages(swapchain, &count, getImagesMod());
             if (count != imageCount) {
                 fatal(ERROR_CREATE_SWAPCHAIN);
             }
@@ -728,10 +728,10 @@ namespace SGF {
 			VkImage* attImages = getAttachmentImagesMod();
 			VkImageView* attImageViews = getAttachmentImageViewsMod();
 			for (uint32_t i = 0; i < attachmentCount; ++i) {
-				attImages[i] = dev.image2D(width, height, attFormats[i], attUsages[i], attSamples[i]);
+				attImages[i] = dev.CreateImage2D(width, height, attFormats[i], attUsages[i], attSamples[i]);
 			}
 			auto& memory = getAttachmentMemory();
-			memory = dev.allocate(attImages, attachmentCount);
+			memory = dev.AllocateMemory(attImages, attachmentCount);
 			for (uint32_t i = 0; i < attachmentCount; ++i) {
 				VkImageUsageFlags usage = attUsages[i];
 				if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
@@ -745,7 +745,7 @@ namespace SGF {
 				}
 				info.format = attFormats[i];
 				info.image = attImages[i];
-				attImageViews[i] = dev.imageView(info);
+				attImageViews[i] = dev.CreateImageView(info);
 			}
 			
 			for (size_t i = 1; i < attachmentViews.size(); ++i) {
@@ -757,9 +757,9 @@ namespace SGF {
 		info.format = getImageFormat();
 		for (uint32_t i = 0; i < imageCount; ++i) {
 			info.image = images[i];
-			views[i] = dev.imageView(info);
+			views[i] = dev.CreateImageView(info);
 			attachmentViews[0] = views[i];
-			framebuffers[i] = dev.framebuffer(renderPass, attachmentViews.data(), attachmentViews.size(), width, height, 1);
+			framebuffers[i] = dev.CreateFramebuffer(renderPass, attachmentViews.data(), attachmentViews.size(), width, height, 1);
 		}
 	}
     void Window::destroyFramebuffers() {
@@ -769,20 +769,20 @@ namespace SGF {
 		auto imageViews = getSwapchainImageViews();
 		auto framebuffers = getFramebuffers();
 		for (uint32_t i = 0; i < imageCount; ++i) {
-			dev.destroy(imageViews[i], framebuffers[i]);
+			dev.Destroy(imageViews[i], framebuffers[i]);
 		}
 		for (uint32_t i = 0; i < attachmentCount; ++i) {
 			auto attachmentImages = getAttachmentImages();
 			auto attachmentImageViews = getAttachmentImageViews();
-			dev.destroy(attachmentImages[i], attachmentImageViews[i]);
+			dev.Destroy(attachmentImages[i], attachmentImageViews[i]);
 		}
 		if (attachmentCount != 0) {
-			dev.destroy(getAttachmentMemory());
+			dev.Destroy(getAttachmentMemory());
 		}
 	}
     void Window::updateFramebuffers() {
         assert(attachmentData != nullptr);
-        Device::Get().waitIdle();
+        Device::Get().WaitIdle();
         destroyFramebuffers();
         updateSwapchain();
         createFramebuffers();

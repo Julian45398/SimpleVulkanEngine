@@ -29,7 +29,7 @@ namespace SGF {
     int32_t _TRACK_BUFFER = 0;
 #define TRACK_BUFFER(COUNT) do{ _TRACK_BUFFER += COUNT;if(COUNT<0){SGF::debug("destroying buffer: ", _TRACK_BUFFER);}else{SGF::debug("creating buffer: ", _TRACK_BUFFER);} }while(0)
     int32_t _TRACK_IMAGE = 0;
-#define TRACK_IMAGE(COUNT) do{ _TRACK_IMAGE += COUNT;if(COUNT<0){SGF::debug("destroying image: ", _TRACK_IMAGE);}else{SGF::debug("creating image: ", _TRACK_IMAGE);} }while(0)
+#define TRACK_CreateImage(COUNT) do{ _TRACK_IMAGE += COUNT;if(COUNT<0){SGF::debug("destroying image: ", _TRACK_IMAGE);}else{SGF::debug("creating image: ", _TRACK_IMAGE);} }while(0)
     int32_t _TRACK_IMAGE_VIEW = 0;
 #define TRACK_IMAGE_VIEW(COUNT) do{ _TRACK_IMAGE_VIEW += COUNT;if(COUNT<0){SGF::debug("destroying image view: ", _TRACK_IMAGE_VIEW);}else{SGF::debug("creating image view: ", _TRACK_IMAGE_VIEW);} }while(0)
     int32_t _TRACK_DEVICE_MEMORY = 0;
@@ -57,7 +57,7 @@ namespace SGF {
 #define TRACK_FENCE(COUNT)
 #define TRACK_SEMAPHORE(COUNT)
 #define TRACK_BUFFER(COUNT)
-#define TRACK_IMAGE(COUNT)
+#define TRACK_CreateImage(COUNT)
 #define TRACK_IMAGE_VIEW(COUNT)
 #define TRACK_DEVICE_MEMORY(COUNT)
 #define TRACK_COMMAND_POOL(COUNT)
@@ -71,6 +71,7 @@ namespace SGF {
 #define TRACK_SHADER_MODULE(COUNT)
 #
 #endif
+
     Device Device::s_Instance;
     DeviceRequirements Device::s_Requirements = {
         .extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME },
@@ -81,6 +82,83 @@ namespace SGF {
         .transferQueueCount = 0
     };
 
+    namespace Vk {
+        VkCommandBufferInheritanceInfo CreateCommandBufferInheritanceInfo(VkRenderPass renderPass, uint32_t subpass, VkFramebuffer framebuffer, VkBool32 occlusionQueryEnable, VkQueryControlFlags queryFlags, VkQueryPipelineStatisticFlags pipelineStatistics, const void* pNext) 
+        { return { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO, pNext, renderPass, subpass, framebuffer, occlusionQueryEnable, queryFlags, pipelineStatistics }; }
+        VkSubmitInfo CreateSubmitInfo(const VkCommandBuffer* pCommandBuffers, uint32_t commandBufferCount, 
+            const VkSemaphore* pWaitSemaphores, const VkPipelineStageFlags* pWaitDstStageMask, uint32_t waitSemaphoreCount,
+            const VkSemaphore* pSignalSemaphores, uint32_t signalSemaphoreCount, const void* pNext) {
+            return {
+                VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                pNext,
+                waitSemaphoreCount,
+                pWaitSemaphores,
+                pWaitDstStageMask,
+                commandBufferCount,
+                pCommandBuffers,
+                signalSemaphoreCount,
+                pSignalSemaphores
+            };
+	    }
+        void BeginCommandBuffer(VkCommandBuffer commands, VkCommandBufferUsageFlags usage, const void* pNext) {
+            assert(!(usage & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT));
+            VkCommandBufferBeginInfo info;
+            info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            info.pNext = nullptr;
+            info.flags = usage;
+            info.pInheritanceInfo = nullptr;
+            if(vkBeginCommandBuffer(commands, &info) != VK_SUCCESS) {
+                fatal(ERROR_BEGIN_COMMAND_BUFFER);
+            }
+        }
+        void BeginSecondaryCommands(VkCommandBuffer commands, VkRenderPass renderPass, VkFramebuffer framebuffer, uint32_t subpass, VkCommandBufferUsageFlags usage, const void* pNext) {
+            VkCommandBufferInheritanceInfo info;
+            info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+            info.pNext = nullptr;
+            info.queryFlags = FLAG_NONE;
+            info.occlusionQueryEnable = VK_FALSE;
+            info.pipelineStatistics = FLAG_NONE;
+            info.renderPass = renderPass;
+            info.framebuffer = framebuffer;
+            info.subpass = 0;
+            VkCommandBufferBeginInfo beginInfo;
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.pNext = nullptr;
+            beginInfo.flags = usage;
+            beginInfo.pInheritanceInfo = nullptr;
+            if(vkBeginCommandBuffer(commands, &beginInfo) != VK_SUCCESS) {
+                fatal(ERROR_BEGIN_COMMAND_BUFFER);
+            }
+        }
+        void EndCommandBuffer(VkCommandBuffer commandBuffer) {
+            if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) fatal(ERROR_END_COMMAND_BUFFER);
+        }
+        void SubmitCommands(VkQueue queue, const VkSubmitInfo& submitInfo, VkFence fence) {
+            if(vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) fatal(ERROR_QUEUE_SUBMIT);
+        }
+        void SubmitCommands(VkQueue queue, VkCommandBuffer commands, VkFence fence) {
+            VkSubmitInfo info = CreateSubmitInfo(&commands, 1, nullptr, nullptr, 0, nullptr, 0);
+            SubmitCommands(queue, info, fence);
+        }
+        void SubmitCommands(VkQueue queue, VkCommandBuffer commands, VkSemaphore waitSemaphore, VkPipelineStageFlags waitStage, VkSemaphore signalSemaphore, VkFence fence) {
+            VkSubmitInfo info = CreateSubmitInfo(&commands, 1, &waitSemaphore, &waitStage, 1, &signalSemaphore, 1);
+            SubmitCommands(queue, info, fence);
+        }
+        void SubmitCommands(VkQueue queue, VkCommandBuffer commands, const VkSemaphore* pWaitSemaphore, const VkPipelineStageFlags* pWaitStage, uint32_t waitCount,
+            const VkSemaphore* pSignalSemaphore, uint32_t signalCount, VkFence fence) {
+            VkSubmitInfo info = CreateSubmitInfo(&commands, 1, pWaitSemaphore, pWaitStage, waitCount, pSignalSemaphore, signalCount);
+            SubmitCommands(queue, info, fence);
+        }
+        void SubmitCommands(VkQueue queue, const VkCommandBuffer* pCommands, uint32_t commandBufferCount, const VkSemaphore* pWaitSemaphore, const VkPipelineStageFlags* pWaitStage, uint32_t waitCount,
+            const VkSemaphore* pSignalSemaphore, uint32_t signalCount, VkFence fence) {
+            VkSubmitInfo info = CreateSubmitInfo(pCommands, commandBufferCount, pWaitSemaphore, pWaitStage, waitCount, pSignalSemaphore, signalCount);
+            SubmitCommands(queue, info, fence);
+        }
+        void SubmitCommands(VkQueue queue, const VkCommandBuffer* pCommands, uint32_t commandBufferCount, VkFence fence) {
+            VkSubmitInfo info = CreateSubmitInfo(pCommands, commandBufferCount, nullptr, nullptr, 0, nullptr, 0);
+            SubmitCommands(queue, info, fence);
+        }
+    }
 
     void Device::RequireFeatures(DeviceFeatureFlags requiredFeatures) {
         s_Requirements.requiredFeatures = requiredFeatures;
@@ -112,7 +190,7 @@ namespace SGF {
     }
         
     void Device::PickNew() {
-        s_Instance.createNew(s_Requirements);
+        s_Instance.CreateNew(s_Requirements);
     }
 #pragma region HELPER_FUNCTIONS
     void createDefaultBufferInfo(VkBufferCreateInfo* pInfo, VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) {
@@ -145,24 +223,24 @@ namespace SGF {
     void setupQueueFamilySharing(const Device* pDevice, CREATE_INFO* pInfo, uint32_t* pIndices, QueueFamilyFlags familyFlags) {
         pInfo->pQueueFamilyIndices = pIndices;
         if (familyFlags & QUEUE_FAMILY_GRAPHICS) {
-            assert(pDevice->graphicsQueueCount() != 0);
-            pIndices[pInfo->queueFamilyIndexCount] = pDevice->graphicsFamily();
+            assert(pDevice->GetGraphicsQueueCount() != 0);
+            pIndices[pInfo->queueFamilyIndexCount] = pDevice->GetGraphicsFamily();
             pInfo->queueFamilyIndexCount++;
         }
         if (familyFlags & QUEUE_FAMILY_COMPUTE) {
-            assert(pDevice->computeQueueCount() != 0);
-            pIndices[pInfo->queueFamilyIndexCount] = pDevice->computeFamily();
+            assert(pDevice->GetComputeQueueCount() != 0);
+            pIndices[pInfo->queueFamilyIndexCount] = pDevice->GetComputeFamily();
             pInfo->queueFamilyIndexCount++;
         }
         if (familyFlags & QUEUE_FAMILY_TRANSFER) {
-            assert(pDevice->transferQueueCount() != 0);
-            pIndices[pInfo->queueFamilyIndexCount] = pDevice->transferFamily();
+            assert(pDevice->GetTransferQueueCount() != 0);
+            pIndices[pInfo->queueFamilyIndexCount] = pDevice->GetTransferFamily();
             pInfo->queueFamilyIndexCount++;
         }
         if (familyFlags & QUEUE_FAMILY_PRESENT) {
-            assert(pDevice->presentQueueCount() != 0);
-            if (pDevice->presentFamily() != pDevice->graphicsFamily()) {
-				pIndices[pInfo->queueFamilyIndexCount] = pDevice->presentFamily();
+            assert(pDevice->GetPresentQueueCount() != 0);
+            if (pDevice->GetPresentFamily() != pDevice->GetGraphicsFamily()) {
+				pIndices[pInfo->queueFamilyIndexCount] = pDevice->GetPresentFamily();
 				pInfo->queueFamilyIndexCount++;
             }
         }
@@ -557,8 +635,8 @@ namespace SGF {
         SGF::info("Logical device created!");
     }
         
-    void Device::createNew(const DeviceRequirements& r) {
-        shutdown();
+    void Device::CreateNew(const DeviceRequirements& r) {
+        Terminate();
         graphicsCount = r.graphicsQueueCount;
         computeCount = r.computeQueueCount;
         transferCount = r.transferQueueCount;
@@ -571,13 +649,13 @@ namespace SGF {
             //(*window).bindDevice(d);
         //}
     }
-    void Device::shutdown() {
+    void Device::Terminate() {
         SGF::debug("device shutdown requested...");
         TRACK_RENDER_PASS(0);
         TRACK_FENCE(0);
         TRACK_SEMAPHORE(0);
 		TRACK_BUFFER(0);
-        TRACK_IMAGE(0);
+        TRACK_CreateImage(0);
         TRACK_IMAGE_VIEW(0);
         TRACK_DEVICE_MEMORY(0);
         TRACK_COMMAND_POOL(0);
@@ -592,7 +670,7 @@ namespace SGF {
 
         if (physical != VK_NULL_HANDLE) {
             SGF::debug("destroying device...");
-            waitIdle();
+            WaitIdle();
             {
 				DeviceDestroyEvent event(*this);
 				EventManager::dispatch(event);
@@ -753,33 +831,36 @@ namespace SGF {
 #pragma endregion DEVICE_BUILDER
 
 #pragma region DEVICE_USER_FUNCTIONS
-    void Device::waitIdle() const {
+    void Device::WaitIdle() const {
         if (vkDeviceWaitIdle(logical) != VK_SUCCESS) {
             fatal(ERROR_DEVICE_WAIT_IDLE);
         }
     }
-    void Device::waitFence(VkFence fence) const {
+    void Device::WaitFence(VkFence fence) const {
         assert(fence != VK_NULL_HANDLE);
         if (vkWaitForFences(logical, 1, &fence, VK_TRUE, UINT32_MAX) != VK_SUCCESS) {
             fatal(ERROR_WAIT_FENCE);
         }
     }
-    void Device::waitFences(const VkFence* pFences, uint32_t count) const {
+    void Device::WaitFences(const VkFence* pFences, uint32_t count) const {
         assert(pFences != nullptr && count != 0);
         if (vkWaitForFences(logical, count, pFences, VK_TRUE, UINT32_MAX) != VK_SUCCESS) {
             fatal(ERROR_WAIT_FENCE);
         }
     }
-    void Device::reset(const VkFence* pFences, uint32_t count) const {
+    void Device::Reset(const VkFence* pFences, uint32_t count) const {
         assert(pFences != nullptr && count != 0);
 		if (vkResetFences(logical, count, pFences) != VK_SUCCESS) {
 			fatal(ERROR_RESET_FENCE);
 		}
 	}
+    bool Device::IsFenceSignaled(VkFence fence) const {
+        return vkGetFenceStatus(logical, fence) == VK_SUCCESS;
+    }
 
 
 #pragma region DEVICE_MEMORY
-    uint32_t Device::findMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const {
+    uint32_t Device::FindMemoryIndex(uint32_t typeBits, VkMemoryPropertyFlags flags) const {
         VkPhysicalDeviceMemoryProperties mem_properties;
         vkGetPhysicalDeviceMemoryProperties(physical, &mem_properties);
 
@@ -791,7 +872,7 @@ namespace SGF {
         SGF::error(ERROR_UNSUPPORTED_MEMORY_TYPE);
         return UINT32_MAX;
     }
-    VkSurfaceFormatKHR Device::pickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat) const {
+    VkSurfaceFormatKHR Device::PickSurfaceFormat(VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat) const {
         uint32_t format_count;
         vkGetPhysicalDeviceSurfaceFormatsKHR(physical, surface, &format_count, nullptr);
         std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
@@ -809,7 +890,7 @@ namespace SGF {
         }
         return surface_formats[0];
     }
-    VkPresentModeKHR Device::pickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const {
+    VkPresentModeKHR Device::PickPresentMode(VkSurfaceKHR surface, VkPresentModeKHR requested) const {
 		uint32_t presentCount;
 		vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &presentCount, nullptr);
 		std::vector<VkPresentModeKHR> available(presentCount);
@@ -821,7 +902,7 @@ namespace SGF {
 		}
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
-    VkSampleCountFlagBits Device::getMaxSupportedSampleCount() const {
+    VkSampleCountFlagBits Device::GetMaxSupportedSampleCount() const {
 		VkPhysicalDeviceProperties physicalDeviceProperties;
 		vkGetPhysicalDeviceProperties(physical, &physicalDeviceProperties);
 
@@ -834,7 +915,37 @@ namespace SGF {
 		if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
 		return VK_SAMPLE_COUNT_1_BIT;
 	}
-    VkDeviceMemory Device::allocate(const VkMemoryAllocateInfo& info) const {
+
+    VkMemoryRequirements Device::GetMemoryRequirements(VkBuffer buffer) const {
+        VkMemoryRequirements req;
+        vkGetBufferMemoryRequirements(logical, buffer, &req); 
+        return req;
+    }
+    VkMemoryRequirements Device::GetMemoryRequirements(VkImage image) const {
+        VkMemoryRequirements req;
+        vkGetImageMemoryRequirements(logical, image, &req); 
+        return req;
+    }
+    
+    void Device::BindMemory(VkDeviceMemory memory, VkBuffer buffer, VkDeviceSize offset) const {
+        if (vkBindBufferMemory(logical, buffer, memory, offset) != VK_SUCCESS) {
+            fatal(ERROR_BIND_DEVICE_MEMORY);
+        }
+    }
+    void Device::BindMemory(VkDeviceMemory memory, VkImage image, VkDeviceSize offset) const {
+        if (vkBindImageMemory(logical, image, memory, offset) != VK_SUCCESS) {
+            fatal(ERROR_BIND_DEVICE_MEMORY);
+        }
+    }
+    void* Device::MapMemory(VkDeviceMemory memory, size_t size, size_t offset) const {
+        void* data;
+        if (vkMapMemory(logical, memory, offset, size, FLAG_NONE, &data) != VK_SUCCESS) {
+            fatal(ERROR_MAP_DEVICE_MEMORY);
+        }
+        return data;
+    }
+
+    VkDeviceMemory Device::AllocateMemory(const VkMemoryAllocateInfo& info) const {
         VkDeviceMemory mem;
         if (vkAllocateMemory(logical, &info, SGF::VulkanAllocator, &mem) != VK_SUCCESS) {
             SGF::fatal(ERROR_DEVICE_MEM_ALLOCATION);
@@ -844,20 +955,20 @@ namespace SGF {
         return mem;
     }
 
-    VkDeviceMemory Device::allocate(const VkMemoryRequirements& req, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::AllocateMemory(const VkMemoryRequirements& req, VkMemoryPropertyFlags flags) const {
         VkMemoryAllocateInfo info;
         info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         info.pNext = nullptr;
         info.allocationSize = req.size;
-        info.memoryTypeIndex = findMemoryIndex(req.memoryTypeBits, flags);
-        return allocate(info);
+        info.memoryTypeIndex = FindMemoryIndex(req.memoryTypeBits, flags);
+        return AllocateMemory(info);
     }
 
-    VkDeviceMemory Device::allocate(VkBuffer buffer, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::AllocateMemory(VkBuffer buffer, VkMemoryPropertyFlags flags) const {
         assert(buffer != VK_NULL_HANDLE);
         VkMemoryRequirements req;
         vkGetBufferMemoryRequirements(logical, buffer, &req);
-        VkDeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = AllocateMemory(req, flags);
         if (vkBindBufferMemory(logical, buffer, mem, 0) != VK_SUCCESS) {
             SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
         }
@@ -870,7 +981,7 @@ namespace SGF {
             return prevReq.size + (objReq.alignment - (prevReq.size % objReq.alignment));
         }
     }
-    VkDeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::AllocateMemory(const VkBuffer* pBuffers, uint32_t bufferCount, VkMemoryPropertyFlags flags) const {
         assert(bufferCount != 0);
         assert(pBuffers != nullptr);
         VkMemoryRequirements req = {};
@@ -886,7 +997,7 @@ namespace SGF {
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
         assert(req.size % req.alignment == 0);
-        VkDeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = AllocateMemory(req, flags);
         for (uint32_t i = 0; i < bufferCount; ++i) {
             if (vkBindBufferMemory(logical, pBuffers[i], mem, offsets[i]) != VK_SUCCESS) {
                 SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
@@ -895,17 +1006,17 @@ namespace SGF {
         delete[] offsets;
         return mem;
     }
-    VkDeviceMemory Device::allocate(VkImage image, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::AllocateMemory(VkImage image, VkMemoryPropertyFlags flags) const {
         assert(image != VK_NULL_HANDLE);
         VkMemoryRequirements req;
         vkGetImageMemoryRequirements(logical, image, &req);
-        VkDeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = AllocateMemory(req, flags);
         if (vkBindImageMemory(logical, image, mem, 0) != VK_SUCCESS) {
             SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
         }
         return mem;
     }
-    VkDeviceMemory Device::allocate(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::AllocateMemory(const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
         assert(imageCount != 0);
         assert(pImages != nullptr);
         VkMemoryRequirements req = {};
@@ -922,7 +1033,7 @@ namespace SGF {
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
         assert(req.size % req.alignment == 0);
-        VkDeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = AllocateMemory(req, flags);
         for (uint32_t i = 0; i < imageCount; ++i) {
             if (vkBindImageMemory(logical, pImages[i], mem, offsets[i]) != VK_SUCCESS) {
                 SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
@@ -932,7 +1043,7 @@ namespace SGF {
         return mem;
     }
     
-    VkDeviceMemory Device::allocate(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
+    VkDeviceMemory Device::AllocateMemory(const VkBuffer* pBuffers, uint32_t bufferCount, const VkImage* pImages, uint32_t imageCount, VkMemoryPropertyFlags flags) const {
         assert(imageCount != 0);
         assert(pImages != nullptr);
         assert(bufferCount != 0);
@@ -962,7 +1073,7 @@ namespace SGF {
         }
         req.size += ((req.alignment - req.size % req.alignment) ^ req.alignment);
         assert(req.size % req.alignment == 0);
-        VkDeviceMemory mem = allocate(req, flags);
+        VkDeviceMemory mem = AllocateMemory(req, flags);
         for (uint32_t i = 0; i < bufferCount; ++i) {
             if (vkBindBufferMemory(logical, pBuffers[i], mem, offsets[i]) != VK_SUCCESS) {
                 SGF::fatal(ERROR_BIND_DEVICE_MEMORY);
@@ -978,7 +1089,7 @@ namespace SGF {
     }
 #pragma endregion DEVICE_MEMORY
 
-    VkBuffer Device::buffer(const VkBufferCreateInfo& info) const {
+    VkBuffer Device::CreateBuffer(const VkBufferCreateInfo& info) const {
         VkBuffer buffer;
         if (vkCreateBuffer(logical, &info, SGF::VulkanAllocator, &buffer) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_BUFFER);
@@ -986,22 +1097,22 @@ namespace SGF {
         TRACK_BUFFER(1);
         return buffer;
     }
-    VkBuffer Device::buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) const {
+    VkBuffer Device::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBufferCreateFlags flags) const {
         VkBufferCreateInfo info;
         createDefaultBufferInfo(&info, size, usage, flags);
-        return buffer(info);
+        return CreateBuffer(info);
     }
-    VkBuffer Device::bufferShared(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags familyFlags, VkBufferCreateFlags flags) const {
+    VkBuffer Device::CreateBufferShared(VkDeviceSize size, VkBufferUsageFlags usage, QueueFamilyFlags familyFlags, VkBufferCreateFlags flags) const {
         uint32_t indices[4] = {};
         VkBufferCreateInfo info;
         createDefaultBufferInfo(&info, size, usage, flags);
         setupQueueFamilySharing(this, &info, indices, familyFlags);
-        return buffer(info);
+        return CreateBuffer(info);
     }
 
 
 #pragma region IMAGE
-    VkImage Device::image(const VkImageCreateInfo& info) const {
+    VkImage Device::CreateImage(const VkImageCreateInfo& info) const {
         assert(info.extent.width != 0);
         assert(info.extent.height != 0);
         assert(info.extent.depth != 0);
@@ -1010,101 +1121,101 @@ namespace SGF {
         if (vkCreateImage(logical, &info, SGF::VulkanAllocator, &image) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_IMAGE);
         }
-        TRACK_IMAGE(1);
+        TRACK_CreateImage(1);
         return image;
     }
-    VkImage Device::image1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImage1D(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {length, 1, 1}, 1, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_1D;
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::image2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImage2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {width, height, 1}, 1, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_2D;
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::image3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImage3D(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {width, height, depth}, 1, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_3D;
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::imageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImageArray1D(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, {length, 1, 1}, arraySize, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_1D;
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::imageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImageArray2D(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info{};
         createDefaultImageInfo(&info, {width, height, 1}, arraySize, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_2D;
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::imageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImageArray3D(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, VkImageCreateFlags flags) const {
         VkImageCreateInfo info{};
         createDefaultImageInfo(&info, { width, height, depth }, arraySize, format, usage, mipLevelCount, samples, flags);
         info.imageType = VK_IMAGE_TYPE_3D;
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::image1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImage1DShared(uint32_t length, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { length, 1, 1 }, 1, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
         info.imageType = VK_IMAGE_TYPE_1D;
         setupQueueFamilySharing(this, &info, indices, queueFlags);
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::image2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImage2DShared(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         assert(graphicsCount != 0);
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, 1 }, 1, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
         info.imageType = VK_IMAGE_TYPE_2D;
         setupQueueFamilySharing(this, &info, indices, queueFlags);
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::image3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImage3DShared(uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         assert(graphicsCount != 0);
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, depth }, 1, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
         info.imageType = VK_IMAGE_TYPE_3D;
         setupQueueFamilySharing(this, &info, indices, queueFlags);
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::imageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImageArray1DShared(uint32_t length, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { length, 1, 1 }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
         info.imageType = VK_IMAGE_TYPE_1D;
         setupQueueFamilySharing(this, &info, indices, queueFlags);
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::imageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImageArray2DShared(uint32_t width, uint32_t height, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, 1 }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
         info.imageType = VK_IMAGE_TYPE_2D;
         setupQueueFamilySharing(this, &info, indices, queueFlags);
-        return image(info);
+        return CreateImage(info);
     }
-    VkImage Device::imageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
+    VkImage Device::CreateImageArray3DShared(uint32_t width, uint32_t height, uint32_t depth, uint32_t arraySize, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, uint32_t mipLevelCount, QueueFamilyFlags queueFlags, VkImageCreateFlags flags) const {
         VkImageCreateInfo info;
         createDefaultImageInfo(&info, { width, height, depth }, arraySize, format, usage, mipLevelCount, samples, flags);
         uint32_t indices[4] = {};
         info.imageType = VK_IMAGE_TYPE_3D;
         setupQueueFamilySharing(this, &info, indices, queueFlags);
-        return image(info);
+        return CreateImage(info);
     }
 
 #define IMAGE_VIEW_CREATE_INFO(IMAGE,TYPE,FORMAT,ASPECT,MIP,LEVELS,BASE,COUNT) {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,nullptr,0, IMAGE,TYPE,FORMAT,\
 {VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY},\
 {ASPECT,MIP,LEVELS,BASE,COUNT}}
 
-    VkImageView Device::imageView(const VkImageViewCreateInfo& info) const {
+    VkImageView Device::CreateImageView(const VkImageViewCreateInfo& info) const {
         VkImageView view;
         assert(info.sType == VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
         if (vkCreateImageView(logical, &info, SGF::VulkanAllocator, &view) != VK_SUCCESS) {
@@ -1113,41 +1224,41 @@ namespace SGF {
         TRACK_IMAGE_VIEW(1);
         return view;
     }
-    VkImageView Device::imageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::CreateImageView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_1D, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
-        return imageView(info);
+        return CreateImageView(info);
     }
 
-    VkImageView Device::imageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::CreateImageView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_2D, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
-        return imageView(info);
+        return CreateImageView(info);
     }
 
-    VkImageView Device::imageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::CreateImageView3D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_3D, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
-        return imageView(info);
+        return CreateImageView(info);
     }
 
-    VkImageView Device::imageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
+    VkImageView Device::CreateImageViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_CUBE, format, imageAspect, mipLevel, levelCount, arrayLayer, 1);
-        return imageView(info);
+        return CreateImageView(info);
     }
-    VkImageView Device::imageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
+    VkImageView Device::CreateImageArrayView1D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_1D_ARRAY, format, imageAspect, mipLevel, levelCount, arrayLayer, arraySize);
-        return imageView(info);
+        return CreateImageView(info);
     }
 
-    VkImageView Device::imageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
+    VkImageView Device::CreateImageArrayView2D(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_2D_ARRAY, format, imageAspect, mipLevel, levelCount, arrayLayer, arraySize);
-        return imageView(info);
+        return CreateImageView(info);
     }
-    VkImageView Device::imageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
+    VkImageView Device::CreateImageArrayViewCube(VkImage image, VkFormat format, VkImageAspectFlags imageAspect, uint32_t mipLevel, uint32_t levelCount, uint32_t arrayLayer, uint32_t arraySize) const {
         VkImageViewCreateInfo info = IMAGE_VIEW_CREATE_INFO(image, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY, format, imageAspect, mipLevel, levelCount, arrayLayer, arraySize);
-        return imageView(info);
+        return CreateImageView(info);
     }
 #pragma endregion IMAGE_CREATION
 
-    VkSampler Device::imageSampler(const VkSamplerCreateInfo& info) const {
+    VkSampler Device::CreateImageSampler(const VkSamplerCreateInfo& info) const {
         VkSampler sampler;
         if (vkCreateSampler(logical, &info, VulkanAllocator, &sampler) != VK_SUCCESS) {
             fatal(ERROR_CREATE_SAMPLER);
@@ -1156,7 +1267,7 @@ namespace SGF {
         return sampler;
     }
 
-    VkSampler Device::imageSampler(VkFilter filterType, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressMode, float mipLodBias, VkBool32 anisotropyEnable, 
+    VkSampler Device::CreateImageSampler(VkFilter filterType, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressMode, float mipLodBias, VkBool32 anisotropyEnable, 
         float maxAnisotropy, VkBool32 compareEnable, VkCompareOp compareOp, float minLod, float maxLod, VkBorderColor borderColor, VkBool32 unnormalizedCoordinates, VkSamplerCreateFlags flags, const void* pNext) const {
         VkSamplerCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1177,18 +1288,18 @@ namespace SGF {
 		info.maxLod = maxLod;
 		info.borderColor = borderColor;
 		info.unnormalizedCoordinates = unnormalizedCoordinates;
-        return imageSampler(info);
+        return CreateImageSampler(info);
     }
 
 
-    VkQueue Device::graphicsQueue(uint32_t index) const {
+    VkQueue Device::GetGraphicsQueue(uint32_t index) const {
         assert(graphicsCount != 0);
         assert(graphicsFamilyIndex != UINT32_MAX);
         VkQueue queue;
         vkGetDeviceQueue(logical, graphicsFamilyIndex, index, &queue);
         return queue;
     }
-    VkQueue Device::computeQueue(uint32_t index) const {
+    VkQueue Device::GetComputeQueue(uint32_t index) const {
         assert(computeCount != 0);
         assert(computeFamilyIndex != UINT32_MAX);
         if (computeFamilyIndex == graphicsFamilyIndex) {
@@ -1198,7 +1309,7 @@ namespace SGF {
         vkGetDeviceQueue(logical, computeFamilyIndex, index, &queue);
         return queue;
     }
-    VkQueue Device::transferQueue(uint32_t index) const {
+    VkQueue Device::GetTransferQueue(uint32_t index) const {
         assert(transferCount != 0);
         assert(transferFamilyIndex != UINT32_MAX);
         if (transferFamilyIndex == graphicsFamilyIndex) {
@@ -1211,7 +1322,7 @@ namespace SGF {
         vkGetDeviceQueue(logical, transferFamilyIndex, index, &queue);
         return queue;
     }
-    VkQueue Device::presentQueue() const {
+    VkQueue Device::GetPresentQueue() const {
         assert(presentCount != 0);
         assert(presentFamilyIndex != UINT32_MAX);
         VkQueue queue;
@@ -1219,7 +1330,7 @@ namespace SGF {
         return queue;
     }
 
-    VkFence Device::fence() const {
+    VkFence Device::CreateFence() const {
         assert(logical != VK_NULL_HANDLE);
         VkFenceCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -1233,7 +1344,7 @@ namespace SGF {
         return fence_r;
     }
 
-    VkFence Device::fenceSignaled() const {
+    VkFence Device::CreateFenceSignaled() const {
         assert(logical != VK_NULL_HANDLE);
         VkFenceCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -1246,7 +1357,7 @@ namespace SGF {
         TRACK_FENCE(1);
         return fence_r;
     }
-    VkSemaphore Device::semaphore() const {
+    VkSemaphore Device::CreateSemaphore() const {
         VkSemaphoreCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         info.pNext = nullptr;
@@ -1270,7 +1381,7 @@ namespace SGF {
         }
     }*/
 
-    VkShaderModule Device::shaderModule(const char* filename) const {
+    VkShaderModule Device::CreateShaderModule(const char* filename) const {
         const auto& code = LoadBinaryFile(filename);
         VkShaderModuleCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -1278,9 +1389,9 @@ namespace SGF {
         info.flags = FLAG_NONE;
         info.codeSize = code.size();
         info.pCode = (uint32_t*)code.data();
-        return shaderModule(info);
+        return CreateShaderModule(info);
     }
-    VkShaderModule Device::shaderModule(const VkShaderModuleCreateInfo& info) const {
+    VkShaderModule Device::CreateShaderModule(const VkShaderModuleCreateInfo& info) const {
         VkShaderModule shaderModule;
         if (vkCreateShaderModule(logical, &info, VulkanAllocator, &shaderModule) != VK_SUCCESS) {
             fatal(ERROR_CREATE_SHADER_MODULE);
@@ -1289,7 +1400,7 @@ namespace SGF {
         return shaderModule;
     }
 
-    VkPipelineLayout Device::pipelineLayout(const VkPipelineLayoutCreateInfo& info) const {
+    VkPipelineLayout Device::CreatePipelineLayout(const VkPipelineLayoutCreateInfo& info) const {
         VkPipelineLayout layout;
         if (vkCreatePipelineLayout(logical, &info, VulkanAllocator, &layout) != VK_SUCCESS) {
             fatal(ERROR_CREATE_PIPELINE_LAYOUT);
@@ -1297,7 +1408,7 @@ namespace SGF {
         TRACK_PIPELINE_LAYOUT(1);
         return layout;
     }
-    VkPipelineLayout Device::pipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges, uint32_t pushConstantCount) const {
+    VkPipelineLayout Device::CreatePipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges, uint32_t pushConstantCount) const {
         VkPipelineLayoutCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         info.pNext = nullptr;
@@ -1306,9 +1417,9 @@ namespace SGF {
         info.pSetLayouts = pLayouts;
         info.pushConstantRangeCount = pushConstantCount;
         info.pPushConstantRanges = pPushConstantRanges;
-        return pipelineLayout(info);
+        return CreatePipelineLayout(info);
     }
-    VkPipeline Device::pipeline(const VkGraphicsPipelineCreateInfo& info) const {
+    VkPipeline Device::CreatePipeline(const VkGraphicsPipelineCreateInfo& info) const {
         VkPipeline pipeline;
         if (vkCreateGraphicsPipelines(logical, VK_NULL_HANDLE, 1, &info, VulkanAllocator, &pipeline) != VK_SUCCESS) {
             fatal(ERROR_CREATE_RENDER_PIPELINE);
@@ -1317,7 +1428,7 @@ namespace SGF {
         return pipeline;
     }
 
-    VkPipeline Device::pipeline(const VkComputePipelineCreateInfo& info) const {
+    VkPipeline Device::CreatePipeline(const VkComputePipelineCreateInfo& info) const {
         VkPipeline pipeline;
         if (vkCreateComputePipelines(logical, VK_NULL_HANDLE, 1, &info, VulkanAllocator, &pipeline) != VK_SUCCESS) {
             fatal(ERROR_CREATE_COMPUTE_PIPELINE);
@@ -1326,7 +1437,7 @@ namespace SGF {
         return pipeline;
     }
 
-    VkFramebuffer Device::framebuffer(const VkFramebufferCreateInfo& info) const {
+    VkFramebuffer Device::CreateFramebuffer(const VkFramebufferCreateInfo& info) const {
         VkFramebuffer framebuffer;
         if (vkCreateFramebuffer(logical, &info, SGF::VulkanAllocator, &framebuffer) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_FRAMEBUFFER);
@@ -1334,7 +1445,7 @@ namespace SGF {
         TRACK_FRAMEBUFFER(1);
         return framebuffer;
     }
-    VkFramebuffer Device::framebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const {
+    VkFramebuffer Device::CreateFramebuffer(VkRenderPass renderPass, const VkImageView* pAttachments, uint32_t attachmentCount, uint32_t width, uint32_t height, uint32_t layerCount) const {
         VkFramebufferCreateInfo info{};
         info.attachmentCount = attachmentCount;
         info.renderPass = renderPass;
@@ -1343,10 +1454,10 @@ namespace SGF {
         info.width = width;
         info.height = height;
         info.layers = layerCount;
-        return framebuffer(info);
+        return CreateFramebuffer(info);
     }
 
-    VkRenderPass Device::renderPass(const VkRenderPassCreateInfo& info) const {
+    VkRenderPass Device::CreateRenderPass(const VkRenderPassCreateInfo& info) const {
         VkRenderPass renderPass;
         if (vkCreateRenderPass(logical, &info, SGF::VulkanAllocator, &renderPass) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_RENDER_PASS);
@@ -1354,7 +1465,7 @@ namespace SGF {
         TRACK_RENDER_PASS(1);
         return renderPass;
     }
-    VkRenderPass Device::renderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependenfyCount) const {
+    VkRenderPass Device::CreateRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attachmentCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependenfyCount) const {
         VkRenderPassCreateInfo info{};
         info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         info.attachmentCount = attachmentCount;
@@ -1363,9 +1474,9 @@ namespace SGF {
         info.pSubpasses = pSubpasses;
         info.dependencyCount = dependenfyCount;
         info.pDependencies = pDependencies;
-        return renderPass(info);
+        return CreateRenderPass(info);
     }
-    VkRenderPass Device::renderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) const {
+    VkRenderPass Device::CreateRenderPass(const VkAttachmentDescription* pAttachments, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) const {
 		assert(attCount > 0);
 		std::vector<VkSubpassDependency> dependencies(subpassCount);
 		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
@@ -1499,9 +1610,9 @@ namespace SGF {
 				}
 			}
 		}
-		return renderPass(pAttachments, attCount, pSubpasses, subpassCount, dependencies.data(), dependencies.size());
+		return CreateRenderPass(pAttachments, attCount, pSubpasses, subpassCount, dependencies.data(), dependencies.size());
 	}
-    VkSwapchainKHR Device::swapchain(const VkSwapchainCreateInfoKHR& info) const {
+    VkSwapchainKHR Device::CreateSwapchain(const VkSwapchainCreateInfoKHR& info) const {
         VkSwapchainKHR swapchain;
         if (vkCreateSwapchainKHR(logical, &info, SGF::VulkanAllocator, &swapchain) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_SWAPCHAIN);
@@ -1510,63 +1621,63 @@ namespace SGF {
         return swapchain;
     }
 
-    VkCommandPool Device::commandPool(const VkCommandPoolCreateInfo& info) const {
+    VkCommandPool Device::CreateCommandPool(const VkCommandPoolCreateInfo& info) const {
         VkCommandPool pool;
         if (vkCreateCommandPool(logical, &info, SGF::VulkanAllocator, &pool) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_COMMAND_POOL);
         }
         return pool;
     }
-    VkCommandPool Device::commandPool(uint32_t queueIndex, VkCommandPoolCreateFlags flags) const {
+    VkCommandPool Device::CreateCommandPool(uint32_t queueIndex, VkCommandPoolCreateFlags flags) const {
         VkCommandPoolCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         info.pNext = nullptr;
         info.flags = flags;
         info.queueFamilyIndex = queueIndex;
         TRACK_COMMAND_POOL(1);
-        return commandPool(info);
+        return CreateCommandPool(info);
     }
-    VkCommandBuffer Device::commandBuffer(VkCommandPool pool, VkCommandBufferLevel level) const {
+    VkCommandBuffer Device::AllocateCommandBuffer(VkCommandPool pool, VkCommandBufferLevel level) const {
         VkCommandBuffer commands;
-        commandBuffers(pool, level, 1, &commands);
+        AllocateCommandBuffers(pool, level, 1, &commands);
         return commands;
     }
-    void Device::commandBuffers(VkCommandPool pool, VkCommandBufferLevel level, uint32_t allocationCount, VkCommandBuffer* pBuffers) const {
+    void Device::AllocateCommandBuffers(VkCommandPool pool, VkCommandBufferLevel level, uint32_t allocationCount, VkCommandBuffer* pBuffers) const {
         VkCommandBufferAllocateInfo info;
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         info.pNext = nullptr;
         info.commandPool = pool;
         info.commandBufferCount = allocationCount;
         info.level = level;
-        commandBuffers(info, pBuffers);
+        AllocateCommandBuffers(info, pBuffers);
     }
-    void Device::commandBuffers(const VkCommandBufferAllocateInfo& info, VkCommandBuffer* pBuffers) const {
+    void Device::AllocateCommandBuffers(const VkCommandBufferAllocateInfo& info, VkCommandBuffer* pBuffers) const {
         if (vkAllocateCommandBuffers(logical, &info, pBuffers) != VK_SUCCESS) {
             fatal(ERROR_ALLOCATE_COMMAND_BUFFERS);
         }
     }
 
-    VkDescriptorSetLayout Device::descriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) const {
+    VkDescriptorSetLayout Device::CreateDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) const {
         VkDescriptorSetLayout layout;
         if (vkCreateDescriptorSetLayout(logical, &info, VulkanAllocator, &layout) != VK_SUCCESS) {
             fatal(ERROR_CREATE_DESCRIPTOR_LAYOUT);
         }
         return layout;
     }
-    VkDescriptorSetLayout Device::descriptorSetLayout(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags) const {
+    VkDescriptorSetLayout Device::CreateDescriptorSetLayout(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags) const {
         VkDescriptorSetLayoutCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         info.pNext = nullptr;
         info.pBindings = pBindings;
         info.bindingCount = bindingCount;
         info.flags = flags;
-        return descriptorSetLayout(info);
+        return CreateDescriptorSetLayout(info);
     }
-    VkDescriptorSetLayout Device::descriptorSetLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags) const {
-        return descriptorSetLayout(bindings.data(), (uint32_t)bindings.size(), flags);
+    VkDescriptorSetLayout Device::CreateDescriptorSetLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags) const {
+        return CreateDescriptorSetLayout(bindings.data(), (uint32_t)bindings.size(), flags);
     }
 
-    VkDescriptorPool Device::descriptorPool(const VkDescriptorPoolCreateInfo& info) const {
+    VkDescriptorPool Device::CreateDescriptorPool(const VkDescriptorPoolCreateInfo& info) const {
         assert(info.sType == VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
         assert(info.pPoolSizes != nullptr);
         assert(info.poolSizeCount != 0);
@@ -1578,7 +1689,7 @@ namespace SGF {
         return pool;
     }
 
-    VkDescriptorPool Device::descriptorPool(uint32_t maxSets, const VkDescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, VkDescriptorPoolCreateFlags flags) const {
+    VkDescriptorPool Device::CreateDescriptorPool(uint32_t maxSets, const VkDescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, VkDescriptorPoolCreateFlags flags) const {
         VkDescriptorPoolCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         info.flags = flags;
@@ -1586,24 +1697,24 @@ namespace SGF {
         info.poolSizeCount = poolSizeCount;
         info.pPoolSizes = pPoolSizes;
         info.maxSets = maxSets;
-        return descriptorPool(info);
+        return CreateDescriptorPool(info);
     }
-    VkDescriptorPool Device::descriptorPool(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags) const {
-        return descriptorPool(maxSets, poolSizes.data(), (uint32_t)poolSizes.size(), flags);
+    VkDescriptorPool Device::CreateDescriptorPool(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags) const {
+        return CreateDescriptorPool(maxSets, poolSizes.data(), (uint32_t)poolSizes.size(), flags);
     }
 
     
-    VkDescriptorSet Device::descriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const {
+    VkDescriptorSet Device::CreateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const {
         VkDescriptorSet set;
-        descriptorSets(pool, &descriptorSetLayout, 1, &set);
+        CreateDescriptorSets(pool, &descriptorSetLayout, 1, &set);
         return set;
     }
-    void Device::descriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* descriptorSets) const {
+    void Device::CreateDescriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* descriptorSets) const {
         if (vkAllocateDescriptorSets(logical, &info, descriptorSets) != VK_SUCCESS) {
             fatal(ERROR_ALLOCATE_DESCRIPTOR_SETS);
         }
     }
-    void Device::descriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const {
+    void Device::CreateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const {
         VkDescriptorSetAllocateInfo info;
         info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         info.descriptorPool = pool;
@@ -1611,18 +1722,22 @@ namespace SGF {
         info.descriptorSetCount = setCount;
         info.pSetLayouts = pSetLayouts;
         info.pNext = nullptr;
-        descriptorSets(info, pDescriptorSets);
+        CreateDescriptorSets(info, pDescriptorSets);
     }
-    void Device::descriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const {
-        descriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
+    void Device::CreateDescriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const {
+        CreateDescriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
     }
 
-    void Device::getSwapchainImages(VkSwapchainKHR swapchain, uint32_t* pCount, VkImage* pImages) const {
+    void Device::UpdateDescriptors(const VkWriteDescriptorSet* pDescriptorWrites, uint32_t writeCount, const VkCopyDescriptorSet* pDescriptorCopies, uint32_t copyCount) const {
+        vkUpdateDescriptorSets(logical, writeCount, pDescriptorWrites, copyCount, pDescriptorCopies);
+    }
+
+    void Device::GetSwapchainImages(VkSwapchainKHR swapchain, uint32_t* pCount, VkImage* pImages) const {
         if (vkGetSwapchainImagesKHR(logical, swapchain, pCount, pImages) != VK_SUCCESS) {
             fatal(ERROR_GET_SWAPCHAIN_IMAGES);
         }
     }
-    VkFormat Device::getSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling) const {
+    VkFormat Device::GetSupportedFormat(const VkFormat* pCandidates, uint32_t candidateCount, VkFormatFeatureFlags features, VkImageTiling tiling) const {
         assert(tiling == VK_IMAGE_TILING_LINEAR || tiling == VK_IMAGE_TILING_OPTIMAL);
         for (uint32_t i = 0; i < candidateCount; i++) {
             VkFormatProperties props;
@@ -1639,82 +1754,82 @@ namespace SGF {
     }
 
 #pragma region DESTRUCTORS
-    void Device::destroyType(VkFence fence) const {
+    void Device::Destroy(VkFence fence) const {
         assert(fence != VK_NULL_HANDLE);
         vkDestroyFence(logical, fence, SGF::VulkanAllocator);
         TRACK_FENCE(-1);
     }
-    void Device::destroyType(VkSemaphore semaphore) const {
+    void Device::Destroy(VkSemaphore semaphore) const {
         assert(semaphore != VK_NULL_HANDLE);
         vkDestroySemaphore(logical, semaphore, SGF::VulkanAllocator);
         TRACK_SEMAPHORE(-1);
     }
-    void Device::destroyType(VkBuffer buffer) const {
+    void Device::Destroy(VkBuffer buffer) const {
         assert(buffer != VK_NULL_HANDLE);
         vkDestroyBuffer(logical, buffer, SGF::VulkanAllocator);
         TRACK_BUFFER(-1);
     }
-    void Device::destroyType(VkImage image) const {
+    void Device::Destroy(VkImage image) const {
         assert(image != VK_NULL_HANDLE);
         vkDestroyImage(logical, image, SGF::VulkanAllocator);
-        TRACK_IMAGE(-1);
+        TRACK_CreateImage(-1);
     }
-    void Device::destroyType(VkImageView imageView) const {
+    void Device::Destroy(VkImageView imageView) const {
         assert(imageView != VK_NULL_HANDLE);
         vkDestroyImageView(logical, imageView, SGF::VulkanAllocator);
         TRACK_IMAGE_VIEW(-1);
     }
-    void Device::destroyType(VkFramebuffer framebuffer) const {
+    void Device::Destroy(VkFramebuffer framebuffer) const {
         assert(framebuffer != VK_NULL_HANDLE);
         vkDestroyFramebuffer(logical, framebuffer, SGF::VulkanAllocator);
         TRACK_FRAMEBUFFER(-1);
     }
-    void Device::destroyType(VkRenderPass renderPass) const {
+    void Device::Destroy(VkRenderPass renderPass) const {
         assert(renderPass != VK_NULL_HANDLE);
         vkDestroyRenderPass(logical, renderPass, SGF::VulkanAllocator);
         TRACK_RENDER_PASS(-1);
     }
-    void Device::destroyType(VkPipeline pipeline) const {
+    void Device::Destroy(VkPipeline pipeline) const {
         assert(pipeline != VK_NULL_HANDLE);
         vkDestroyPipeline(logical, pipeline, SGF::VulkanAllocator);
         TRACK_PIPELINE(-1);
     }
-    void Device::destroyType(VkPipelineLayout pipelineLayout) const {
+    void Device::Destroy(VkPipelineLayout pipelineLayout) const {
         assert(pipelineLayout != VK_NULL_HANDLE);
         vkDestroyPipelineLayout(logical, pipelineLayout, SGF::VulkanAllocator);
         TRACK_PIPELINE_LAYOUT(-1);
     }
-    void Device::destroyType(VkDescriptorSetLayout descriptorSetLayout) const {
+    void Device::Destroy(VkDescriptorSetLayout descriptorSetLayout) const {
         assert(descriptorSetLayout != VK_NULL_HANDLE);
         vkDestroyDescriptorSetLayout(logical, descriptorSetLayout, SGF::VulkanAllocator);
         TRACK_DESCRIPTOR_SET_LAYOUT(-1);
     }
-    void Device::destroyType(VkDescriptorPool descriptorPool) const {
+    void Device::Destroy(VkDescriptorPool descriptorPool) const {
         assert(descriptorPool != VK_NULL_HANDLE);
         vkDestroyDescriptorPool(logical, descriptorPool, SGF::VulkanAllocator);
         TRACK_DESCRIPTOR_POOL(-1);
     }
-    void Device::destroyType(VkDeviceMemory memory) const {
+    void Device::Destroy(VkDeviceMemory memory) const {
         assert(memory != VK_NULL_HANDLE);
         vkFreeMemory(logical, memory, SGF::VulkanAllocator);
         TRACK_DEVICE_MEMORY(-1);
     }
-    void Device::destroyType(VkCommandPool commandPool) const {
+    void Device::Destroy(VkCommandPool commandPool) const {
         assert(commandPool != VK_NULL_HANDLE);
         vkDestroyCommandPool(logical, commandPool, SGF::VulkanAllocator);
         TRACK_COMMAND_POOL(-1);
     }
-    void Device::destroyType(VkSampler sampler) const {
+    void Device::Destroy(VkSampler sampler) const {
         assert(sampler != VK_NULL_HANDLE);
         vkDestroySampler(logical, sampler, SGF::VulkanAllocator);
         TRACK_SAMPLER(-1);
     }
-    void Device::destroyType(VkSwapchainKHR swapchain) const {
+    void Device::Destroy(VkSwapchainKHR swapchain) const {
         assert(swapchain != VK_NULL_HANDLE);
         vkDestroySwapchainKHR(logical, swapchain, SGF::VulkanAllocator);
         TRACK_SWAPCHAIN(-1);
     }
-    void Device::destroyType(VkShaderModule module) const {
+    void Device::Destroy(VkShaderModule module) const {
         assert(module != VK_NULL_HANDLE);
         vkDestroyShaderModule(logical, module, SGF::VulkanAllocator);
         TRACK_SHADER_MODULE(-1);
@@ -1722,7 +1837,7 @@ namespace SGF {
 #pragma endregion DESTRUCTORS
 
 #pragma region GETTERS
-    const char* Device::getName() const {
+    const char* Device::GetName() const {
         return name;
     }
 #pragma endregion SETTERS

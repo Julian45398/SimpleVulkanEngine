@@ -33,7 +33,7 @@ namespace SGF {
 		{
 			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
 		};
-		descriptorPool = device.descriptorPool(window.getImageCount(), pool_sizes, ARRAY_SIZE(pool_sizes), VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+		descriptorPool = device.CreateDescriptorPool(window.getImageCount(), pool_sizes, ARRAY_SIZE(pool_sizes), VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplGlfw_InitForVulkan((GLFWwindow*)window.getNativeWindow().getHandle(), false);
@@ -43,8 +43,8 @@ namespace SGF {
 		init_info.Instance = VulkanInstance;
 		init_info.PhysicalDevice = device;
 		init_info.Device = device;
-		init_info.QueueFamily = device.graphicsFamily();
-		init_info.Queue = device.graphicsQueue(0);
+		init_info.QueueFamily = device.GetGraphicsFamily();
+		init_info.Queue = device.GetGraphicsQueue(0);
 		init_info.PipelineCache = VK_NULL_HANDLE;
 		init_info.DescriptorPool = descriptorPool;
 		init_info.RenderPass = window.getRenderPass();
@@ -56,7 +56,7 @@ namespace SGF {
 		init_info.CheckVkResultFn = imguiVulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
 		VkFormat requestedFormats[] = { Window::DEFAULT_SURFACE_FORMAT.format, VK_FORMAT_B8G8R8A8_UNORM };
-		ImGui_ImplVulkanH_SelectSurfaceFormat(device.getPhysical(), window.getSurface(), requestedFormats, 
+		ImGui_ImplVulkanH_SelectSurfaceFormat(device.GetPhysical(), window.getSurface(), requestedFormats, 
 			ARRAY_SIZE(requestedFormats), Window::DEFAULT_SURFACE_FORMAT.colorSpace);
 	}
 	void ImGuiLayer::onUpdate(const UpdateEvent& event) {
@@ -85,7 +85,7 @@ namespace SGF {
 		ImGui_ImplGlfw_Shutdown();
 		ImGui_ImplVulkan_Shutdown();
 		auto& device = Device::Get();
-		device.destroy(descriptorPool);
+		device.Destroy(descriptorPool);
 	}
 	void ImGuiLayer::onAttach() {
 		//ImGui_ImplGlfw_InstallCallbacks();

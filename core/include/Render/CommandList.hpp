@@ -23,36 +23,37 @@ namespace SGF {
 			uint32_t queueFamilyIndex;
 			assert(queueType == QUEUE_TYPE_GRAPHICS || queueType == QUEUE_TYPE_COMPUTE || queueType == QUEUE_TYPE_TRANSFER);
 			if (queueType == QUEUE_TYPE_GRAPHICS) {
-				queueFamilyIndex = device.graphicsFamily();
-				queue = device.graphicsQueue(queueIndex);
+				queueFamilyIndex = device.GetGraphicsFamily();
+				queue = device.GetGraphicsQueue(queueIndex);
 			} else if (queueType == QUEUE_TYPE_COMPUTE) {
-				queueFamilyIndex = device.computeFamily();
-				queue = device.computeQueue(queueIndex);
+				queueFamilyIndex = device.GetComputeFamily();
+				queue = device.GetComputeQueue(queueIndex);
 			} else if (queueType == QUEUE_TYPE_TRANSFER) {
-				queueFamilyIndex = device.transferFamily();
-				queue = device.transferQueue(queueIndex);
+				queueFamilyIndex = device.GetTransferFamily();
+				queue = device.GetTransferQueue(queueIndex);
 			}
 			else {
 				queueFamilyIndex = UINT32_MAX;
 				queue = VK_NULL_HANDLE;
 			}
-			fence = device.fenceSignaled();
-			commandPool = device.commandPool(queueFamilyIndex, flags);
-			commands = device.commandBuffer(commandPool, level);
+			fence = device.CreateFenceSignaled();
+			commandPool = device.CreateCommandPool(queueFamilyIndex, flags);
+			commands = device.AllocateCommandBuffer(commandPool, level);
 		}
 		inline ~CommandList() {
-			Device::Get().waitFence(fence);
 			auto& device = Device::Get();
-			device.destroy(commandPool, fence);
+			device.WaitFence(fence);
+			device.Destroy(commandPool, fence);
 		}
 		inline operator VkCommandBuffer() const { return commands; }
 		inline operator VkCommandPool() const { return commandPool; }
 		inline VkCommandBuffer getCommands() const { return commands; }
 		inline VkCommandPool getCommandPool() const { return commandPool; }
 		inline void begin(VkCommandBufferUsageFlags flags = FLAG_NONE) {
-			Device::Get().waitFence(fence);
-			Device::Get().reset(fence);
-			Device::Get().reset(commandPool);
+			auto& device = Device::Get();
+			device.WaitFence(fence);
+			device.Reset(fence);
+			device.Reset(commandPool);
 			VkCommandBufferBeginInfo info;
 			info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			info.flags = flags;
@@ -165,7 +166,7 @@ namespace SGF {
 
 		inline void reset() {
 			auto& device = Device::Get();
-			device.reset(commandPool);
+			device.Reset(commandPool);
 		}
 		inline void submit(const VkSemaphore* pWaitSemaphores, const VkShaderStageFlags* pWaitStages, uint32_t waitCount, const VkSemaphore* pSignalSemaphores, uint32_t signalCount) {
 			VkSubmitInfo info;
