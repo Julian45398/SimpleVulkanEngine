@@ -6,29 +6,21 @@
 #include "Window.hpp"
 
 namespace SGF {
-	enum QueueTypes {
-		QUEUE_TYPE_GRAPHICS,
-		QUEUE_TYPE_TRANSFER,
-		QUEUE_TYPE_COMPUTE,
-		QUEUE_TYPE_PRESENT
-	};
-	inline VkClearValue createDepthClearValue(float depth, uint32_t stencil) { VkClearValue value; value.depthStencil.depth = depth; value.depthStencil.stencil = stencil; return value; }
-	inline VkClearValue createColorClearValue(float r, float g, float b, float a) { return { r, g, b , a }; }
-	//inline VkClearValue createColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { return { r, g, b , a }; }
+//inline VkClearValue createColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { return { r, g, b , a }; }
 	//inline VkClearValue createColorClearValue(uint32_t r, uint32_t g, uint32_t b, uint32_t a) { return { r, g, b , a }; }
 
 	class CommandList {
 	public:
-		inline CommandList(const Device& device, QueueTypes queueType, uint32_t queueIndex, VkCommandBufferLevel level, VkCommandPoolCreateFlags flags) {
+		inline CommandList(const Device& device, QueueFamilyFlagBits queueType, uint32_t queueIndex, VkCommandBufferLevel level, VkCommandPoolCreateFlags flags) {
 			uint32_t queueFamilyIndex;
-			assert(queueType == QUEUE_TYPE_GRAPHICS || queueType == QUEUE_TYPE_COMPUTE || queueType == QUEUE_TYPE_TRANSFER);
-			if (queueType == QUEUE_TYPE_GRAPHICS) {
+			assert(queueType == QUEUE_FAMILY_COMPUTE || queueType == QUEUE_FAMILY_GRAPHICS || queueType == QUEUE_FAMILY_PRESENT);
+			if (queueType == QUEUE_FAMILY_GRAPHICS) {
 				queueFamilyIndex = device.GetGraphicsFamily();
 				queue = device.GetGraphicsQueue(queueIndex);
-			} else if (queueType == QUEUE_TYPE_COMPUTE) {
+			} else if (queueType == QUEUE_FAMILY_COMPUTE) {
 				queueFamilyIndex = device.GetComputeFamily();
 				queue = device.GetComputeQueue(queueIndex);
-			} else if (queueType == QUEUE_TYPE_TRANSFER) {
+			} else if (queueType == QUEUE_FAMILY_TRANSFER) {
 				queueFamilyIndex = device.GetTransferFamily();
 				queue = device.GetTransferQueue(queueIndex);
 			}
@@ -99,11 +91,11 @@ namespace SGF {
 		}
 		inline void beginRenderPass(const Window& window) const {
 			VkRect2D renderArea;
-			renderArea.extent.width = window.getWidth();
-			renderArea.extent.height = window.getHeight();
+			renderArea.extent.width = window.GetWidth();
+			renderArea.extent.height = window.GetHeight();
 			renderArea.offset.x = 0;
 			renderArea.offset.y = 0;
-			beginRenderPass(window.getRenderPass(), window.getCurrentFramebuffer(), renderArea, window.getClearValues(), window.getClearValueCount(), VK_SUBPASS_CONTENTS_INLINE);
+			beginRenderPass(window.GetRenderPass(), window.GetCurrentFramebuffer(), renderArea, window.GetClearValues(), window.GetClearValueCount(), VK_SUBPASS_CONTENTS_INLINE);
 		}
 		inline void endRenderPass() const {
 			vkCmdEndRenderPass(commands);
@@ -155,7 +147,7 @@ namespace SGF {
 			setViewport(viewport);
 		}
 		inline void setRenderArea(const Window& window) const {
-			setRenderArea(window.getWidth(), window.getHeight());
+			setRenderArea(window.GetWidth(), window.GetHeight());
 		}
 		inline void draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) const { 
 			vkCmdDraw(commands, vertexCount, instanceCount, firstVertex, firstInstance);

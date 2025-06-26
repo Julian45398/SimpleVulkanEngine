@@ -2,6 +2,7 @@
 
 #include "SGF_Core.hpp"
 #include "GraphicsPipeline.hpp"
+#include "Vulkan.hpp"
 
 #ifndef SGF_MAX_DEVICE_EXTENSION_COUNT
 #define SGF_MAX_DEVICE_EXTENSION_COUNT 32

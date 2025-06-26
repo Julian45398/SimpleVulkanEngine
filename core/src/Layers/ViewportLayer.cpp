@@ -4,16 +4,16 @@
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), imageFormat(colorFormat), 
-		commands(Device::Get(), QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT) {
+		commands(Device::Get(), QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT) {
 		auto& device = Device::Get();
 		const std::vector<VkAttachmentDescription> attachments = {
-			createAttachmentDescription(imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR),
-			createAttachmentDescription(VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+			SGF::Vk::CreateAttachmentDescription(imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR),
+			SGF::Vk::CreateAttachmentDescription(VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
 		};
-		auto colorRef = createAttachmentReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		auto depthRef = createAttachmentReference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+		auto colorRef = SGF::Vk::CreateAttachmentReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		auto depthRef = SGF::Vk::CreateAttachmentReference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 		const std::vector<VkSubpassDescription> subpasses = {
-			createSubpassDescription(&colorRef, 1, nullptr, &depthRef)
+			SGF::Vk::CreateSubpassDescription(&colorRef, 1, nullptr, &depthRef)
 		};
 		const std::vector<VkSubpassDependency> dependencies = {
 			{ VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
@@ -53,8 +53,8 @@ namespace SGF {
 	}
 	void ViewportLayer::renderViewport(RenderEvent& event) {
 		VkClearValue clearValues[] = {
-			SGF::createColorClearValue(0.f, 0.f, 1.f, 1.f),
-			SGF::createDepthClearValue(1.f, 0)
+			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
+			SGF::Vk::CreateDepthClearValue(1.f, 0)
 		};
 		VkRect2D renderArea;
 		renderArea.extent.width = width;

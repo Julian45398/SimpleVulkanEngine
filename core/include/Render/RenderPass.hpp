@@ -30,25 +30,28 @@
 #include "Device.hpp"
 
 namespace SGF {
-	inline VkAttachmentDescription createAttachmentDescription(VkFormat format, VkSampleCountFlagBits sampleCount, VkImageLayout initialLayout, VkImageLayout finalLayout, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE, VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE) {
-		return { FLAG_NONE, format, sampleCount, loadOp, storeOp, stencilLoadOp, stencilStoreOp, initialLayout, finalLayout };
+	namespace Vk {
+		inline VkAttachmentDescription CreateAttachmentDescription(VkFormat format, VkSampleCountFlagBits sampleCount, VkImageLayout initialLayout, VkImageLayout finalLayout, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE, VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE) {
+			return { FLAG_NONE, format, sampleCount, loadOp, storeOp, stencilLoadOp, stencilStoreOp, initialLayout, finalLayout };
+		}
+		inline VkSubpassDescription CreateSubpassDescription(const VkAttachmentReference* pColorAttachments = nullptr, uint32_t colorAttachmentCount = 0, const VkAttachmentReference* pResolveAttachments = nullptr, const VkAttachmentReference* pDepthAttachment = nullptr,
+			const VkAttachmentReference* pInputAttachments = nullptr, uint32_t inputAttachmentCount = 0, const uint32_t* pPreserveAttachments = nullptr, uint32_t preserveCount = 0, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS) {
+			return { FLAG_NONE, bindPoint, inputAttachmentCount, pInputAttachments, colorAttachmentCount, pColorAttachments, pResolveAttachments, pDepthAttachment, preserveCount, pPreserveAttachments };
+		}
+		inline VkAttachmentReference CreateAttachmentReference(uint32_t index, VkImageLayout layout) {
+			return { index, layout };
+		}
+		inline VkAttachmentReference CreateColorAttachmentReference(uint32_t index) {
+			return { index, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+		}
+		inline VkAttachmentReference CreateDepthStencilAttachmentReference(uint32_t index) {
+			return { index, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+		}
+		inline VkAttachmentDescription CreateDepthAttachment(VkFormat format = VK_FORMAT_D16_UNORM, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE) {
+			return CreateAttachmentDescription(format, sampleCount, initialLayout, finalLayout, loadOp, storeOp, loadOp, storeOp);
+		}
 	}
-	inline VkSubpassDescription createSubpassDescription(const VkAttachmentReference* pColorAttachments = nullptr, uint32_t colorAttachmentCount = 0, const VkAttachmentReference* pResolveAttachments = nullptr, const VkAttachmentReference* pDepthAttachment = nullptr,
-		const VkAttachmentReference* pInputAttachments = nullptr, uint32_t inputAttachmentCount = 0, const uint32_t* pPreserveAttachments = nullptr, uint32_t preserveCount = 0, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS) {
-		return { FLAG_NONE, bindPoint, inputAttachmentCount, pInputAttachments, colorAttachmentCount, pColorAttachments, pResolveAttachments, pDepthAttachment, preserveCount, pPreserveAttachments };
-	}
-	inline VkAttachmentReference createAttachmentReference(uint32_t index, VkImageLayout layout) {
-		return { index, layout };
-	}
-	inline VkAttachmentReference createColorAttachmentReference(uint32_t index) {
-		return { index, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-	}
-	inline VkAttachmentReference createDepthStencilAttachmentReference(uint32_t index) {
-		return { index, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-	}
-	inline VkAttachmentDescription createDepthAttachment(VkFormat format = VK_FORMAT_D16_UNORM, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE) {
-		return createAttachmentDescription(format, sampleCount, initialLayout, finalLayout, loadOp, storeOp, loadOp, storeOp);
-	}
+
 	class AttachmentDefinition {
 	public:
 		void addSwapchainAttachment(VkSurfaceKHR surface, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR) {

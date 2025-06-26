@@ -33,12 +33,12 @@ namespace SGF {
 		{
 			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
 		};
-		descriptorPool = device.CreateDescriptorPool(window.getImageCount(), pool_sizes, ARRAY_SIZE(pool_sizes), VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+		descriptorPool = device.CreateDescriptorPool(window.GetImageCount(), pool_sizes, ARRAY_SIZE(pool_sizes), VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
 		// Setup Platform/Renderer backends
-		ImGui_ImplGlfw_InitForVulkan((GLFWwindow*)window.getNativeWindow().getHandle(), false);
+		ImGui_ImplGlfw_InitForVulkan((GLFWwindow*)window.GetNativeWindow().GetHandle(), false);
 		ImGui_ImplGlfw_SetCallbacksChainForAllWindows(true);
-		ImGui_ImplGlfw_InstallCallbacks((GLFWwindow*)window.getNativeWindow().getHandle());
+		ImGui_ImplGlfw_InstallCallbacks((GLFWwindow*)window.GetNativeWindow().GetHandle());
 		ImGui_ImplVulkan_InitInfo init_info = {};
 		init_info.Instance = VulkanInstance;
 		init_info.PhysicalDevice = device;
@@ -47,16 +47,16 @@ namespace SGF {
 		init_info.Queue = device.GetGraphicsQueue(0);
 		init_info.PipelineCache = VK_NULL_HANDLE;
 		init_info.DescriptorPool = descriptorPool;
-		init_info.RenderPass = window.getRenderPass();
+		init_info.RenderPass = window.GetRenderPass();
 		init_info.Subpass = 0;
 		init_info.MinImageCount = 2;
-		init_info.ImageCount = (uint32_t)window.getImageCount();
+		init_info.ImageCount = (uint32_t)window.GetImageCount();
 		init_info.MSAASamples = sampleCount;
 		init_info.Allocator = VulkanAllocator;
 		init_info.CheckVkResultFn = imguiVulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
 		VkFormat requestedFormats[] = { Window::DEFAULT_SURFACE_FORMAT.format, VK_FORMAT_B8G8R8A8_UNORM };
-		ImGui_ImplVulkanH_SelectSurfaceFormat(device.GetPhysical(), window.getSurface(), requestedFormats, 
+		ImGui_ImplVulkanH_SelectSurfaceFormat(device.GetPhysical(), window.GetSurface(), requestedFormats, 
 			ARRAY_SIZE(requestedFormats), Window::DEFAULT_SURFACE_FORMAT.colorSpace);
 	}
 	void ImGuiLayer::onUpdate(const UpdateEvent& event) {
@@ -72,7 +72,7 @@ namespace SGF {
 		ImDrawData* draw_data = ImGui::GetDrawData();
 		auto& commands = event.getCommands();
 		const std::vector<VkClearValue> clearValues = {
-				SGF::createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
+				SGF::Vk::CreateColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
 				//SGF::createDepthClearValue(1.0f, 0)
 				//SGF::createColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
 			};

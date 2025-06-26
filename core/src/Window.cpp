@@ -42,20 +42,20 @@ namespace SGF {
         static glm::dvec2 pos(0,0);
         assert(HasFocus());
         if (HasFocus()) {
-            pos = s_FocusedWindow.getCursorPos();
+            pos = s_FocusedWindow.GetCursorPos();
         }
         return pos;
     }
     bool Input::IsMouseButtonPressed(Mousecode button) {
-        return HasFocus() && GetFocusedWindow().isMouseButtonPressed(button);
+        return HasFocus() && GetFocusedWindow().IsMouseButtonPressed(button);
     }
     bool Input::IsKeyPressed(Keycode key) {
-        return HasFocus() && GetFocusedWindow().isKeyPressed(key);
+        return HasFocus() && GetFocusedWindow().IsKeyPressed(key);
     }
     bool Input::HasFocus() {
-        return s_FocusedWindow.isOpen();
+        return s_FocusedWindow.IsOpen();
     }
-    void WindowHandle::open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags flags) {
+    void WindowHandle::Open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags flags) {
         assert(nativeHandle == nullptr);
         
         GLFWmonitor* monitor = nullptr;
@@ -143,12 +143,12 @@ namespace SGF {
             assert(window != nullptr);
             WindowHandle& win = *(WindowHandle*)&window;
             if (focus == GLFW_TRUE) {
-                SGF::info("Window: ", win.getTitle(), " is now focused!");
-                Input::s_FocusedWindow.setHandle(window);
+                SGF::info("Window: ", win.GetTitle(), " is now focused!");
+                Input::s_FocusedWindow.SetHandle(window);
             } else if (focus == GLFW_FALSE) {
-                SGF::info("Window: ", win.getTitle(), " lost focus");
-                if (Input::s_FocusedWindow.getHandle() == window) {
-                    Input::s_FocusedWindow.setHandle(nullptr);
+                SGF::info("Window: ", win.GetTitle(), " lost focus");
+                if (Input::s_FocusedWindow.GetHandle() == window) {
+                    Input::s_FocusedWindow.SetHandle(nullptr);
                 }
             }
         });
@@ -168,86 +168,86 @@ namespace SGF {
             LayerStack::OnEvent(event);
         });
     }
-    void WindowHandle::close() {
+    void WindowHandle::Close() {
         glfwDestroyWindow((GLFWwindow*)nativeHandle);
         nativeHandle = nullptr;
     }
-    bool WindowHandle::shouldClose() const {
+    bool WindowHandle::ShouldClose() const {
         return glfwWindowShouldClose((GLFWwindow*)nativeHandle);
     }
-    uint32_t WindowHandle::getWidth() const {
+    uint32_t WindowHandle::GetWidth() const {
         int width;
         glfwGetWindowSize((GLFWwindow*)nativeHandle, &width, nullptr);
         return width;
     }
-    uint32_t WindowHandle::getHeight() const {
+    uint32_t WindowHandle::GetHeight() const {
         int height;
         glfwGetWindowSize((GLFWwindow*)nativeHandle, nullptr, &height);
         return height;
     }
-    VkExtent2D WindowHandle::getSize() const {
+    VkExtent2D WindowHandle::GetSize() const {
         static_assert(sizeof(int) == sizeof(uint32_t));
         VkExtent2D size;
         glfwGetWindowSize((GLFWwindow*)nativeHandle, (int*)&size.width, (int*)&size.height);
         return size;
     }
-    bool WindowHandle::isKeyPressed(Keycode key) const {
+    bool WindowHandle::IsKeyPressed(Keycode key) const {
         return glfwGetKey((GLFWwindow*)nativeHandle, key) == GLFW_PRESS;
     }
-    bool WindowHandle::isMouseButtonPressed(Mousecode button) const {
+    bool WindowHandle::IsMouseButtonPressed(Mousecode button) const {
         return glfwGetMouseButton((GLFWwindow*)nativeHandle, button) == GLFW_PRESS;
     }
-    glm::dvec2 WindowHandle::getCursorPos() const  {
+    glm::dvec2 WindowHandle::GetCursorPos() const  {
         glm::dvec2 pos;
         glfwGetCursorPos((GLFWwindow*)nativeHandle, &pos.x, &pos.y);
         return pos;
     }
-    void WindowHandle::captureCursor() const {
+    void WindowHandle::CaptureCursor() const {
         glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
-    void WindowHandle::freeCursor() const {
+    void WindowHandle::FreeCursor() const {
         glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
-    bool WindowHandle::isFullscreen() const {
+    bool WindowHandle::IsFullscreen() const {
         return glfwGetWindowMonitor((GLFWwindow*)nativeHandle) != nullptr;
     }
-    bool WindowHandle::isMinimized() const  {
-        auto size = getSize();
+    bool WindowHandle::IsMinimized() const  {
+        auto size = GetSize();
         return size.width == 0 || size.height == 0;
     }
-    void WindowHandle::setUserPointer(void* pUser) const {
+    void WindowHandle::SetUserPointer(void* pUser) const {
         glfwSetWindowUserPointer((GLFWwindow*)nativeHandle, pUser);
     }
-    void WindowHandle::setTitle(const char* title) const {
+    void WindowHandle::SetTitle(const char* title) const {
         glfwSetWindowTitle((GLFWwindow*)nativeHandle, title);
     }
     
 
-    const char* WindowHandle::getTitle() const {
+    const char* WindowHandle::GetTitle() const {
         return glfwGetWindowTitle((GLFWwindow*)nativeHandle);
     }
 
-    void WindowHandle::setCursorPos(const glm::dvec2& pos) const {
+    void WindowHandle::SetCursorPos(const glm::dvec2& pos) const {
         glfwSetCursorPos((GLFWwindow*)nativeHandle, pos.x, pos.y);
     }
-    void WindowHandle::setFullscreen() const {
+    void WindowHandle::SetFullscreen() const {
         auto m = glfwGetPrimaryMonitor();
         auto mode = glfwGetVideoMode(m);
         glfwSetWindowMonitor((GLFWwindow*)nativeHandle, m, 0, 0, mode->width, mode->height, GLFW_DONT_CARE);
     }
-    void WindowHandle::setWindowed(uint32_t width, uint32_t height) const {
+    void WindowHandle::SetWindowed(uint32_t width, uint32_t height) const {
         glfwSetWindowMonitor((GLFWwindow*)nativeHandle, nullptr, (int)(width / 2), (int)(height / 2), (int)width, (int)height, GLFW_DONT_CARE);
     }
-    void WindowHandle::resize(uint32_t width, uint32_t height) const {
+    void WindowHandle::Resize(uint32_t width, uint32_t height) const {
         glfwSetWindowSize((GLFWwindow*)nativeHandle, (int)width, (int)height);
     }
-    void WindowHandle::minimize() const {
+    void WindowHandle::Minimize() const {
         glfwIconifyWindow((GLFWwindow*)nativeHandle);
     }
 
     constexpr VkFormat POSSIBLE_STENCIL_FORMATS[] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT };
 
-    VkAttachmentDescription Window::createSwapchainAttachment(VkAttachmentLoadOp loadOp) {
+    VkAttachmentDescription Window::CreateSwapchainAttachment(VkAttachmentLoadOp loadOp) {
 		VkAttachmentDescription att;
 		att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -269,7 +269,7 @@ namespace SGF {
         .height = 400
     };
 
-    VkExtent2D Window::getMonitorSize(uint32_t index) {
+    VkExtent2D Window::GetMonitorSize(uint32_t index) {
         int count;
         auto monitors = glfwGetMonitors(&count);
         assert(index < (uint32_t)count);
@@ -279,7 +279,7 @@ namespace SGF {
         extent.height = vidmode->height;
         return extent;
     }
-    VkExtent2D Window::getMaxMonitorSize() {
+    VkExtent2D Window::GetMaxMonitorSize() {
         VkExtent2D extent{};
         int count;
         auto monitors = glfwGetMonitors(&count);
@@ -293,13 +293,13 @@ namespace SGF {
         }
         return extent;
     }
-    uint32_t Window::getMonitorCount() {
+    uint32_t Window::GetMonitorCount() {
         int count;
         glfwGetMonitors(&count);
         return (uint32_t)count;
     }
 
-    void Window::nextFrame(VkSemaphore imageAvailableSignal, VkFence fence) {
+    void Window::NextFrame(VkSemaphore imageAvailableSignal, VkFence fence) {
 		assert(swapchain != VK_NULL_HANDLE);
 		auto& device = Device::Get();
         VkResult res = VK_ERROR_OUT_OF_DATE_KHR;
@@ -307,14 +307,14 @@ namespace SGF {
 		while (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			debug("swapchain out of date!");
             int w = 0, h = 0;
-            glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
+            glfwGetFramebufferSize((GLFWwindow*)windowHandle.GetHandle(), &w, &h);
             while (w == 0 || h == 0) {
                 glfwWaitEvents();
-                glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
+                glfwGetFramebufferSize((GLFWwindow*)windowHandle.GetHandle(), &w, &h);
             }
             width = w;
             height = h;
-            updateFramebuffers();
+            UpdateFramebuffers();
 		    res = vkAcquireNextImageKHR(device, swapchain, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailableSignal, fence, &imageIndex);
 		}
         if (res == VK_SUBOPTIMAL_KHR) {
@@ -323,7 +323,7 @@ namespace SGF {
 			fatal(ERROR_ACQUIRE_NEXT_IMAGE);
 		}
     }
-	void Window::presentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) {
+	void Window::PresentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) {
 		assert(swapchain != VK_NULL_HANDLE);
 		
 		VkPresentInfoKHR info;
@@ -339,30 +339,30 @@ namespace SGF {
 		if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
 			SGF::info("swapchain out of date!");
             int w = 0, h = 0;
-            glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
+            glfwGetFramebufferSize((GLFWwindow*)windowHandle.GetHandle(), &w, &h);
             while (w == 0 || h == 0) {
                 glfwWaitEvents();
-                glfwGetFramebufferSize((GLFWwindow*)windowHandle.getHandle(), &w, &h);
+                glfwGetFramebufferSize((GLFWwindow*)windowHandle.GetHandle(), &w, &h);
             }
             width = w;
             height = h;
-            updateFramebuffers();
+            UpdateFramebuffers();
 		}
 		else if (result != VK_SUCCESS) {
 			fatal(ERROR_PRESENT_IMAGE);
 		}
 	}
 
-    void Window::open(const char* name, uint32_t newWidth, uint32_t newHeight, WindowCreateFlags flags, VkSampleCountFlagBits multisampleCount) {
-        if (isOpen()) {
-            close();
+    void Window::Open(const char* name, uint32_t newWidth, uint32_t newHeight, WindowCreateFlags flags, VkSampleCountFlagBits multisampleCount) {
+        if (IsOpen()) {
+            Close();
         }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        windowHandle.open(name, newWidth, newHeight, flags);
+        windowHandle.Open(name, newWidth, newHeight, flags);
         
-        windowHandle.setUserPointer(this);
+        windowHandle.SetUserPointer(this);
 
-        if (glfwCreateWindowSurface(SGF::VulkanInstance, (GLFWwindow*)windowHandle.getHandle(), SGF::VulkanAllocator, &surface) != VK_SUCCESS) {
+        if (glfwCreateWindowSurface(SGF::VulkanInstance, (GLFWwindow*)windowHandle.GetHandle(), SGF::VulkanAllocator, &surface) != VK_SUCCESS) {
             SGF::fatal(ERROR_CREATE_SURFACE);
         }
 
@@ -375,10 +375,10 @@ namespace SGF {
         if (!(flags & WINDOW_FLAG_VSYNC)) {
             presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
         }
-        updateSwapchain();
+        UpdateSwapchain();
 
         // Set GLFW callbacks
-        glfwSetFramebufferSizeCallback((GLFWwindow*)windowHandle.getHandle(), [](GLFWwindow* window, int width, int height) {
+        glfwSetFramebufferSizeCallback((GLFWwindow*)windowHandle.GetHandle(), [](GLFWwindow* window, int width, int height) {
             WindowHandle& windowHandle = *(WindowHandle*)&window;
             SGF::info("framebuffersizecallback ....");
             
@@ -400,7 +400,7 @@ namespace SGF {
             if (pWindow != nullptr) {
                 Window& win = *pWindow;
                 Device::Get().WaitIdle();
-                win.resizeFramebuffers(width, height);
+                win.ResizeFramebuffers(width, height);
             }
             WindowResizeEvent event(windowHandle, width, height);
             EventManager::dispatch(event);
@@ -433,95 +433,95 @@ namespace SGF {
             loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         }
         
-        attachments.push_back(createSwapchainAttachment(loadOp));
-        clearValues.push_back(createColorClearValue(0.f, 0.f, 0.f, 0.f));
+        attachments.push_back(CreateSwapchainAttachment(loadOp));
+        clearValues.push_back(Vk::CreateColorClearValue(0.f, 0.f, 0.f, 0.f));
         VkFormat depthFormat = VK_FORMAT_D16_UNORM;
         if (WINDOW_FLAG_STENCIL_ATTACHMENT & flags) {
             depthFormat = device.GetSupportedFormat(POSSIBLE_STENCIL_FORMATS, ARRAY_SIZE(POSSIBLE_STENCIL_FORMATS), VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
         }
         if (flags & (WINDOW_FLAG_STENCIL_ATTACHMENT | WINDOW_FLAG_DEPTH_ATTACHMENT)) {
-			auto depthAttachment = createDepthAttachment(depthFormat, multisampleCount);
+			auto depthAttachment = Vk::CreateDepthAttachment(depthFormat, multisampleCount);
             attachments.push_back(depthAttachment);
             depthRef.attachment = 1;
             subpass.pDepthStencilAttachment = &depthRef;
-            clearValues.push_back(createDepthClearValue(1.f, 0));
+            clearValues.push_back(Vk::CreateDepthClearValue(1.f, 0));
         }
         if (multisampleCount != VK_SAMPLE_COUNT_1_BIT) {
             subpass.pResolveAttachments = &resolveRef;
-            attachments.push_back(createAttachmentDescription(surfaceFormat.format, multisampleCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, loadOp));
+            attachments.push_back(Vk::CreateAttachmentDescription(surfaceFormat.format, multisampleCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, loadOp));
             attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             colorRef.attachment = depthRef.attachment + 1;
-            clearValues.push_back(createColorClearValue(0.f, 2.f, 2.f, 0.f));
+            clearValues.push_back(Vk::CreateColorClearValue(0.f, 2.f, 2.f, 0.f));
         }
         VkSubpassDependency dependency = { VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
             0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT };
-        setRenderPass(attachments.data(), clearValues.data(), (uint32_t)clearValues.size(), &subpass, 1, &dependency, 1);
+        SetRenderPass(attachments.data(), clearValues.data(), (uint32_t)clearValues.size(), &subpass, 1, &dependency, 1);
     }
-    void Window::close() {
-        if (isOpen()) {
+    void Window::Close() {
+        if (IsOpen()) {
             Device::Get().WaitIdle();
-            freeAttachmentData();
+            FreeAttachmentData();
             Device::Get().Destroy(swapchain, renderPass);
             vkDestroySurfaceKHR(SGF::VulkanInstance, surface, SGF::VulkanAllocator);
-            windowHandle.close();
+            windowHandle.Close();
             surface = nullptr;
         }
     }
 
-    const char* Window::getName() const {
-        return windowHandle.getTitle();
+    const char* Window::GetName() const {
+        return windowHandle.GetTitle();
     }
 
-    bool Window::isFullscreen() const {
-        return windowHandle.isFullscreen();
+    bool Window::IsFullscreen() const {
+        return windowHandle.IsFullscreen();
     }
-    bool Window::isMinimized() const {
+    bool Window::IsMinimized() const {
         return (width == 0 && height == 0);
     }
-    void Window::setFullscreen() {
-        windowHandle.setFullscreen();
+    void Window::SetFullscreen() {
+        windowHandle.SetFullscreen();
     }
-    void Window::setWindowed(uint32_t newWidth, uint32_t newHeight) {
+    void Window::SetWindowed(uint32_t newWidth, uint32_t newHeight) {
         width = newWidth;
         height = newHeight;
-        if (windowHandle.isFullscreen()) {
-            windowHandle.setWindowed(newWidth, newHeight);
+        if (windowHandle.IsFullscreen()) {
+            windowHandle.SetWindowed(newWidth, newHeight);
         }
         else {
-            windowHandle.resize(newWidth, newHeight);
+            windowHandle.Resize(newWidth, newHeight);
         }
     }
-    void Window::minimize() {
+    void Window::Minimize() {
         width = 0;
         height = 0;
-        windowHandle.minimize();
+        windowHandle.Minimize();
     }
-    bool Window::shouldClose() const {
-        return windowHandle.shouldClose();
+    bool Window::ShouldClose() const {
+        return windowHandle.ShouldClose();
     }
     
-    bool Window::isKeyPressed(Keycode key) const {
-        return windowHandle.isKeyPressed(key);
+    bool Window::IsKeyPressed(Keycode key) const {
+        return windowHandle.IsKeyPressed(key);
     }
-    bool Window::isMousePressed(Mousecode button) const {
-        return windowHandle.isMouseButtonPressed(button);
+    bool Window::IsMousePressed(Mousecode button) const {
+        return windowHandle.IsMouseButtonPressed(button);
     }
-    glm::dvec2 Window::getCursorPos() const {
-        return windowHandle.getCursorPos();
+    glm::dvec2 Window::GetCursorPos() const {
+        return windowHandle.GetCursorPos();
     }
 
-    std::string Window::openFileDialog(const FileFilter& filter) const {
-		return openFileDialog(1, &filter);
+    std::string Window::OpenFileDialog(const FileFilter& filter) const {
+		return OpenFileDialog(1, &filter);
 	}
-	std::string Window::openFileDialog(uint32_t filterCount, const FileFilter* pFilters) const {
+	std::string Window::OpenFileDialog(uint32_t filterCount, const FileFilter* pFilters) const {
 		NFD_Init();
 
 		nfdu8char_t* outPath;
 		nfdopendialogu8args_t args = { 0 };
 
 		std::string filepath;
-        if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.getHandle(), &args.parentWindow)) {
+        if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.GetHandle(), &args.parentWindow)) {
             SGF::error(ERROR_OPEN_FILE_DIALOG);
         }
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
@@ -543,17 +543,17 @@ namespace SGF {
 
 		return filepath;
 	}
-	std::string Window::saveFileDialog(const FileFilter& filter) const
+	std::string Window::SaveFileDialog(const FileFilter& filter) const
 	{
-		return saveFileDialog(1, &filter);
+		return SaveFileDialog(1, &filter);
 	}
-	std::string Window::saveFileDialog(uint32_t filterCount, const FileFilter* pFilters) const
+	std::string Window::SaveFileDialog(uint32_t filterCount, const FileFilter* pFilters) const
 	{
 		NFD_Init();
 
 		nfdu8char_t* outPath;
 		nfdsavedialogu8args_t args = {};
-		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.getHandle(), &args.parentWindow)) {
+		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.GetHandle(), &args.parentWindow)) {
 			SGF::error(ERROR_OPEN_FILE_DIALOG);
 		}
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
@@ -580,26 +580,26 @@ namespace SGF {
 		return filepath;
 	}
 
-    void Window::freeAttachmentData() {
+    void Window::FreeAttachmentData() {
 		assert(attachmentData != nullptr);
-		destroyFramebuffers();
+		DestroyFramebuffers();
         free(attachmentData);
         info("freed memory!");
 		attachmentData = nullptr;
 	}
-    void Window::setRenderPass(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) {
+    void Window::SetRenderPass(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) {
         auto& device = Device::Get();
         if (attachmentData != nullptr) {
-            freeAttachmentData();
+            FreeAttachmentData();
         }
         if (renderPass != nullptr) {
             device.Destroy(renderPass);
         }
         renderPass = device.CreateRenderPass(pAttachments, attCount, pSubpasses, subpassCount, pDependencies, dependencyCount);
-        allocateAttachmentData(pAttachments, pClearValues, attCount, pSubpasses, subpassCount);
+        AllocateAttachmentData(pAttachments, pClearValues, attCount, pSubpasses, subpassCount);
     }
 
-    void Window::updateSwapchain() {
+    void Window::UpdateSwapchain() {
 		imageCount = 0;
 		const auto& device = Device::Get();
 		presentMode = device.PickPresentMode(surface, presentMode);
@@ -645,7 +645,7 @@ namespace SGF {
 		assert(imageCount != 0);
 	}
 
-	void Window::allocateAttachmentData(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
+	void Window::AllocateAttachmentData(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount) {
 		assert(attCount > 0);
 		attachmentCount = attCount - 1;
         assert(swapchain != VK_NULL_HANDLE);
@@ -660,11 +660,11 @@ namespace SGF {
             fatal("failed to allocate attachment data!");
         }
 
-		memcpy(getClearValuesMod(), pClearValues, sizeof(pClearValues[0]) * attCount);
+		memcpy(GetClearValuesMod(), pClearValues, sizeof(pClearValues[0]) * attCount);
 		if (attachmentCount != 0) {
-			auto formats = getAttachmentFormatsMod();
-			auto usages = getAttachmentUsagesMod();
-			auto samples = getAttachmentSampleCountsMod();
+			auto formats = GetAttachmentFormatsMod();
+			auto usages = GetAttachmentUsagesMod();
+			auto samples = GetAttachmentSampleCountsMod();
 			for (uint32_t i = 1; i < attCount; ++i) {
 				formats[i-1] = pAttachments[i].format;
 				VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
@@ -690,26 +690,26 @@ namespace SGF {
 				usages[i - 1] = usage;
 			}
 		}
-		createFramebuffers();
+		CreateFramebuffers();
 	}
-	void Window::createFramebuffers() {
+	void Window::CreateFramebuffers() {
 		SGF::debug("creating framebuffers of swapchain!");
 		auto& dev = Device::Get();
 		assert(attachmentData != nullptr);
         {
             uint32_t count = imageCount;
-		    dev.GetSwapchainImages(swapchain, &count, getImagesMod());
+		    dev.GetSwapchainImages(swapchain, &count, GetImagesMod());
             if (count != imageCount) {
                 fatal(ERROR_CREATE_SWAPCHAIN);
             }
         }
-		VkImageView* views = getImageViewsMod();
-		auto images = getSwapchainImages();
+		VkImageView* views = GetImageViewsMod();
+		auto images = GetSwapchainImages();
 		VkImageViewCreateInfo info;
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		info.pNext = nullptr;
 		info.flags = FLAG_NONE;
-		info.format = getImageFormat();
+		info.format = GetImageFormat();
 		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -722,15 +722,15 @@ namespace SGF {
 		info.subresourceRange.levelCount = 1;
 		std::vector<VkImageView> attachmentViews(attachmentCount + 1);
 		if (attachmentCount != 0) {
-			const VkFormat* attFormats = getAttachmentFormats();
-			const VkImageUsageFlags* attUsages = getAttachmentUsages();
-			const VkSampleCountFlagBits* attSamples = getAttachmentSampleCounts();
-			VkImage* attImages = getAttachmentImagesMod();
-			VkImageView* attImageViews = getAttachmentImageViewsMod();
+			const VkFormat* attFormats = GetAttachmentFormats();
+			const VkImageUsageFlags* attUsages = GetAttachmentUsages();
+			const VkSampleCountFlagBits* attSamples = GetAttachmentSampleCounts();
+			VkImage* attImages = GetAttachmentImagesMod();
+			VkImageView* attImageViews = GetAttachmentImageViewsMod();
 			for (uint32_t i = 0; i < attachmentCount; ++i) {
 				attImages[i] = dev.CreateImage2D(width, height, attFormats[i], attUsages[i], attSamples[i]);
 			}
-			auto& memory = getAttachmentMemory();
+			auto& memory = GetAttachmentMemory();
 			memory = dev.AllocateMemory(attImages, attachmentCount);
 			for (uint32_t i = 0; i < attachmentCount; ++i) {
 				VkImageUsageFlags usage = attUsages[i];
@@ -753,8 +753,8 @@ namespace SGF {
 			}
 		}
 		info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		auto framebuffers = getFramebuffersMod();
-		info.format = getImageFormat();
+		auto framebuffers = GetFramebuffersMod();
+		info.format = GetImageFormat();
 		for (uint32_t i = 0; i < imageCount; ++i) {
 			info.image = images[i];
 			views[i] = dev.CreateImageView(info);
@@ -762,29 +762,29 @@ namespace SGF {
 			framebuffers[i] = dev.CreateFramebuffer(renderPass, attachmentViews.data(), attachmentViews.size(), width, height, 1);
 		}
 	}
-    void Window::destroyFramebuffers() {
+    void Window::DestroyFramebuffers() {
 		SGF::debug("destroying framebuffers of swapchain!");
 		auto& dev = Device::Get(); 
 		assert(attachmentData != nullptr);
-		auto imageViews = getSwapchainImageViews();
-		auto framebuffers = getFramebuffers();
+		auto imageViews = GetSwapchainImageViews();
+		auto framebuffers = GetFramebuffers();
 		for (uint32_t i = 0; i < imageCount; ++i) {
 			dev.Destroy(imageViews[i], framebuffers[i]);
 		}
 		for (uint32_t i = 0; i < attachmentCount; ++i) {
-			auto attachmentImages = getAttachmentImages();
-			auto attachmentImageViews = getAttachmentImageViews();
+			auto attachmentImages = GetAttachmentImages();
+			auto attachmentImageViews = GetAttachmentImageViews();
 			dev.Destroy(attachmentImages[i], attachmentImageViews[i]);
 		}
 		if (attachmentCount != 0) {
-			dev.Destroy(getAttachmentMemory());
+			dev.Destroy(GetAttachmentMemory());
 		}
 	}
-    void Window::updateFramebuffers() {
+    void Window::UpdateFramebuffers() {
         assert(attachmentData != nullptr);
         Device::Get().WaitIdle();
-        destroyFramebuffers();
-        updateSwapchain();
-        createFramebuffers();
+        DestroyFramebuffers();
+        UpdateSwapchain();
+        CreateFramebuffers();
     }
 }

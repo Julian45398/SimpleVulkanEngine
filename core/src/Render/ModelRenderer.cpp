@@ -81,7 +81,7 @@ namespace SGF {
         {
             // Allocating Descriptor Sets:
             auto& window = Window::Get();
-            descriptorSets.resize(window.getImageCount());
+            descriptorSets.resize(window.GetImageCount());
             for (auto& set : descriptorSets) {
                 set.set = device.CreateDescriptorSet(descriptorPool, descriptorLayout);
                 //set.set = vkl::allocateDescriptorSet(SVE::getDevice(), descriptorPool, 1, &descriptorLayout);
@@ -294,7 +294,7 @@ namespace SGF {
         vkCmdSetScissor(commands, 0, 1, &scissor);
         VkDescriptorSet sets[] = {
             uniformSet,
-            descriptorSets[win.getImageIndex()].set
+            descriptorSets[win.GetImageIndex()].set
         };
 
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
@@ -354,7 +354,7 @@ namespace SGF {
 
     void ModelRenderer::updateTextureDescriptors() {
         auto& win = Window::Get();
-        Descriptor& descriptor = descriptorSets[win.getImageIndex()];
+        Descriptor& descriptor = descriptorSets[win.GetImageIndex()];
         auto& device = Device::Get();
         if (descriptor.invalidated) {
             std::vector<VkDescriptorImageInfo> texture_info(textures.size());

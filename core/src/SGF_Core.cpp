@@ -224,10 +224,10 @@ namespace SGF {
         glfwInit();
         initVulkan();
 		Device::PickNew();
-		Window::Open();
+		Window::CreateMain();
     }
     void Terminate() {
-		Window::Close();
+		Window::CloseMain();
 		Device::Shutdown();
         glfwTerminate();
         terminateVulkan();
@@ -249,14 +249,14 @@ namespace SGF {
 			CommandList commands;
 		};
 		PerFrame perFrame[FRAMES_IN_FLIGHT] = {
-			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
-			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_TYPE_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
+			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
+			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
 		};
 		Timer timer;
 
 		double deltaTime = 0.0;
 		uint32_t index = 0;
-		while (!window.shouldClose()) {
+		while (!window.ShouldClose()) {
 			Input::PollEvents();
 			if (Input::IsKeyPressed(KEY_G)) {
 				info("g is pressed!");
@@ -264,14 +264,14 @@ namespace SGF {
 			UpdateEvent updateEvent(deltaTime);
 			LayerStack::OnEvent(updateEvent);
 			perFrame[index].commands.begin();
-			window.nextFrame(perFrame[index].imageAvailable);
-			RenderEvent renderEvent(deltaTime, perFrame[index].commands, window.getFramebufferSize());
+			window.NextFrame(perFrame[index].imageAvailable);
+			RenderEvent renderEvent(deltaTime, perFrame[index].commands, window.GetFramebufferSize());
 			renderEvent.addWait(perFrame[index].imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 			renderEvent.addSignal(perFrame[index].renderFinished);
 			LayerStack::OnEvent(renderEvent);
 			perFrame[index].commands.end();
 			perFrame[index].commands.submit(renderEvent.getWait().data(), renderEvent.getWaitStages().data(), renderEvent.getWait().size(), renderEvent.getSignal().data(), renderEvent.getSignal().size());
-			window.presentFrame(perFrame[index].renderFinished);
+			window.PresentFrame(perFrame[index].renderFinished);
 			deltaTime = timer.ellapsedMillis();
 			index = (index + 1) % FRAMES_IN_FLIGHT;
 		}
