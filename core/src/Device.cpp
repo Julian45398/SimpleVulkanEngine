@@ -1706,17 +1706,17 @@ namespace SGF {
     }
 
     
-    VkDescriptorSet Device::CreateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const {
+    VkDescriptorSet Device::AllocateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const {
         VkDescriptorSet set;
-        CreateDescriptorSets(pool, &descriptorSetLayout, 1, &set);
+        AllocateDescriptorSets(pool, &descriptorSetLayout, 1, &set);
         return set;
     }
-    void Device::CreateDescriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* descriptorSets) const {
+    void Device::AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* descriptorSets) const {
         if (vkAllocateDescriptorSets(logical, &info, descriptorSets) != VK_SUCCESS) {
             fatal(ERROR_ALLOCATE_DESCRIPTOR_SETS);
         }
     }
-    void Device::CreateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const {
+    void Device::AllocateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const {
         VkDescriptorSetAllocateInfo info;
         info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         info.descriptorPool = pool;
@@ -1724,10 +1724,10 @@ namespace SGF {
         info.descriptorSetCount = setCount;
         info.pSetLayouts = pSetLayouts;
         info.pNext = nullptr;
-        CreateDescriptorSets(info, pDescriptorSets);
+        AllocateDescriptorSets(info, pDescriptorSets);
     }
-    void Device::CreateDescriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const {
-        CreateDescriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
+    void Device::AllocateDescriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const {
+        AllocateDescriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
     }
 
     void Device::UpdateDescriptors(const VkWriteDescriptorSet* pDescriptorWrites, uint32_t writeCount, const VkCopyDescriptorSet* pDescriptorCopies, uint32_t copyCount) const {

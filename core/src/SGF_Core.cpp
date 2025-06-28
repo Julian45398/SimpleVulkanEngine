@@ -249,8 +249,8 @@ namespace SGF {
 			CommandList commands;
 		};
 		PerFrame perFrame[FRAMES_IN_FLIGHT] = {
-			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
-			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(device, QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
+			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)},
+			{ device.CreateSemaphore(), device.CreateSemaphore(), CommandList(QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)}
 		};
 		Timer timer;
 
@@ -258,9 +258,6 @@ namespace SGF {
 		uint32_t index = 0;
 		while (!window.ShouldClose()) {
 			Input::PollEvents();
-			if (Input::IsKeyPressed(KEY_G)) {
-				info("g is pressed!");
-			}
 			UpdateEvent updateEvent(deltaTime);
 			LayerStack::Get().OnEvent(updateEvent);
 			perFrame[index].commands.Begin();

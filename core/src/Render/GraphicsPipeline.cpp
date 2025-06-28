@@ -3,33 +3,33 @@
 
 namespace SGF {
 
-    VkPipeline GraphicsPipelineBuilder::build() {
+    VkPipeline GraphicsPipelineBuilder::Build() {
         return Device::Get().CreatePipeline(info);
     }
-    GraphicsPipelineBuilder& GraphicsPipelineBuilder::geometryShader(const char* filename) {
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::GeometryShader(const char* filename) {
         auto& device = Device::Get();
         assert(device.HasFeatureEnabled(DEVICE_FEATURE_GEOMETRY_SHADER));
-        addShaderStage(filename, VK_SHADER_STAGE_GEOMETRY_BIT);
+        AddShaderStage(filename, VK_SHADER_STAGE_GEOMETRY_BIT);
         return *this;
     }
-    GraphicsPipelineBuilder& GraphicsPipelineBuilder::fragmentShader(const char* filename) {
-        addShaderStage(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::FragmentShader(const char* filename) {
+        AddShaderStage(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
         return *this;
     }
-    GraphicsPipelineBuilder& GraphicsPipelineBuilder::vertexShader(const char* filename) {
-        addShaderStage(filename, VK_SHADER_STAGE_VERTEX_BIT);
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::VertexShader(const char* filename) {
+        AddShaderStage(filename, VK_SHADER_STAGE_VERTEX_BIT);
         return *this;
     }
-    GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationEvaluationShader(const char* filename) {
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::TesselationEvaluationShader(const char* filename) {
         auto& device = Device::Get();
         assert(device.HasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
-        addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+        AddShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
         return *this;
     }
-    GraphicsPipelineBuilder& GraphicsPipelineBuilder::tesselationControlShader(const char* filename) {
+    GraphicsPipelineBuilder& GraphicsPipelineBuilder::TesselationControlShader(const char* filename) {
         auto& device = Device::Get();
         assert(device.HasFeatureEnabled(DEVICE_FEATURE_TESSELLATION_SHADER));
-        addShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+        AddShaderStage(filename, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
         return *this;
     }
 
@@ -97,7 +97,7 @@ namespace SGF {
         rasterizationState.rasterizerDiscardEnable = VK_FALSE;
         rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizationState.depthBiasEnable = VK_FALSE;
         rasterizationState.depthBiasConstantFactor = 0.0f;
         rasterizationState.depthBiasClamp = 0.0f;
@@ -155,7 +155,7 @@ namespace SGF {
         dynamicStateInfo.pDynamicStates = dynamicStates;
     }
 
-    void GraphicsPipelineBuilder::addShaderStage(const char* filename, VkShaderStageFlagBits stage) {
+    void GraphicsPipelineBuilder::AddShaderStage(const char* filename, VkShaderStageFlagBits stage) {
         assert(info.stageCount < SGF_PIPELINE_MAX_PIPELINE_STAGES);
 
         auto& device = Device::Get();

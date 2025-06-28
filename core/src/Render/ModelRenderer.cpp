@@ -1,6 +1,5 @@
 #include "Render/ModelRenderer.hpp"
 #include "Render/Device.hpp"
-#include "Window.hpp"
 
 
 namespace SGF {
@@ -40,7 +39,7 @@ namespace SGF {
 
 
 
-    ModelRenderer::ModelRenderer(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout) {
+    void ModelRenderer::Initialize(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout, uint32_t icount) {
         auto& device = Device::Get();
         vertexBuffer = VK_NULL_HANDLE;
         vertexDeviceMemory = VK_NULL_HANDLE;
@@ -57,7 +56,9 @@ namespace SGF {
         transformCount = 0;
         vertexCount = 0;
         indexCount = 0;
+
         freeVertexBufferMemory = PAGE_SIZE - MAX_INSTANCE_COUNT * sizeof(glm::mat4);
+        imageCount = icount;
 
 
         // Vertex and Index Buffers:
@@ -80,10 +81,9 @@ namespace SGF {
         // DescriptorSets:
         {
             // Allocating Descriptor Sets:
-            auto& window = Window::Get();
-            descriptorSets.resize(window.GetImageCount());
+            descriptorSets.resize(icount);
             for (auto& set : descriptorSets) {
-                set.set = device.CreateDescriptorSet(descriptorPool, descriptorLayout);
+                set.set = device.AllocateDescriptorSet(descriptorPool, descriptorLayout);
                 //set.set = vkl::allocateDescriptorSet(SVE::getDevice(), descriptorPool, 1, &descriptorLayout);
                 // descriptors only invalidated after model was added
                 set.invalidated = false;
@@ -95,9 +95,9 @@ namespace SGF {
             VkDescriptorBufferInfo uniform_info = {VK_NULL_HANDLE, 0, VK_WHOLE_SIZE};
             for (size_t i = 0; i < descriptorSets.size(); ++i) {
                 VkWriteDescriptorSet writes[] = {
-                    Vk::CreateDescriptorWrite(descriptorSets[i].set, 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, 1, &sampler_info)
+                    Vk::CreateDescriptorWrite(descriptorSets[i].set, 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1)
                 };
-                device.UpdateDescriptors(writes, {});
+                device.UpdateDescriptors(writes);
                 //vkUpdateDescriptorSets(device.getLogical(), ARRAY_SIZE(writes), writes, 0, nullptr);
             }
         }
@@ -282,10 +282,9 @@ namespace SGF {
         warn("HelloWorld");
     }
 
-    void ModelRenderer::Draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight) {
+    void ModelRenderer::Draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight, uint32_t imageIndex) {
         CheckTransferStatus();
-        UpdateTextureDescriptors();
-        auto& win = Window::Get();
+        UpdateTextureDescriptors(imageIndex);
 
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         VkViewport viewport = { (float)0.0f, (float)0.0f, (float)viewportWidth, (float)viewportHeight, 0.0f, 1.0f };
@@ -294,7 +293,7 @@ namespace SGF {
         vkCmdSetScissor(commands, 0, 1, &scissor);
         VkDescriptorSet sets[] = {
             uniformSet,
-            descriptorSets[win.GetImageIndex()].set
+            descriptorSets[imageIndex].set
         };
 
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
@@ -308,11 +307,19 @@ namespace SGF {
         constexpr uint32_t max_index_offset = PAGE_SIZE / sizeof(uint32_t);
         uint32_t first_index = max_index_offset;
         uint32_t image_count = 0;
+        uint32_t totalVertexCount = 0;
+        uint32_t totalIndexCount = 0;
+        uint32_t totalMeshCount = 0;
         for (size_t i = 0; i < models.size(); ++i) {
             //const Model& model = models[i][0];
             const ModelDrawData& drawData = models[i];
+
+            totalMeshCount += (uint32_t)drawData.meshes.size();
+
             for (size_t j = 0; j < drawData.meshes.size(); ++j) {
                 const auto& mesh = drawData.meshes[j];
+                totalIndexCount += mesh.indexCount;
+                totalVertexCount += mesh.vertexCount;
                 first_index -= mesh.indexCount;
                 uint32_t image_offset = image_count + mesh.imageIndex;
                 vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(image_offset), &image_offset);
@@ -350,19 +357,20 @@ namespace SGF {
 
     void ModelRenderer::CreatePipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode) {
         pipeline = Device::Get().CreateGraphicsPipeline(pipelineLayout, renderPass, subpass)
-            .fragmentShader(MODEL_FRAGMENT_SHADER_FILE).vertexShader(MODEL_VERTEX_SHADER_FILE).vertexInput(MODEL_VERTEX_INPUT_INFO).build(); 
+            .FragmentShader(MODEL_FRAGMENT_SHADER_FILE).VertexShader(MODEL_VERTEX_SHADER_FILE).VertexInput(MODEL_VERTEX_INPUT_INFO).DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Build();
     }
 
-    void ModelRenderer::UpdateTextureDescriptors() {
-        auto& win = Window::Get();
-        Descriptor& descriptor = descriptorSets[win.GetImageIndex()];
+    void ModelRenderer::UpdateTextureDescriptors(uint32_t imageIndex) {
+        Descriptor& descriptor = descriptorSets[imageIndex];
         auto& device = Device::Get();
         if (descriptor.invalidated) {
             std::vector<VkDescriptorImageInfo> texture_info(textures.size());
+            //VkWriteDescriptorSet descriptorWrites[]
             for (size_t i = 0; i < texture_info.size(); ++i) {
                 texture_info[i] = { VK_NULL_HANDLE, textures[i].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
             }
-            device.UpdateDescriptor(descriptor.set, 1, 0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, (uint32_t)texture_info.size(), texture_info.data());
+            device.UpdateDescriptor(descriptor.set, 1, 0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, texture_info.data(), (uint32_t)texture_info.size());
+            //device.UpdateDescriptors(descriptorWrites);
             //vkUpdateDescriptorSets(SVE::getDevice(), 1, &descriptor_write, 0, nullptr);
             descriptor.invalidated = false;
             info("Descriptor updated");

@@ -208,15 +208,15 @@ namespace SGF {
         VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const VkDescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, VkDescriptorPoolCreateFlags flags = FLAG_NONE) const;
         VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = FLAG_NONE) const;
         template<uint32_t COUNT>
-        inline VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const VkDescriptorPoolSize(&poolSizes)[COUNT], VkDescriptorPoolCreateFlags flags = FLAG_NONE) const { return descriptorPool(maxSets, poolSizes, COUNT, flags); }
+        inline VkDescriptorPool CreateDescriptorPool(uint32_t maxSets, const VkDescriptorPoolSize(&poolSizes)[COUNT], VkDescriptorPoolCreateFlags flags = FLAG_NONE) const { return CreateDescriptorPool(maxSets, poolSizes, COUNT, flags); }
 
 
-        VkDescriptorSet CreateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const;
-        void CreateDescriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* pSets) const;
-        void CreateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const;
-        void CreateDescriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const;
+        VkDescriptorSet AllocateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout descriptorSetLayout) const;
+        void AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& info, VkDescriptorSet* pSets) const;
+        void AllocateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout* pSetLayouts, uint32_t setCount, VkDescriptorSet* pDescriptorSets) const;
+        void AllocateDescriptorSets(VkDescriptorPool pool, const std::vector<VkDescriptorSetLayout> setLayouts, VkDescriptorSet* pDescriptorSets) const;
         template<uint32_t COUNT>
-        inline void CreateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout(&setLayouts)[COUNT], VkDescriptorSet(&pDescriptorSets)[COUNT]) const { CreateDescriptorSets(pool, setLayouts, COUNT, pDescriptorSets); }
+        inline void AllocateDescriptorSets(VkDescriptorPool pool, const VkDescriptorSetLayout(&setLayouts)[COUNT], VkDescriptorSet(&pDescriptorSets)[COUNT]) const { AllocateDescriptorSets(pool, setLayouts, COUNT, pDescriptorSets); }
 
         void UpdateDescriptors(const VkWriteDescriptorSet* pDescriptorWrites, uint32_t writeCount, const VkCopyDescriptorSet* pDescriptorCopies = nullptr, uint32_t copyCount = 0) const;
         template<uint32_t WRITE_COUNT, uint32_t COPY_COUNT>
@@ -231,12 +231,12 @@ namespace SGF {
         
         inline void UpdateDescriptor(const VkWriteDescriptorSet& descriptorWrite) const { UpdateDescriptors(&descriptorWrite, 1, nullptr, 0); }
 
-        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorBufferInfo* pBufferInfos, const void* pNext = nullptr) const
-        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, descriptorCount, pBufferInfos, pNext)); }
-        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorImageInfo* pImageInfos, const void* pNext = nullptr) const
-        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, descriptorCount, pImageInfos, pNext)); }
-        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkBufferView* pBufferViews, const void* pNext = nullptr) const
-        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, descriptorCount, pBufferViews, pNext)); }
+        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, const VkDescriptorBufferInfo* pBufferInfos, uint32_t descriptorCount, const void* pNext = nullptr) const
+        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, pBufferInfos, descriptorCount, pNext)); }
+        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, const VkDescriptorImageInfo* pImageInfos, uint32_t descriptorCount, const void* pNext = nullptr) const
+        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, pImageInfos, descriptorCount, pNext)); }
+        inline void UpdateDescriptor(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, const VkBufferView* pBufferViews, uint32_t descriptorCount, const void* pNext = nullptr) const
+        { UpdateDescriptor(Vk::CreateDescriptorWrite(dstSet, dstBinding, dstArrayElement, descriptorType, pBufferViews, descriptorCount, pNext)); }
         
         /**
          * @brief gets the first supported format for the requested feature and tiling from supplied candidates.

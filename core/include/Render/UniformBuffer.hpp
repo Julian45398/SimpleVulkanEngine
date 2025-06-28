@@ -37,7 +37,7 @@ namespace SGF {
 		inline VkDescriptorSetLayoutBinding GetDescriptorLayoutBinding(uint32_t binding, VkShaderStageFlags shaderStage) {
 			return { binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, shaderStage, nullptr };
 		}
-		inline void SetValue(const T& newValue, uint32_t index) {
+		inline void SetValueAt(uint32_t index, const T& newValue) {
 			size_t offset = index * uniformSize;
 			memcpy(mappedMemory + offset, &newValue, sizeof(T));
 		}

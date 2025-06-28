@@ -6,15 +6,15 @@
 #include "Render/RenderPass.hpp"
 #include "Filesystem/File.hpp"
 
-#ifdef SGF_WINDOWS 
+#ifdef SGF_OS_WINDOWS 
 #define GLFW_EXPOSE_NATIVE_WIN32
-#elif defined(SGF_LINUX)
+#elif defined(SGF_OS_LINUX)
 #ifdef SGF_USE_X11
 #define GLFW_EXPOSE_NATIVE_X11
 #elif defined(SGF_USE_WAYLAND)
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
-#elif defined(SGF_APPLE)
+#elif defined(SGF_OS_APPLE)
 #define GLFW_EXPOSE_NATIVE_COCOA
 #endif
 #define GLFW_INCLUDE_VULKAN
@@ -72,18 +72,20 @@ namespace SGF {
         assert(HasFocus());
         s_FocusedWindow.SetCursor(cursor);
     }
-
-
     bool Input::IsMouseButtonPressed(Mousecode button) {
+        assert(HasFocus());
         return HasFocus() && GetFocusedWindow().IsMouseButtonPressed(button);
     }
     bool Input::IsKeyPressed(Keycode key) {
+        assert(HasFocus());
         return HasFocus() && GetFocusedWindow().IsKeyPressed(key);
     }
     bool Input::HasFocus() {
         return s_FocusedWindow.IsOpen();
     }
 
+
+    const Cursor Cursor::STANDARD;
     Cursor::Cursor(const char* textureFile) {
         GLFWimage image;
         auto data = LoadTextureFile(textureFile, (uint32_t*)&image.width, (uint32_t*)&image.height);
@@ -301,6 +303,78 @@ namespace SGF {
     void WindowHandle::Minimize() const {
         glfwIconifyWindow((GLFWwindow*)nativeHandle);
     }
+	std::string WindowHandle::OpenFileDialog(const FileFilter* pFilters, uint32_t filterCount) const {
+		NFD_Init();
+
+		nfdu8char_t* outPath;
+		nfdopendialogu8args_t args = { 0 };
+
+		std::string filepath;
+        if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow)) {
+            //NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow);
+#ifdef SGF_OS_WINDOWS 
+            args.parentWindow.handle = (void*)glfwGetWin32Window((GLFWwindow*)nativeHandle);
+            args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_WINDOWS;
+#elif defined(SGF_OS_LINUX)
+#ifdef SGF_USE_X11
+            args.parentWindow.handle = (void*)glfwGetX11Window((GLFWwindow*)nativeHandle);
+            args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_X11;
+#endif
+            SGF::warn(ERROR_OPEN_FILE_DIALOG);
+#endif
+        }
+		args.filterList = (const nfdu8filteritem_t*)(pFilters);
+		args.filterCount = filterCount;
+		nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
+
+		if (result == NFD_OKAY) {
+			filepath = outPath;
+			SGF::info("Picked file: ", filepath);
+			NFD_FreePathU8(outPath);
+		}
+		else if (result == NFD_CANCEL) {
+			SGF::info("User pressed cancel.");
+		}
+		else {
+			SGF::error(NFD_GetError());
+		}
+		NFD_Quit();
+
+		return filepath;
+	}
+	std::string WindowHandle::SaveFileDialog(const FileFilter* pFilters, uint32_t filterCount) const
+	{
+		NFD_Init();
+
+		nfdu8char_t* outPath;
+		nfdsavedialogu8args_t args = {};
+		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow)) {
+			SGF::error(ERROR_OPEN_FILE_DIALOG);
+		}
+		args.filterList = (const nfdu8filteritem_t*)(pFilters);
+		args.filterCount = filterCount;
+		nfdresult_t result = NFD_SaveDialogU8_With(&outPath, &args);
+
+		std::string filepath;
+		if (result == NFD_OKAY)
+		{
+			filepath = outPath;
+			SGF::info("User picked savefile: ", filepath);
+			NFD_FreePathU8(outPath);
+		}
+		else if (result == NFD_CANCEL)
+		{
+			SGF::info("User pressed cancel.");
+		}
+		else
+		{
+			SGF::error(NFD_GetError());
+		}
+		NFD_Quit();
+
+		return filepath;
+	}
+
 
     constexpr VkFormat POSSIBLE_STENCIL_FORMATS[] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT };
 
@@ -568,75 +642,7 @@ namespace SGF {
         return windowHandle.GetCursorPos();
     }
 
-    std::string Window::OpenFileDialog(const FileFilter& filter) const {
-		return OpenFileDialog(1, &filter);
-	}
-	std::string Window::OpenFileDialog(uint32_t filterCount, const FileFilter* pFilters) const {
-		NFD_Init();
-
-		nfdu8char_t* outPath;
-		nfdopendialogu8args_t args = { 0 };
-
-		std::string filepath;
-        if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.GetHandle(), &args.parentWindow)) {
-            SGF::error(ERROR_OPEN_FILE_DIALOG);
-        }
-		args.filterList = (const nfdu8filteritem_t*)(pFilters);
-		args.filterCount = filterCount;
-		nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
-
-		if (result == NFD_OKAY) {
-			filepath = outPath;
-			SGF::info("Picked file: ", filepath);
-			NFD_FreePathU8(outPath);
-		}
-		else if (result == NFD_CANCEL) {
-			SGF::info("User pressed cancel.");
-		}
-		else {
-			SGF::error(NFD_GetError());
-		}
-		NFD_Quit();
-
-		return filepath;
-	}
-	std::string Window::SaveFileDialog(const FileFilter& filter) const
-	{
-		return SaveFileDialog(1, &filter);
-	}
-	std::string Window::SaveFileDialog(uint32_t filterCount, const FileFilter* pFilters) const
-	{
-		NFD_Init();
-
-		nfdu8char_t* outPath;
-		nfdsavedialogu8args_t args = {};
-		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)windowHandle.GetHandle(), &args.parentWindow)) {
-			SGF::error(ERROR_OPEN_FILE_DIALOG);
-		}
-		args.filterList = (const nfdu8filteritem_t*)(pFilters);
-		args.filterCount = filterCount;
-		nfdresult_t result = NFD_SaveDialogU8_With(&outPath, &args);
-
-		std::string filepath;
-		if (result == NFD_OKAY)
-		{
-			filepath = outPath;
-			SGF::info("User picked savefile: ", filepath);
-			NFD_FreePathU8(outPath);
-		}
-		else if (result == NFD_CANCEL)
-		{
-			SGF::info("User pressed cancel.");
-		}
-		else
-		{
-			SGF::error(NFD_GetError());
-		}
-		NFD_Quit();
-
-		return filepath;
-	}
-
+    
     void Window::FreeAttachmentData() {
 		assert(attachmentData != nullptr);
 		DestroyFramebuffers();

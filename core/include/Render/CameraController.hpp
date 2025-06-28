@@ -29,7 +29,7 @@ namespace SGF {
 		inline void UpdateCamera(const UpdateEvent& event) {
 			float frameTime = event.GetDeltaTime();
 			auto pos = Input::GetCursorPos();
-			if (Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+			if (Input::IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
 				if (!isMouseClicked) {
 					Input::CaptureCursor();
 				}

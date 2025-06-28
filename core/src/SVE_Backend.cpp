@@ -6,7 +6,7 @@
 #elif defined(SVE_USE_WAYLAND)
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
-#elif define(SVE_APPLE)
+#elif defined(SVE_APPLE)
 #define GLFW_EXPOSE_NATIVE_COCOA
 #endif
 #include "SVE_Backend.h"

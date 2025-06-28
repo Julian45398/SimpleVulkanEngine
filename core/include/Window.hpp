@@ -22,9 +22,11 @@ namespace SGF {
     };
     class Cursor {
     public:
+        static const Cursor STANDARD;
         Cursor(const char* filename);
         ~Cursor();
     private:
+        inline Cursor() : handle(nullptr) {}
         friend WindowHandle;
         void* handle;
     };
@@ -32,7 +34,6 @@ namespace SGF {
     public:
         void Open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags);
         void Close();
-        inline ~WindowHandle() { if (nativeHandle) warn("window handle destroyed but window: ", GetTitle(), " is still active!"); }
         inline WindowHandle(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags) 
         { Open(title, width, height, windowFlags); }
         inline WindowHandle() : nativeHandle(nullptr) {};
@@ -70,6 +71,20 @@ namespace SGF {
         void SetWindowed(uint32_t width, uint32_t height) const;
         void Resize(uint32_t width, uint32_t height) const;
         void Minimize() const;
+
+		std::string OpenFileDialog(const FileFilter* pFilters, uint32_t filterCount) const;
+		inline std::string OpenFileDialog(const FileFilter& filter) const { return OpenFileDialog(&filter, 1); }
+		inline std::string OpenFileDialog(const char* filterDescription, const char* filter) const { return OpenFileDialog((FileFilter){filterDescription, filter}); }
+		inline std::string OpenFileDialog(const std::vector<FileFilter>& filters) const { return OpenFileDialog(filters.data(), filters.size()); }
+        template<uint32_t COUNT>
+		inline std::string OpenFileDialog(const FileFilter(&filters)[COUNT]) const { return OpenFileDialog(filters, COUNT); }
+
+		std::string SaveFileDialog(const FileFilter* pFilters, uint32_t filterCount) const;
+		inline std::string SaveFileDialog(const FileFilter& filter) const { return SaveFileDialog(&filter, 1); }
+		inline std::string SaveFileDialog(const char* filterDescription, const char* filter) const { return SaveFileDialog((FileFilter){filterDescription, filter}); }
+		inline std::string SaveFileDialog(const std::vector<FileFilter>& filters) const { return SaveFileDialog(filters.data(), filters.size()); }
+        template<uint32_t COUNT>
+		inline std::string SaveFileDialog(const FileFilter(&filters)[COUNT]) const { return SaveFileDialog(filters, COUNT); }
     private:
         void* nativeHandle;
     };
@@ -237,10 +252,6 @@ namespace SGF {
         bool IsMousePressed(Mousecode button) const;
         glm::dvec2 GetCursorPos() const;
 
-		std::string OpenFileDialog(const FileFilter& filter) const;
-		std::string OpenFileDialog(uint32_t filterCount, const FileFilter* pFilters) const;
-		std::string SaveFileDialog(const FileFilter& filter) const;
-		std::string SaveFileDialog(uint32_t filterCount, const FileFilter* pFilters) const;
     private:
         inline Window() {}
 

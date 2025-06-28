@@ -19,6 +19,8 @@ namespace SGF {
 #include <stack>
 #include <string>
 #include <type_traits>
+#include <memory>
+#include <memory.h>
 
 #include <volk.h>
 #define GLM_FORCE_RADIANS

@@ -6,11 +6,18 @@ namespace SGF {
         inline VkClearValue CreateDepthClearValue(float depth, uint32_t stencil) { VkClearValue value; value.depthStencil.depth = depth; value.depthStencil.stencil = stencil; return value; }
         inline VkClearValue CreateColorClearValue(float r, float g, float b, float a) { return { r, g, b , a }; }
 
-        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorBufferInfo* pBufferInfos, const void* pNext = nullptr) 
+        inline VkDescriptorSetLayoutBinding CreateDescriptorSetLayoutBinding(uint32_t binding, VkDescriptorType descriptorType, uint32_t descriptorCount, VkShaderStageFlags stageFlags, const VkSampler* pImmutableSamplers = nullptr) 
+        { return { binding, descriptorType, descriptorCount, stageFlags, pImmutableSamplers }; }
+
+        inline VkDescriptorPoolSize CreateDescriptorPoolSize(VkDescriptorType type, uint32_t descriptorCount) 
+        { return  { type, descriptorCount }; }
+        inline VkDescriptorPoolCreateInfo CreateDescriptorPoolInfo(uint32_t maxSets, uint32_t poolSizeCount, const VkDescriptorPoolSize* pPoolSizes, VkDescriptorPoolCreateFlags flags = FLAG_NONE, const void* pNext = nullptr) 
+        { return { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, pNext, flags, maxSets, poolSizeCount, pPoolSizes }; }
+        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, const VkDescriptorBufferInfo* pBufferInfos, uint32_t descriptorCount, const void* pNext = nullptr) 
         { return { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, pNext, dstSet, dstBinding, dstArrayElement, descriptorCount, descriptorType, nullptr, pBufferInfos, nullptr }; }
-        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkDescriptorImageInfo* pImageInfos, const void* pNext = nullptr) 
+        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, const VkDescriptorImageInfo* pImageInfos, uint32_t descriptorCount, const void* pNext = nullptr) 
         { return { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, pNext, dstSet, dstBinding, dstArrayElement, descriptorCount, descriptorType, pImageInfos, nullptr, nullptr }; }
-        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, uint32_t descriptorCount, const VkBufferView* pBufferViews, const void* pNext = nullptr) 
+        inline VkWriteDescriptorSet CreateDescriptorWrite(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, VkDescriptorType descriptorType, const VkBufferView* pBufferViews, uint32_t descriptorCount, const void* pNext = nullptr) 
         { return { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, pNext, dstSet, dstBinding, dstArrayElement, descriptorCount, descriptorType, nullptr, nullptr, pBufferViews }; }
 
         VkCommandBufferInheritanceInfo CreateCommandBufferInheritanceInfo(VkRenderPass renderPass, uint32_t subpass, VkFramebuffer framebuffer = VK_NULL_HANDLE, VkBool32 occlusionQueryEnable = VK_FALSE, VkQueryControlFlags queryFlags = FLAG_NONE, VkQueryPipelineStatisticFlags pipelineStatistics = FLAG_NONE, const void* pNext = nullptr);

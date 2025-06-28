@@ -11,7 +11,13 @@ namespace SGF {
 
 	class CommandList {
 	public:
-		inline CommandList(const Device& device, QueueFamilyFlagBits queueType, uint32_t queueIndex, VkCommandBufferLevel level, VkCommandPoolCreateFlags flags) {
+		inline CommandList(QueueFamilyFlagBits queueType, uint32_t queueIndex, VkCommandBufferLevel level, VkCommandPoolCreateFlags flags) {
+			Init(queueType, queueIndex, level, flags);
+		}
+		inline CommandList() {}
+		inline void Init(QueueFamilyFlagBits queueType, uint32_t queueIndex, VkCommandBufferLevel level, VkCommandPoolCreateFlags flags) {
+			assert(commands == VK_NULL_HANDLE);
+			auto& device = Device::Get();
 			uint32_t queueFamilyIndex;
 			assert(queueType == QUEUE_FAMILY_COMPUTE || queueType == QUEUE_FAMILY_GRAPHICS || queueType == QUEUE_FAMILY_PRESENT);
 			if (queueType == QUEUE_FAMILY_GRAPHICS) {
@@ -195,8 +201,8 @@ namespace SGF {
 			}
 		}
 	private:
-		VkCommandBuffer	commands;
-		VkCommandPool commandPool;
+		VkCommandBuffer	commands = VK_NULL_HANDLE;
+		VkCommandPool commandPool = VK_NULL_HANDLE;
 		VkFence fence;
 		VkQueue queue;
 	};

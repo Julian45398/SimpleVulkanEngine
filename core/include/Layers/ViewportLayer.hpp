@@ -4,6 +4,9 @@
 #include "ImGuiLayer.hpp"
 #include "Render/CommandList.hpp"
 #include "Render/CameraController.hpp"
+#include "Window.hpp"
+#include "Render/ModelRenderer.hpp"
+#include "Render/UniformBuffer.hpp"
 
 #define SGF_FRAMES_IN_FLIGHT 2
 
@@ -36,7 +39,7 @@ namespace SGF {
         void ResizeFramebuffer(uint32_t width, uint32_t height);
         void CreateFramebuffer();
         void DestroyFramebuffer();
-        CommandList commands;
+        CommandList commands[SGF_MAX_FRAMES_IN_FLIGHT];
 		VkRenderPass renderPass = VK_NULL_HANDLE;
         VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
@@ -50,9 +53,21 @@ namespace SGF {
         VkImageView depthImageView = VK_NULL_HANDLE;
         VkFramebuffer framebuffer = VK_NULL_HANDLE;
         VkSemaphore signalSemaphore = VK_NULL_HANDLE;
+        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+        VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
+        UniformArray<glm::mat4> uniformBuffer;
+        VkDescriptorSet uniformDescriptors[SGF_MAX_FRAMES_IN_FLIGHT];
+        std::vector<Model> models;
         uint32_t width = 0;
         uint32_t height = 0;
         VkFormat imageFormat;
+        uint32_t imageIndex = 0;
         CameraController cameraController;
+        Cursor cursor;
+        ModelRenderer modelRenderer;
+        float viewSize = 0.0f;
+        float cameraZoom = 0.0f;
+        float aspectRatio = 0.0f;
+        bool isOrthographic = false;
 	};
 }

@@ -2,6 +2,8 @@
 
 #include <fstream>
 
+#include <stb_image.h>
+
 namespace SGF {
 	std::vector<char> LoadBinaryFile(const char* filename) {
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -52,6 +54,11 @@ namespace SGF {
 		return SaveBinaryFile(filename, data.size(), data.data());
 	}
 	std::vector<uint8_t> LoadTextureFile(const char* filename, uint32_t* pWidth, uint32_t* pHeight) {
-		return std::vector<uint8_t>();
+		int channels;
+		auto pixels = stbi_load(filename, (int*)pWidth, (int*)pHeight, &channels, STBI_rgb_alpha);
+		assert(channels == STBI_rgb_alpha);
+		std::vector<uint8_t> data(pixels, pixels + (*pWidth) * (*pHeight) * channels);
+		stbi_image_free(pixels);
+		return data;
 	}
 }
