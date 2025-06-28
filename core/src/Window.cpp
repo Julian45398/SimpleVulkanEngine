@@ -2,9 +2,9 @@
 #include "Window.hpp"
 #include "Render/Device.hpp"
 #include "Layers/LayerStack.hpp"
-#include "Events/InputEvents.hpp"
 #include "Render/CommandList.hpp"
 #include "Render/RenderPass.hpp"
+#include "Filesystem/File.hpp"
 
 #ifdef SGF_WINDOWS 
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -41,11 +41,39 @@ namespace SGF {
     glm::dvec2 Input::GetCursorPos() {
         static glm::dvec2 pos(0,0);
         assert(HasFocus());
-        if (HasFocus()) {
-            pos = s_FocusedWindow.GetCursorPos();
-        }
+        pos = s_FocusedWindow.GetCursorPos();
         return pos;
     }
+    void Input::SetCursorPos(double xpos, double ypos) {
+        assert(HasFocus());
+        s_FocusedWindow.SetCursorPos(xpos, ypos);
+    }
+    void Input::SetCursorPos(const glm::dvec2& pos) {
+        assert(HasFocus());
+        s_FocusedWindow.SetCursorPos(pos);
+    }
+    void Input::CaptureCursor() {
+        assert(HasFocus());
+        s_FocusedWindow.CaptureCursor();
+    }
+    void Input::HideCursor() {
+        assert(HasFocus());
+        s_FocusedWindow.HideCursor();
+    }
+    void Input::RestrictCursor() {
+        assert(HasFocus());
+        s_FocusedWindow.RestrictCursor();
+    }
+    void Input::FreeCursor() {
+        assert(HasFocus());
+        s_FocusedWindow.FreeCursor();
+    }
+    void Input::SetCursor(const Cursor& cursor) {
+        assert(HasFocus());
+        s_FocusedWindow.SetCursor(cursor);
+    }
+
+
     bool Input::IsMouseButtonPressed(Mousecode button) {
         return HasFocus() && GetFocusedWindow().IsMouseButtonPressed(button);
     }
@@ -55,6 +83,14 @@ namespace SGF {
     bool Input::HasFocus() {
         return s_FocusedWindow.IsOpen();
     }
+
+    Cursor::Cursor(const char* textureFile) {
+        GLFWimage image;
+        auto data = LoadTextureFile(textureFile, (uint32_t*)&image.width, (uint32_t*)&image.height);
+        image.pixels = data.data();
+        handle = glfwCreateCursor(&image, 0, 0);
+    }
+    Cursor::~Cursor() { glfwDestroyCursor((GLFWcursor*)handle); }
     void WindowHandle::Open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags flags) {
         assert(nativeHandle == nullptr);
         
@@ -65,10 +101,13 @@ namespace SGF {
             width = mode->width;
             height = mode->height;
         }
-        
         nativeHandle = glfwCreateWindow(width, height, title, monitor, nullptr);
         if (nativeHandle == nullptr) {
             SGF::fatal(ERROR_CREATE_WINDOW);
+        }
+        if (glfwRawMouseMotionSupported()) {
+            SGF::info("raw mouse motion supported!");
+            glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         }
         if (flags & WINDOW_FLAG_RESIZABLE) {
             glfwSetWindowAttrib((GLFWwindow*)nativeHandle, GLFW_RESIZABLE, GLFW_TRUE);
@@ -76,12 +115,6 @@ namespace SGF {
         if (flags & WINDOW_FLAG_BORDERLESS) {
             glfwSetWindowAttrib((GLFWwindow*)nativeHandle, GLFW_DECORATED, GLFW_FALSE);
         }
-        glfwSetWindowCloseCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window)
-		{
-			WindowHandle& win = *(WindowHandle*)&window;
-            WindowCloseEvent event(win);
-            EventManager::dispatch(event);
-		});
 		glfwSetKeyCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, int key, int scancode, int action, int mods)
 		{
 			WindowHandle& win = *(WindowHandle*)&window;
@@ -167,8 +200,21 @@ namespace SGF {
             MouseMovedEvent event(win, xPos, yPos);
             LayerStack::Get().OnEvent(event);
         });
+        glfwSetWindowIconifyCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, int iconified) {
+            WindowHandle& win = *(WindowHandle*)&window;
+            WindowIconifyEvent event(win, iconified);
+            LayerStack::Get().OnEvent(event);
+        });
+        glfwSetWindowSizeCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window, int width, int height) {
+            WindowHandle& win = *(WindowHandle*)&window;
+            auto size = win.GetSize();
+            WindowResizeEvent event(win, size.width, size.height);
+            LayerStack::Get().OnEvent(event);
+        });
     }
     void WindowHandle::Close() {
+        WindowCloseEvent event(*this);
+        EventManager::Dispatch(event);
         glfwDestroyWindow((GLFWwindow*)nativeHandle);
         nativeHandle = nullptr;
     }
@@ -177,18 +223,18 @@ namespace SGF {
     }
     uint32_t WindowHandle::GetWidth() const {
         int width;
-        glfwGetWindowSize((GLFWwindow*)nativeHandle, &width, nullptr);
+        glfwGetFramebufferSize((GLFWwindow*)nativeHandle, &width, nullptr);
         return width;
     }
     uint32_t WindowHandle::GetHeight() const {
         int height;
-        glfwGetWindowSize((GLFWwindow*)nativeHandle, nullptr, &height);
+        glfwGetFramebufferSize((GLFWwindow*)nativeHandle, nullptr, &height);
         return height;
     }
     VkExtent2D WindowHandle::GetSize() const {
         static_assert(sizeof(int) == sizeof(uint32_t));
         VkExtent2D size;
-        glfwGetWindowSize((GLFWwindow*)nativeHandle, (int*)&size.width, (int*)&size.height);
+        glfwGetFramebufferSize((GLFWwindow*)nativeHandle, (int*)&size.width, (int*)&size.height);
         return size;
     }
     bool WindowHandle::IsKeyPressed(Keycode key) const {
@@ -202,11 +248,27 @@ namespace SGF {
         glfwGetCursorPos((GLFWwindow*)nativeHandle, &pos.x, &pos.y);
         return pos;
     }
+    void WindowHandle::SetCursorPos(double xpos, double ypos) const {
+        glfwSetCursorPos((GLFWwindow*) nativeHandle, xpos, ypos);
+    }
+    void WindowHandle::SetCursorPos(const glm::dvec2& pos) const {
+        glfwSetCursorPos((GLFWwindow*) nativeHandle, pos.x, pos.y);
+    }
     void WindowHandle::CaptureCursor() const {
         glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
+    void WindowHandle::HideCursor() const {
+        glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+    }
+    void WindowHandle::RestrictCursor() const {
+        glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
     }
     void WindowHandle::FreeCursor() const {
         glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+    void WindowHandle::SetCursor(const Cursor& cursor) const {
+        glfwSetCursor((GLFWwindow*)nativeHandle, (GLFWcursor*)cursor.handle);
     }
     bool WindowHandle::IsFullscreen() const {
         return glfwGetWindowMonitor((GLFWwindow*)nativeHandle) != nullptr;
@@ -221,15 +283,10 @@ namespace SGF {
     void WindowHandle::SetTitle(const char* title) const {
         glfwSetWindowTitle((GLFWwindow*)nativeHandle, title);
     }
-    
-
     const char* WindowHandle::GetTitle() const {
         return glfwGetWindowTitle((GLFWwindow*)nativeHandle);
     }
 
-    void WindowHandle::SetCursorPos(const glm::dvec2& pos) const {
-        glfwSetCursorPos((GLFWwindow*)nativeHandle, pos.x, pos.y);
-    }
     void WindowHandle::SetFullscreen() const {
         auto m = glfwGetPrimaryMonitor();
         auto mode = glfwGetVideoMode(m);
@@ -386,14 +443,14 @@ namespace SGF {
             if (width == 0 || height == 0) {
                 SGF::info("window is minimized!");
                 WindowMinimizeEvent event(windowHandle, true);
-				EventManager::dispatch(event);
+				EventManager::Dispatch(event);
                 do {
                     glfwGetFramebufferSize(window, &width, &height);
                     glfwWaitEvents();
                     SGF::info("polled events finished!");
                 } while (width == 0 || height == 0);
                 WindowMinimizeEvent maxEvent(windowHandle, false);
-                EventManager::dispatch(maxEvent);
+                EventManager::Dispatch(maxEvent);
                 SGF::info("window is maximized again!");
             }
 			auto pWindow = (Window*)glfwGetWindowUserPointer(window);
@@ -403,7 +460,7 @@ namespace SGF {
                 win.ResizeFramebuffers(width, height);
             }
             WindowResizeEvent event(windowHandle, width, height);
-            EventManager::dispatch(event);
+            EventManager::Dispatch(event);
 		});
 
 		

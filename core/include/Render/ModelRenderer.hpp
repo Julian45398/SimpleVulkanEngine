@@ -8,9 +8,9 @@ namespace SGF {
         static constexpr uint32_t MAX_TEXTURE_COUNT = 128;
         ModelRenderer(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout);
         ~ModelRenderer();
-        void addModel(const Model& model);
-        void draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight);
-        void changePipelineSettings(VkPolygonMode polgyonMode);
+        void AddModel(const Model& model);
+        void Draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight);
+        void ChangePipelineSettings(VkPolygonMode polgyonMode);
     private:
         struct ModelDrawData {
             struct MeshDrawData {
@@ -58,9 +58,9 @@ namespace SGF {
         uint32_t indexCount;
         size_t freeVertexBufferMemory;
 
-        void invalidateDescriptors();
-        void checkTransferStatus();
-        void createPipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode);
-        void updateTextureDescriptors();
+        void InvalidateDescriptors();
+        void CheckTransferStatus();
+        void CreatePipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode);
+        void UpdateTextureDescriptors();
     };
 }

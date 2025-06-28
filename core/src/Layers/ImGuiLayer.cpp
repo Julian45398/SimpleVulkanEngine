@@ -9,7 +9,7 @@
 namespace SGF {
 	extern VkInstance VulkanInstance;
 	extern VkAllocationCallbacks* VulkanAllocator;
-	void imguiVulkanCheckResult(VkResult result) {
+	void ImguiVulkanCheckResult(VkResult result) {
 		if (result != VK_SUCCESS) {
 			fatal(ERROR_VULKAN_IMGUI);
 		}
@@ -53,7 +53,7 @@ namespace SGF {
 		init_info.ImageCount = (uint32_t)window.GetImageCount();
 		init_info.MSAASamples = sampleCount;
 		init_info.Allocator = VulkanAllocator;
-		init_info.CheckVkResultFn = imguiVulkanCheckResult;
+		init_info.CheckVkResultFn = ImguiVulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
 		VkFormat requestedFormats[] = { Window::DEFAULT_SURFACE_FORMAT.format, VK_FORMAT_B8G8R8A8_UNORM };
 		ImGui_ImplVulkanH_SelectSurfaceFormat(device.GetPhysical(), window.GetSurface(), requestedFormats, 
@@ -70,7 +70,7 @@ namespace SGF {
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 		ImDrawData* draw_data = ImGui::GetDrawData();
-		auto& commands = event.getCommands();
+		auto& commands = event.GetCommands();
 		const std::vector<VkClearValue> clearValues = {
 				SGF::Vk::CreateColorClearValue(0.3f, 0.3f, 0.3f, 1.0f),
 				//SGF::createDepthClearValue(1.0f, 0)

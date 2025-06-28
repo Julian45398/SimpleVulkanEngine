@@ -2,7 +2,6 @@
 
 #include "SGF_Core.hpp"
 #include "Events/Event.hpp"
-#include "Events/InputEvents.hpp"
 #include "Layers/Layer.hpp"
 
 namespace SGF {
@@ -27,6 +26,12 @@ namespace SGF {
         void OnEvent(const MouseReleasedEvent& event);
         void OnEvent(const MouseMovedEvent& event);
         void OnEvent(const MouseScrollEvent& event);
+        template<typename EVENT>
+        inline void OnEvent(const EVENT& event) const {
+            for (size_t i = layers.size(); i != 0; --i) {
+                layers[i - 1]->OnEvent(event);
+            }
+        }
     private:
         static LayerStack s_MainStack;
     public:

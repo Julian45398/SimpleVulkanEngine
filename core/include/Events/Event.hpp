@@ -8,14 +8,14 @@ namespace SGF {
         class EventHandler {
         public:
             template<typename USER>
-            inline static void addListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            inline static void AddListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
                 FunctionUserPair obs{ (EventFunction)func, (void*)user };
-                getListeners().push_back(obs);
+                GetListeners().push_back(obs);
             }
             template<typename USER>
-            inline static bool removeListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            inline static bool RemoveListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
                 FunctionUserPair obs{ (EventFunction)func, (void*)user };
-                auto& listeners = getListeners();
+                auto& listeners = GetListeners();
                 for (size_t i = 0; i < listeners.size(); ++i) {
                     if (obs == listeners[i]) {
                         listeners.erase(listeners.begin() + i);
@@ -24,13 +24,13 @@ namespace SGF {
                 }
                 return false;
             }
-            inline static void clearListeners() {
-                auto& listeners = getListeners();
+            inline static void ClearListeners() {
+                auto& listeners = GetListeners();
                 listeners.clear();
                 listeners.shrink_to_fit();
             }
-            inline static void dispatch(const EVENT_TYPE& event) {
-                auto& listeners = getListeners();
+            inline static void Dispatch(const EVENT_TYPE& event) {
+                auto& listeners = GetListeners();
                 for (size_t i = listeners.size(); i > 0; --i) {
                     SGF::debug("dispatching event: index ", i);
                     listeners[i-1].func(event, listeners[i-1].user);
@@ -53,31 +53,31 @@ namespace SGF {
                     return func == other.func && user == other.user;
                 }
             };
-            inline static std::vector<FunctionUserPair>& getListeners() {
+            inline static std::vector<FunctionUserPair>& GetListeners() {
                 static std::vector<FunctionUserPair> listeners;
                 return listeners;
             }
-            inline static size_t& getRemovalCount() {
+            inline static size_t& GetRemovalCount() {
                 static size_t removalCount;
                 return removalCount;
             }
         };
         //==========================================
         template<typename EVENT_TYPE, typename USER>
-        inline void addListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
-            EventHandler<EVENT_TYPE>::addListener(func, user);
+        inline void AddListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            EventHandler<EVENT_TYPE>::AddListener(func, user);
         }
         template<typename EVENT_TYPE, typename USER>
-        inline bool removeListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
-            return EventHandler<EVENT_TYPE>::removeListener(func, user);
+        inline bool RemoveListener(void(*func)(const EVENT_TYPE&, USER*), USER* user) {
+            return EventHandler<EVENT_TYPE>::RemoveListener(func, user);
         }
         template<typename EVENT_TYPE>
-        inline void dispatch(const EVENT_TYPE& event) {
-            EventHandler<EVENT_TYPE>::dispatch(event);
+        inline void Dispatch(const EVENT_TYPE& event) {
+            EventHandler<EVENT_TYPE>::Dispatch(event);
         }
         template<typename EVENT_TYPE>
-        inline void clear() {
-            EventHandler<EVENT_TYPE>::clearListeners();
+        inline void Clear() {
+            EventHandler<EVENT_TYPE>::ClearListeners();
         }
         
     }

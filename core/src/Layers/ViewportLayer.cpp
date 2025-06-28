@@ -1,6 +1,7 @@
 #include "Layers/ViewportLayer.hpp"
 #include "SGF.hpp"
 #include "Layers/ImGuiLayer.hpp"
+#include "Render/CameraController.hpp"
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), imageFormat(colorFormat), 
@@ -29,29 +30,29 @@ namespace SGF {
 	}
 	ViewportLayer::~ViewportLayer() {
 		auto& device = Device::Get();
-		destroyFramebuffer();
+		DestroyFramebuffer();
 		device.Destroy(renderPass, graphicsPipeline, pipelineLayout, sampler, signalSemaphore);
 	}
 	void ViewportLayer::OnAttach() {
 	}
 	void ViewportLayer::OnDetach() {
-
 	}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
-		renderViewport(event);
+		RenderViewport(event);
 	}
-
-	
+	void ViewportLayer::OnEvent(const WindowResizeEvent& event) {
+		SGF::info("WindowResized: width: ", event.GetWidth(), " height: ", event.GetHeight());
+	}
 	void ViewportLayer::OnEvent(const UpdateEvent& event) {
 		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-		updateViewport(event);
+		UpdateViewport(event);
 		ImGui::Begin("Other Window");
-		ImGui::Text("Application average %.3f ms/frame", event.getDeltaTime());
+		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
 		ImGui::ColorButton("ColorButton", ImVec4(0.2, 0.8, 0.1, 1.0), 0, ImVec2(20.f, 20.f));
 		//ImGui::Text("Frame time: {d}", event.get);
 		ImGui::End();
 	}
-	void ViewportLayer::renderViewport(RenderEvent& event) {
+	void ViewportLayer::RenderViewport(RenderEvent& event) {
 		VkClearValue clearValues[] = {
 			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
 			SGF::Vk::CreateDepthClearValue(1.f, 0)
@@ -70,17 +71,16 @@ namespace SGF {
 		commands.EndRenderPass();
 		commands.End();
 		commands.Submit(nullptr, FLAG_NONE, signalSemaphore);
-		event.addWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		event.AddWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
-	void ViewportLayer::updateViewport(const UpdateEvent& event) {
+	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Viewport");
 		ImVec2 size = ImGui::GetContentRegionAvail();
 		if ((uint32_t)size.x != width || (uint32_t)size.y != height) {
-			resizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
+			ResizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
 		}
 		if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
-
 		}
 		ImGui::Image(imGuiImageID, size);
 		ImGui::End();
@@ -89,17 +89,17 @@ namespace SGF {
 	class SceneManager {
 
 	};
-	void ViewportLayer::resizeFramebuffer(uint32_t w, uint32_t h) {
+	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
 		width = w;
 		height = h;
 		info("Resizing framebuffer");
 		if (colorImage != VK_NULL_HANDLE) {
-			destroyFramebuffer();
+			DestroyFramebuffer();
 			info("framebuffer destroyed");
 		}
-		createFramebuffer();
+		CreateFramebuffer();
 	}
-	void ViewportLayer::createFramebuffer() {
+	void ViewportLayer::CreateFramebuffer() {
 		auto& device = Device::Get();
 
 		colorImage = device.CreateImage2D((uint32_t)width, (uint32_t)height, imageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -132,7 +132,7 @@ namespace SGF {
 			imGuiImageID = *(ImTextureID*)&descriptorSet;
 		}
 	}
-	void ViewportLayer::destroyFramebuffer() {
+	void ViewportLayer::DestroyFramebuffer() {
 		auto& device = Device::Get();
 		device.WaitIdle();
 		device.Destroy(framebuffer, colorImageView, colorImage, depthImageView, depthImage, deviceMemory);

@@ -38,7 +38,7 @@ namespace SGF {
         inline static bool IsInitialized() { return s_Instance.IsCreated(); }
     public:
         
-        inline ~Device() { Terminate(); }
+        inline ~Device() { if (IsCreated()) Terminate(); }
         void WaitIdle() const;
 
         inline bool HasFeaturesEnabled(DeviceFeatureFlags features) const { return (enabledFeatures & features) == features; }
@@ -305,13 +305,5 @@ namespace SGF {
     private:
         static DeviceRequirements s_Requirements;
         static Device s_Instance;
-    };
-
-    class DeviceDestroyEvent {
-    public:
-        inline DeviceDestroyEvent(const Device& d) : device(d) {}
-        inline const Device& getDevice() const { return device; }
-    private:
-        const Device& device;
     };
 }

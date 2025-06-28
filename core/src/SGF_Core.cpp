@@ -266,11 +266,11 @@ namespace SGF {
 			perFrame[index].commands.Begin();
 			window.NextFrame(perFrame[index].imageAvailable);
 			RenderEvent renderEvent(deltaTime, perFrame[index].commands, window.GetFramebufferSize());
-			renderEvent.addWait(perFrame[index].imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-			renderEvent.addSignal(perFrame[index].renderFinished);
+			renderEvent.AddWait(perFrame[index].imageAvailable, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+			renderEvent.AddSignal(perFrame[index].renderFinished);
 			LayerStack::Get().OnEvent(renderEvent);
 			perFrame[index].commands.End();
-			perFrame[index].commands.Submit(renderEvent.getWait().data(), renderEvent.getWaitStages().data(), renderEvent.getWait().size(), renderEvent.getSignal().data(), renderEvent.getSignal().size());
+			perFrame[index].commands.Submit(renderEvent.GetWait().data(), renderEvent.GetWaitStages().data(), renderEvent.GetWait().size(), renderEvent.GetSignal().data(), renderEvent.GetSignal().size());
 			window.PresentFrame(perFrame[index].renderFinished);
 			deltaTime = timer.ellapsedMillis();
 			index = (index + 1) % FRAMES_IN_FLIGHT;

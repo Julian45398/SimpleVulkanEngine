@@ -16,6 +16,7 @@ struct UniformData {
 	glm::mat4 transformMatrix;
 };
 
+/*
 class SimpleVulkanEditor {
 private:
 	//ModelRenderer Renderer;
@@ -146,3 +147,4 @@ private:
 
 	void handleInput();
 };
+	*/

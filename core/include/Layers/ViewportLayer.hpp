@@ -3,6 +3,7 @@
 #include "Layer.hpp"
 #include "ImGuiLayer.hpp"
 #include "Render/CommandList.hpp"
+#include "Render/CameraController.hpp"
 
 #define SGF_FRAMES_IN_FLIGHT 2
 
@@ -17,11 +18,12 @@ namespace SGF {
 		virtual void OnDetach() override;
         virtual void OnEvent(RenderEvent& event) override;
         virtual void OnEvent(const UpdateEvent& event) override;
+        virtual void OnEvent(const WindowResizeEvent& event) override;
 
-        void renderViewport(RenderEvent& event);
-	    void updateViewport(const UpdateEvent& event);
+        void RenderViewport(RenderEvent& event);
+	    void UpdateViewport(const UpdateEvent& event);
 
-        inline VkRenderPass getRenderPass() { return renderPass; }
+        inline VkRenderPass GetRenderPass() { return renderPass; }
         //virtual bool onKeyPress(const KeyPressedEvent& event) override;
         //virtual bool onKeyRelease(const KeyReleasedEvent& event) override;
         //virtual bool onKeyRepeat(const KeyRepeatEvent& event) override;
@@ -31,9 +33,9 @@ namespace SGF {
         //virtual bool onMouseScroll(const MouseScrollEvent& event) override;
         //virtual bool onEvent(const KeyTypedEvent& event) override;
     private:
-        void resizeFramebuffer(uint32_t width, uint32_t height);
-        void createFramebuffer();
-        void destroyFramebuffer();
+        void ResizeFramebuffer(uint32_t width, uint32_t height);
+        void CreateFramebuffer();
+        void DestroyFramebuffer();
         CommandList commands;
 		VkRenderPass renderPass = VK_NULL_HANDLE;
         VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
@@ -51,5 +53,6 @@ namespace SGF {
         uint32_t width = 0;
         uint32_t height = 0;
         VkFormat imageFormat;
+        CameraController cameraController;
 	};
 }

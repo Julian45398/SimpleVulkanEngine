@@ -115,7 +115,7 @@ namespace SGF {
             pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
             //pipelineLayout = vkl::createPipelineLayout(SVE::getDevice(), ARRAY_SIZE(descriptor_layouts), descriptor_layouts, ARRAY_SIZE(push_constant_ranges), push_constant_ranges);
             // Pipeline:
-            createPipeline(renderPass, subpass, VK_POLYGON_MODE_FILL);
+            CreatePipeline(renderPass, subpass, VK_POLYGON_MODE_FILL);
         }
 
         // Transfer Objects:
@@ -134,7 +134,7 @@ namespace SGF {
         device.Destroy(fence, commandPool, pipeline, pipelineLayout, descriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
     }
 
-    void ModelRenderer::addModel(const Model& model) {
+    void ModelRenderer::AddModel(const Model& model) {
         info("adding Model");
         //const Model& model = *modelPtr;
         size_t total_size = 0;
@@ -282,9 +282,9 @@ namespace SGF {
         warn("HelloWorld");
     }
 
-    void ModelRenderer::draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight) {
-        checkTransferStatus();
-        updateTextureDescriptors();
+    void ModelRenderer::Draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight) {
+        CheckTransferStatus();
+        UpdateTextureDescriptors();
         auto& win = Window::Get();
 
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -324,22 +324,23 @@ namespace SGF {
         }
     }
 
-    void ModelRenderer::changePipelineSettings(VkPolygonMode polygonMode) {
+    void ModelRenderer::ChangePipelineSettings(VkPolygonMode polygonMode) {
         Device::Get().Destroy(pipeline);
+        warn("TODO: implement pipeline change function!");
         //createPipeline(polygonMode);
     }
-    void ModelRenderer::invalidateDescriptors() {
+    void ModelRenderer::InvalidateDescriptors() {
         for (size_t i = 0; i < descriptorSets.size(); ++i) {
             descriptorSets[i].invalidated = true;
         }
         info("descriptors invalidated!");
     }
 
-    void ModelRenderer::checkTransferStatus() {
+    void ModelRenderer::CheckTransferStatus() {
         if (stagingMapped != nullptr) {
             auto& device = Device::Get();
             if (device.IsFenceSignaled(fence)) {
-                invalidateDescriptors();
+                InvalidateDescriptors();
                 device.Reset(fence);
                 device.Destroy(stagingBuffer, stagingMemory);
                 stagingMapped = nullptr;
@@ -347,12 +348,12 @@ namespace SGF {
         }
     }
 
-    void ModelRenderer::createPipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode) {
+    void ModelRenderer::CreatePipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode) {
         pipeline = Device::Get().CreateGraphicsPipeline(pipelineLayout, renderPass, subpass)
             .fragmentShader(MODEL_FRAGMENT_SHADER_FILE).vertexShader(MODEL_VERTEX_SHADER_FILE).vertexInput(MODEL_VERTEX_INPUT_INFO).build(); 
     }
 
-    void ModelRenderer::updateTextureDescriptors() {
+    void ModelRenderer::UpdateTextureDescriptors() {
         auto& win = Window::Get();
         Descriptor& descriptor = descriptorSets[win.GetImageIndex()];
         auto& device = Device::Get();

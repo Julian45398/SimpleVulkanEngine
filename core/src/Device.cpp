@@ -3,7 +3,8 @@
 #include <volk.h>
 #include "Render/Device.hpp"
 #include "Events/Event.hpp"
-#include "Events/InputEvents.hpp"
+#include "Layers/LayerEvents.hpp"
+#include "Layers/LayerStack.hpp"
 #include "Filesystem/File.hpp"
 
 #include "Window.hpp"
@@ -633,10 +634,12 @@ namespace SGF {
         volkLoadDevice(logical);
     #endif
         SGF::info("Logical device created!");
+        DeviceCreateEvent event(*this);
+        SGF::LayerStack::Get().OnEvent(event);
     }
         
     void Device::CreateNew(const DeviceRequirements& r) {
-        Terminate();
+        assert(!IsCreated());
         graphicsCount = r.graphicsQueueCount;
         computeCount = r.computeQueueCount;
         transferCount = r.transferQueueCount;
@@ -667,26 +670,25 @@ namespace SGF {
         TRACK_SWAPCHAIN(0);
         TRACK_SAMPLER(0);
         TRACK_SHADER_MODULE(0);
+        assert(physical != VK_NULL_HANDLE);
 
-        if (physical != VK_NULL_HANDLE) {
-            SGF::debug("destroying device...");
-            WaitIdle();
-            {
-				DeviceDestroyEvent event(*this);
-				EventManager::dispatch(event);
-            }
-            vkDestroyDevice(logical, SGF::VulkanAllocator);
-            logical = VK_NULL_HANDLE;
-            physical = VK_NULL_HANDLE;
-            presentFamilyIndex = UINT32_MAX;
-            presentCount = 0;
-            graphicsFamilyIndex = UINT32_MAX;
-            graphicsCount = 0;
-            transferFamilyIndex = UINT32_MAX;
-            transferCount = 0;
-            computeFamilyIndex = UINT32_MAX;
-            computeCount = 0;
+        SGF::debug("destroying device...");
+        WaitIdle();
+        {
+            DeviceDestroyEvent event(*this);
+            LayerStack::Get().OnEvent(event);
         }
+        vkDestroyDevice(logical, SGF::VulkanAllocator);
+        logical = VK_NULL_HANDLE;
+        physical = VK_NULL_HANDLE;
+        presentFamilyIndex = UINT32_MAX;
+        presentCount = 0;
+        graphicsFamilyIndex = UINT32_MAX;
+        graphicsCount = 0;
+        transferFamilyIndex = UINT32_MAX;
+        transferCount = 0;
+        computeFamilyIndex = UINT32_MAX;
+        computeCount = 0;
     }
     
     Device::Device(Device&& other) noexcept {

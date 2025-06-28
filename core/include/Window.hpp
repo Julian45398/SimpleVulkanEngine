@@ -20,6 +20,14 @@ namespace SGF {
         VkFormat depthFormat;
         VkAttachmentLoadOp colorLoadOp;
     };
+    class Cursor {
+    public:
+        Cursor(const char* filename);
+        ~Cursor();
+    private:
+        friend WindowHandle;
+        void* handle;
+    };
     class WindowHandle {
     public:
         void Open(const char* title, uint32_t width, uint32_t height, WindowCreateFlags windowFlags);
@@ -37,19 +45,27 @@ namespace SGF {
         VkExtent2D GetSize() const;
         bool IsKeyPressed(Keycode key) const;
         bool IsMouseButtonPressed(Mousecode button) const;
+
         glm::dvec2 GetCursorPos() const;
+        void SetCursorPos(double xpos, double ypos) const;
+        void SetCursorPos(const glm::dvec2& pos) const;
         void CaptureCursor() const;
+        void HideCursor() const;
+        void RestrictCursor() const;
         void FreeCursor() const;
+        void SetCursor(const Cursor& cursor) const;
+
         bool IsFullscreen() const;
         bool IsMinimized() const;
         bool IsFocused() const;
         inline bool IsOpen() const { return nativeHandle != nullptr; }
-        inline void* GetHandle() const { return nativeHandle; }
 
+        inline void* GetHandle() const { return nativeHandle; }
         void SetUserPointer(void* pUser) const;
+
         void SetTitle(const char* title) const;
         const char* GetTitle() const;
-        void SetCursorPos(const glm::dvec2& newpos) const;
+
         void SetFullscreen() const;
         void SetWindowed(uint32_t width, uint32_t height) const;
         void Resize(uint32_t width, uint32_t height) const;
@@ -63,6 +79,14 @@ namespace SGF {
         static void WaitEvents();
         static bool HasFocus();
         static glm::dvec2 GetCursorPos();
+        static void SetCursorPos(double xpos, double ypos);
+        static void SetCursorPos(const glm::dvec2& pos);
+        static void CaptureCursor();
+        static void HideCursor();
+        static void RestrictCursor();
+        static void FreeCursor();
+        static void SetCursor(const Cursor& cursor);
+
         static bool IsMouseButtonPressed(Mousecode button);
         static bool IsKeyPressed(Keycode key);
         inline static WindowHandle& GetFocusedWindow() { return s_FocusedWindow; }

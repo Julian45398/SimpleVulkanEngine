@@ -8,6 +8,7 @@
 
 #include <thread>
 
+/*
 void SimpleVulkanEditor::loadModel(const char* filename) {
 	models.emplace_back(filename);
 	sceneRenderer.addModel(models.back());
@@ -20,7 +21,6 @@ void SimpleVulkanEditor::handleInput() {
 
 SimpleVulkanEditor::SimpleVulkanEditor()
 {
-	/*
 		shl::logError("Box should have intersection!");
 	}
 	float t = box.getIntersection(ray);
@@ -29,7 +29,6 @@ SimpleVulkanEditor::SimpleVulkanEditor()
 	} else {
 		shl::logFatal("Returned distance: ", t);
 	}
-	*/
 	models.emplace_back("assets/models/test_car.gltf");
 	
 	sceneRenderer.addModel(models.back());
@@ -63,7 +62,7 @@ void SimpleVulkanEditor::run() {
 			matrix = viewCameraController.getViewProjMatrix();
 		};
 
-		sceneRenderer.draw(secondary[SVE::getInFlightIndex()], matrix);
+		//sceneRenderer.draw(secondary[SVE::getInFlightIndex()], matrix);
 		vkEndCommandBuffer(secondary[SVE::getInFlightIndex()]);
 
 		SVE::renderFrame(1, &secondary[SVE::getInFlightIndex()]);
@@ -85,3 +84,4 @@ SimpleVulkanEditor::~SimpleVulkanEditor()
 {
 	SVE::deviceWaitIdle();
 }
+*/
