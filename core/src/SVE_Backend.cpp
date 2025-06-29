@@ -205,6 +205,7 @@ namespace SVE {
 		vkCreateDescriptorPool(_Logical, &pool_info, nullptr, &ImGuiDescriptorPool);
 
 		// Setup Platform/Renderer backends
+		/*
 		ImGui_ImplGlfw_InitForVulkan(_Window, true);
 		ImGui_ImplVulkan_InitInfo init_info = {};
 		init_info.Instance = _Instance;
@@ -222,6 +223,7 @@ namespace SVE {
 		init_info.Allocator = vkl::VKL_Callbacks;
 		init_info.CheckVkResultFn = vulkanCheckResult;
 		ImGui_ImplVulkan_Init(&init_info);
+		*/
 
 #ifdef SVE_RENDER_IN_VIEWPORT
 		for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; ++i) {
@@ -232,8 +234,10 @@ namespace SVE {
 		shl::logInfo("ImGui initialized!");
 	}
 	void terminateImGui() {
+		/*
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
+		*/
 		ImGui::DestroyContext();
 		destroyDescriptorPool(ImGuiDescriptorPool);
 	}

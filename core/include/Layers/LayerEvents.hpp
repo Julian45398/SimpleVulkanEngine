@@ -2,6 +2,10 @@
 
 #include "SGF_Core.hpp"
 
+#include "Input/Keycodes.hpp"
+#include "Input/Mousecodes.hpp"
+
+
 namespace SGF {
     class WindowEvent {
 	public:
@@ -37,89 +41,83 @@ namespace SGF {
 	class WindowMinimizeEvent : public WindowEvent {
 	public:
 		inline WindowMinimizeEvent(WindowHandle& window, bool wasMinimized) : WindowEvent(window) {}
-		inline bool wasMinimized() { return minimized; }
+		inline bool WasMinimized() const { return minimized; }
 	private:
 		bool minimized;
 	};
-	class InputEvent : public WindowEvent {
-	public:	
-		inline InputEvent(WindowHandle& window) : WindowEvent(window), handled(false) {}
-		inline void setHandled() { handled = true; }
-		inline bool isHandle() { return handled; }
-	private:
-		bool handled = false;
-	};
-	class MousePressedEvent : public InputEvent {
+	class MousePressedEvent : public WindowEvent {
 	public:
-		inline MousePressedEvent(WindowHandle& window, uint32_t mousecode) : InputEvent(window), mouseCode(mousecode) {}
+		inline MousePressedEvent(WindowHandle& window, Mousecode mousecode) : WindowEvent(window), mouseCode(mousecode) {}
+		inline Mousecode GetButton() const { return mouseCode; }
 	private:
-		uint32_t mouseCode;
+		Mousecode mouseCode;
 	};
-	class MouseReleasedEvent : public InputEvent {
+	class MouseReleasedEvent : public WindowEvent {
 	public:
-		inline MouseReleasedEvent(WindowHandle& window, uint32_t mousecode) : InputEvent(window), mouseCode(mousecode) {}
+		inline MouseReleasedEvent(WindowHandle& window, Mousecode mousecode) : WindowEvent(window), mouseCode(mousecode) {}
+		inline Mousecode GetButton() const { return mouseCode; }
 	private:
-		uint32_t mouseCode;
+		Mousecode mouseCode;
 	};
-	class MouseScrollEvent : public InputEvent {
+	class MouseScrollEvent : public WindowEvent {
 	public:
-		inline MouseScrollEvent(WindowHandle& window, double xOffset, double yOffset) : InputEvent(window), x(xOffset), y(yOffset) {}
-		inline double xOffset() { return x; }
-		inline double yOffset() { return y; }
+		inline MouseScrollEvent(WindowHandle& window, double xOffset, double yOffset) : WindowEvent(window), pos(xOffset, yOffset) {}
+		inline double GetOffsetX() const { return pos.x; }
+		inline double GetOffsetY() const { return pos.y; }
+		inline const glm::dvec2& GetOffset() const { return pos; }
 	private:
-		double x;
-		double y;
+		glm::dvec2 pos;
 	};
-	class MouseMovedEvent : public InputEvent {
+	class MouseMovedEvent : public WindowEvent {
 	public:
-		inline MouseMovedEvent(WindowHandle& window, double xpos, double ypos) : InputEvent(window), xPos(xpos), yPos(ypos) {}
-		inline double getX() { return xPos; }
-		inline double getY() { return yPos; }
+		inline MouseMovedEvent(WindowHandle& window, double xpos, double ypos) : WindowEvent(window), pos(xpos, ypos) {}
+		inline double GetX() const { return pos.x; }
+		inline double GetY() const { return pos.y; }
+		inline const glm::dvec2& GetPos() const { return pos; }
 	private:
-		double xPos;
-		double yPos;
+		glm::dvec2 pos;
 	};
-	class KeyTypedEvent : public InputEvent {
+	class KeyTypedEvent : public WindowEvent {
 	public:
-		inline KeyTypedEvent(WindowHandle& window, uint32_t codepoint): InputEvent(window), charCode(codepoint) {}
-		inline uint32_t getChar() { return charCode; }
+		inline KeyTypedEvent(WindowHandle& window, uint32_t codepoint): WindowEvent(window), charCode(codepoint) {}
+		inline uint32_t GetChar() const { return charCode; }
 	private:
 		uint32_t charCode;
 	};
-	class KeyEvent : public InputEvent {
+	class KeyEvent : public WindowEvent {
 	public:
-		inline KeyEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : InputEvent(window), keyCode(keycode), modifier(mods) {}
-		inline uint32_t getKey() { return keyCode; }
-		inline uint32_t getMod() { return modifier; }
+		inline KeyEvent(WindowHandle& window, Keycode keycode, uint32_t mods) : WindowEvent(window), keyCode(keycode), modifier(mods) {}
+		inline Keycode GetKey() const { return keyCode; }
+		inline uint32_t GetMod() const { return modifier; }
 	private:
-		uint32_t keyCode;
+		Keycode keyCode;
 		uint32_t modifier;
 	};
 	class KeyPressedEvent : public KeyEvent {
 	public:
-		inline KeyPressedEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
+		inline KeyPressedEvent(WindowHandle& window, Keycode keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
 	};
 	class KeyReleasedEvent : public KeyEvent {
 	public:
-		inline KeyReleasedEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
+		inline KeyReleasedEvent(WindowHandle& window, Keycode keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
 	};
 	class KeyRepeatEvent : public KeyEvent {
 	public:
-		inline KeyRepeatEvent(WindowHandle& window, uint32_t keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
+		inline KeyRepeatEvent(WindowHandle& window, Keycode keycode, uint32_t mods) : KeyEvent(window, keycode, mods) {}
 	};
     class DeviceEvent {
     public:
-        DeviceEvent(Device& dev) : device(dev) {}
-        inline const Device& GetDevice();
+        inline DeviceEvent(Device& dev) : device(dev) {}
+        inline const Device& GetDevice() const { return device; }
     private:
         Device& device;
     };
     class DeviceDestroyEvent : public DeviceEvent {
     public:
-        DeviceDestroyEvent(Device& dev) : DeviceEvent(dev) {}
+        inline DeviceDestroyEvent(Device& dev) : DeviceEvent(dev) {}
     };
     class DeviceCreateEvent : public DeviceEvent {
     public:
-        DeviceCreateEvent(Device& dev) : DeviceEvent(dev) {}
+        inline DeviceCreateEvent(Device& dev) : DeviceEvent(dev) {}
     };
-} // namesp ce SGF
+} // namespace SGF

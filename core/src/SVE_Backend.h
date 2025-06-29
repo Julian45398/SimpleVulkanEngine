@@ -289,8 +289,10 @@ namespace SVE {
 		}
 		//ImageIndex = vkl::acquireNextImage(LogicalDevice, Swapchain, Sync[FrameIndex].ImageAvailable, Sync[FrameIndex].Fence);
 		// Start the Dear ImGui frame
+		/*
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
+		*/
 		ImGui::NewFrame();
 		vkl::resetCommandPool(_private::_Logical, _private::_ImageResources[_private::_ImageIndex].commandPool);
 		vkl::beginCommandBuffer(_private::_ImageResources[_private::_ImageIndex].primaryCommands, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -306,7 +308,7 @@ namespace SVE {
 			ImGui::Render();
 			ImDrawData* draw_data = ImGui::GetDrawData();
 			// Record dear imgui primitives into command buffer
-			ImGui_ImplVulkan_RenderDrawData(draw_data, imgui_commands);
+			//ImGui_ImplVulkan_RenderDrawData(draw_data, imgui_commands);
 			vkEndCommandBuffer(imgui_commands);
 		}
 		{

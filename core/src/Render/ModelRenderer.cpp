@@ -357,7 +357,8 @@ namespace SGF {
 
     void ModelRenderer::CreatePipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode) {
         pipeline = Device::Get().CreateGraphicsPipeline(pipelineLayout, renderPass, subpass)
-            .FragmentShader(MODEL_FRAGMENT_SHADER_FILE).VertexShader(MODEL_VERTEX_SHADER_FILE).VertexInput(MODEL_VERTEX_INPUT_INFO).DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Build();
+            .FragmentShader(MODEL_FRAGMENT_SHADER_FILE).VertexShader(MODEL_VERTEX_SHADER_FILE).VertexInput(MODEL_VERTEX_INPUT_INFO)
+            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).Build();
     }
 
     void ModelRenderer::UpdateTextureDescriptors(uint32_t imageIndex) {

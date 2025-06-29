@@ -18,10 +18,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${NFD_DIR}/src/include")
 
 #setting up imgui:
 set(IMGUI "imgui/")
-target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp"  "${IMGUI}imgui_demo.cpp"
-	"${IMGUI}imgui_widgets.cpp" "${IMGUI}backends/imgui_impl_glfw.cpp" "${IMGUI}backends/imgui_impl_vulkan.cpp" )
+target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp"  "${IMGUI}imgui_demo.cpp" "${IMGUI}imgui_widgets.cpp")
+#target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}backends/imgui_impl_glfw.cpp" "${IMGUI}backends/imgui_impl_vulkan.cpp" )
 
-target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI}" "${IMGUI}backends/")
+target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI}")
 target_compile_definitions(${PROJECT_NAME} PRIVATE USE_IMGUI)
 target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GLFW)
 

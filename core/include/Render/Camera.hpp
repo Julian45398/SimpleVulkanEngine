@@ -155,10 +155,10 @@ namespace SGF {
 		}
 		void UpdateRotation() {
 			constexpr float MAX_PITCH = glm::pi<float>() * 0.499f;
-			if (this->roll < -glm::pi<float>()) {
+			if (this->roll < -2.f* glm::pi<float>()) {
 				this->roll += 2 * glm::pi<float>();
 			}
-			else if (glm::pi<float>() < this->roll) {
+			else if (2.f * glm::pi<float>() < this->roll) {
 				this->roll -= 2.f * glm::pi<float>();
 			}
 			if (MAX_PITCH < this->pitch) {
@@ -167,10 +167,10 @@ namespace SGF {
 			else if (this->pitch < -MAX_PITCH) {
 				this->pitch = -MAX_PITCH;
 			}
-			if (this->yaw < -glm::pi<float>()) {
+			if (this->yaw < -2.f* glm::pi<float>()) {
 				this->yaw += 2.f * glm::pi<float>();
 			}
-			else if (glm::pi<float>() < this->yaw) {
+			else if (2.f * glm::pi<float>() < this->yaw) {
 				this->yaw -= 2.f * glm::pi<float>();
 			}
 			RecalculateTransform();

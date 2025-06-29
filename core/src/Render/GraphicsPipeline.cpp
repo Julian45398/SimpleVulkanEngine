@@ -13,6 +13,7 @@ namespace SGF {
         return *this;
     }
     GraphicsPipelineBuilder& GraphicsPipelineBuilder::FragmentShader(const char* filename) {
+        rasterizationState.rasterizerDiscardEnable = VK_FALSE;
         AddShaderStage(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
         return *this;
     }
@@ -94,7 +95,7 @@ namespace SGF {
         rasterizationState.pNext = nullptr;
         rasterizationState.flags = FLAG_NONE;
         rasterizationState.depthClampEnable = VK_FALSE;
-        rasterizationState.rasterizerDiscardEnable = VK_FALSE;
+        rasterizationState.rasterizerDiscardEnable = VK_TRUE;
         rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
         rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
@@ -144,7 +145,7 @@ namespace SGF {
 		colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		colorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
 		colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 		colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 		colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
