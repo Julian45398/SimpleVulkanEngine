@@ -1,4 +1,5 @@
-#include <SGF.hpp>
+#include <Entrypoint.hpp>
+
 #include "Layers/ViewportLayer.hpp"
 
 void SGF::PreInit() {
