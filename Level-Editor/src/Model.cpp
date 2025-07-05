@@ -6,6 +6,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tiny_gltf.h>
 
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <assimp/Importer.hpp>
+
 namespace SGF {
 	struct GLTFData {
 		tinygltf::Accessor acc;
@@ -600,4 +604,72 @@ namespace SGF {
 		debug("total vertex count: ", total_vertex_count);
 		debug("total index count: ", total_index_count);
 	}
+	//#define ASSIMP_LOAD_FLAGS ai
+	class SimpleModel {
+	private:
+		struct MeshInfo {
+			uint32_t vertexCount;
+			uint32_t indexCount;
+			uint32_t indexOffset;
+			AABB boundingBox;
+		};
+		std::vector<MeshInfo> meshInfos;
+		std::vector<glm::vec4> vertexPositions;
+		std::vector<glm::vec2> uvCoordinates;
+		std::vector<uint32_t> indices;
+	
+	public:
+
+		SimpleModel();
+		SimpleModel(const char* filename);
+		void Clear() {
+			vertexPositions.clear();
+			indices.clear();
+			meshInfos.clear();
+		}
+		void LoadFromFile(const char* filename) {
+			Assimp::Importer importer;
+			const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals);
+			if (scene != nullptr) {
+				meshInfos.resize(scene->mNumMeshes);
+				uint32_t totalIndices = 0;
+				uint32_t totalVertices = 0;
+				for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
+					auto& m = meshInfos[i];
+					auto& sm = scene->mMeshes[i];
+					m.boundingBox.max.x = sm->mAABB.mMax.x;
+					m.boundingBox.max.y = sm->mAABB.mMax.y;
+					m.boundingBox.max.z = sm->mAABB.mMax.z;
+
+					m.boundingBox.min.x = sm->mAABB.mMin.x;
+					m.boundingBox.min.y = sm->mAABB.mMin.y;
+					m.boundingBox.min.z = sm->mAABB.mMin.z;
+					
+					m.vertexCount = sm->mNumVertices;
+					m.indexCount = sm->mNumFaces * 3;
+					m.indexOffset = totalIndices;
+
+					totalVertices += sm->mNumVertices;
+					totalIndices += sm->mNumFaces * 3;
+				}
+				vertexPositions.resize(totalVertices);
+				uvCoordinates.resize(totalVertices);
+				indices.resize(totalIndices);
+				for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
+					auto& sm = scene->mMeshes[i];
+					auto& m = meshInfos[i];
+					for (uint32_t j = 0; j < sm->mNumFaces; ++j) {
+						auto& smf = sm->mFaces[j];
+						assert(smf.mNumIndices == 3);
+						indices[m.indexOffset + j * 3] = smf.mIndices[0];
+						indices[m.indexOffset + j * 3 + 1] = smf.mIndices[1];
+						indices[m.indexOffset + j * 3 + 2] = smf.mIndices[2];
+					}
+
+					for (uint32_t j = 0; j < sm->mNumVertices; ++j) {}
+
+				}
+			}
+		}
+	};
 }

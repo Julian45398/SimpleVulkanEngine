@@ -54,6 +54,9 @@ namespace SGF {
 		AABB boundingBox;
 
 		Model(const char* filename);
+		inline Model() {}
+		void LoadFromFile(const char* filename);
+		void Clear();
 		float getIntersection(const Ray& ray);
 	};
 }
