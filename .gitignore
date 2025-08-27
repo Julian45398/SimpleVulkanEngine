@@ -6,6 +6,9 @@
 #imgui config files:
 *.ini
 
+#log-and txt-files
+*.log
+
 # User-specific files
 
 *.rsuser

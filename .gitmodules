@@ -31,3 +31,6 @@
 [submodule "lib/nativefiledialog-extended"]
 	path = lib/nativefiledialog-extended
 	url = https://github.com/btzy/nativefiledialog-extended.git
+[submodule "SGF/lib/assimp"]
+	path = SGF/lib/assimp
+	url = https://github.com/assimp/assimp.git
