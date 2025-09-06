@@ -35,4 +35,3 @@ add_subdirectory("Level-Editor")
 link_directories()
 
 #include("cmake/update_submodules.cmake")
-

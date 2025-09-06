@@ -2,6 +2,7 @@
 
 #include "SGF_Core.hpp"
 #include "Geometry/AABB.hpp"
+#include "Render/Texture.hpp"
 
 namespace SGF {
 	struct ModelVertex {
@@ -21,9 +22,6 @@ namespace SGF {
 	};
 
 	class Model {
-		//std::vector<ModelVertex> vertices;
-		//std::vector<uint32_t> indices;
-		//std::vector<SveImage> images;
 	public:
 		struct BVHNode {
 			AABB box;
