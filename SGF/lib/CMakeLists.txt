@@ -53,11 +53,10 @@ else()
 endif()
 
 #VulkanMemoryAllocator:
-#add_subdirectory("VulkanMemoryAllocator")
-#target_link_libraries(${PROJECTT_NAME} VulkanMemoryAllocator)
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory("assimp")
 target_include_directories(${PROJECT_NAME} PUBLIC "assimp/include")
+target_link_libraries(${PROJECT_NAME} PUBLIC assimp)
 
 
 set(HEADER_DIRS PUBLIC

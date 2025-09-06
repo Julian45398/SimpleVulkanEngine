@@ -1,6 +1,7 @@
 #include "Filesystem/File.hpp"
 
 #include <fstream>
+#include <filesystem>
 
 #include <stb_image.h>
 
@@ -50,10 +51,23 @@ namespace SGF {
 		return true;
 	}
 
+	std::string GetDirectoryFromFilePath(const char* filePath) {
+		std::filesystem::path p(filePath);
+		return p.parent_path().string();
+	}
+
 	bool SaveBinaryFile(const char* filename, const std::vector<char>& data) {
 		return SaveBinaryFile(filename, data.size(), data.data());
 	}
 	std::vector<uint8_t> LoadTextureFile(const char* filename, uint32_t* pWidth, uint32_t* pHeight) {
+		int channels;
+		auto pixels = stbi_load(filename, (int*)pWidth, (int*)pHeight, &channels, STBI_rgb_alpha);
+		assert(channels == STBI_rgb_alpha);
+		std::vector<uint8_t> data(pixels, pixels + (*pWidth) * (*pHeight) * channels);
+		stbi_image_free(pixels);
+		return data;
+	}
+	std::vector<uint8_t> LoadTextureFromMemory(const char* filename, uint32_t* pWidth, uint32_t* pHeight) {
 		int channels;
 		auto pixels = stbi_load(filename, (int*)pWidth, (int*)pHeight, &channels, STBI_rgb_alpha);
 		assert(channels == STBI_rgb_alpha);

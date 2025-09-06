@@ -252,7 +252,6 @@ namespace SGF {
         // Submitting Commands:
         vkEndCommandBuffer(commandBuffer);
         Vk::SubmitCommands(device.GetGraphicsQueue(0), commandBuffer, fence);
-        //vkl::submitCommands(SVE::getGraphicsQueue(), commandBuffer, fence);
 
         ModelDrawData drawData;
         drawData.imageCount = model.images.size();
