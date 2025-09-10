@@ -13,18 +13,29 @@ namespace SGF {
 		}
 		bool region_found = false;
 		for (size_t i = 0; i < freeRegions.size(); ++i) {
-			MemRegion region = freeRegions[i];
-			if (memreq.size <= region.size) {
-				region_found = true;
-				region.size = (uint32_t)memreq.size;
-				device.BindMemory(allocatedRegions[region.regionIndex], texture.image, region.offset);
-				textureRegion = region;
-				if (memreq.size != region.size) {
-					freeRegions[i].offset += (uint32_t)memreq.size;
-					freeRegions[i].size -= (uint32_t)memreq.size;
+			if (memreq.size <= freeRegions[i].size) {
+				auto region = freeRegions[i];
+				uint32_t alignmentOffset = region.offset % (uint32_t)memreq.alignment;
+				if (alignmentOffset != 0) {
+					uint32_t correction = (uint32_t)memreq.alignment - alignmentOffset;
+					if ((region.size - correction) < memreq.size) continue;
+					MemRegion inbetweenRegion;
+					inbetweenRegion.offset = region.offset;
+					inbetweenRegion.regionIndex = region.regionIndex;
+					inbetweenRegion.size = correction;
+					region.offset += correction;
+					freeRegions.push_back(inbetweenRegion);
 				}
-				else {
+				region.size = memreq.size;
+				region_found = true;
+				device.BindMemory(allocatedRegions[region.regionIndex], texture.image, region.offset);
+				region.size = (uint32_t)memreq.size;
+				textureRegion = region;
+				if ((memreq.size + alignmentOffset) == freeRegions[i].size) {
 					freeRegions.erase(freeRegions.begin() + i);
+				} else {
+					freeRegions[i].offset += (alignmentOffset + (uint32_t)memreq.size);
+					freeRegions[i].size -= ((uint32_t)memreq.size + alignmentOffset);
 				}
 				break;
 			}
@@ -43,7 +54,6 @@ namespace SGF {
 		}
 		texture.view = device.CreateImageView2D(texture.image, VK_FORMAT_R8G8B8A8_SRGB);
 		imageRegions.push_back({texture, textureRegion});
-
 		return imageRegions.back().image;
 	}
 

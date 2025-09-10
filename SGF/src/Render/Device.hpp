@@ -160,7 +160,10 @@ namespace SGF {
         VkPipelineLayout CreatePipelineLayout(const VkPipelineLayoutCreateInfo& info) const;
         VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout* pLayouts, uint32_t descriptorLayoutCount, const VkPushConstantRange* pPushConstantRanges = nullptr, uint32_t pushConstantCount = 0) const;
 
-        template<size_t DESCRIPTOR_COUNT, size_t PUSH_CONSTANT_COUNT>
+        template<size_t DESCRIPTOR_COUNT>
+        inline VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout(&layouts)[DESCRIPTOR_COUNT]) const
+        { return CreatePipelineLayout(layouts, DESCRIPTOR_COUNT, nullptr, 0); }
+        template<size_t DESCRIPTOR_COUNT, size_t PUSH_CONSTANT_COUNT = 0>
         inline VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout(&layouts)[DESCRIPTOR_COUNT], const VkPushConstantRange(&pushConstants)[PUSH_CONSTANT_COUNT]) const
         { return CreatePipelineLayout(layouts, DESCRIPTOR_COUNT, pushConstants, PUSH_CONSTANT_COUNT); }
         inline VkPipelineLayout CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts, const std::vector<VkPushConstantRange>& pushConstants) const

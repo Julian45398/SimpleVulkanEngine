@@ -107,7 +107,7 @@ namespace SGF {
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 
 		VkDebugUtilsMessengerEXT messenger;
-		if (func != nullptr && func(instance, &create_info, VulkanAllocator, &messenger) == VK_SUCCESS) {
+		if (func != nullptr && func(instance, &create_info, g_VulkanAllocator, &messenger) == VK_SUCCESS) {
 			return messenger;
 		}
 		else {
@@ -118,7 +118,7 @@ namespace SGF {
 	void destroyDebugUtilsMessengerEXT(const VkInstance instance, VkDebugUtilsMessengerEXT messenger) {
 		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 		if (func != nullptr) {
-			func(instance, messenger, VulkanAllocator);
+			func(instance, messenger, g_VulkanAllocator);
 		}
 	}
     VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
@@ -195,7 +195,7 @@ namespace SGF {
 		volkLoadInstance(g_VulkanInstance);
 #ifdef SGF_ENABLE_VALIDATION
         if (debug_support) {
-			VulkanMessenger = createDebugUtilsMessengerEXT(VulkanInstance, debugCallback);
+			VulkanMessenger = createDebugUtilsMessengerEXT(g_VulkanInstance, debugCallback);
 		} else {
 			VulkanMessenger = nullptr;
 		}
@@ -203,7 +203,7 @@ namespace SGF {
     }
     void terminateVulkan() {
 #ifdef SGF_ENABLE_VALIDATION
-        destroyDebugUtilsMessengerEXT(VulkanInstance, VulkanMessenger);
+        destroyDebugUtilsMessengerEXT(g_VulkanInstance, VulkanMessenger);
         VulkanMessenger = VK_NULL_HANDLE;
 #endif
         vkDestroyInstance(g_VulkanInstance, g_VulkanAllocator);
