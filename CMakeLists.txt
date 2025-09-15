@@ -28,7 +28,6 @@ else()
 endif()
 
 #create executable
-#add_executable(${PROJECT_NAME} ${SRC_FILES})
 add_subdirectory("SGF/")
 
 add_subdirectory("Level-Editor")

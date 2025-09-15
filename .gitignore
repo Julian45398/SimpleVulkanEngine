@@ -20,7 +20,6 @@
 #vscode
 .vscode
 
-
 # compiled shader files
 *.vert
 *.frag
@@ -85,6 +84,8 @@ ScaffoldingReadMe.txt
 
 # StyleCop
 StyleCopReport.xml
+
+Level-Editor/resources/assets/
 
 # Files built by Visual Studio
 *_i.c

@@ -1,35 +1,23 @@
-[submodule "lib/glfw"]
-	path = lib/glfw
+[submodule "SGF/lib/glfw"]
+	path = SGF/lib/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "lib/imgui"]
-	path = lib/imgui
+[submodule "SGF/lib/imgui"]
+	path = SGF/lib/imgui
 	url = https://github.com/ocornut/imgui.git
-[submodule "lib/glm"]
-	path = lib/glm
+[submodule "SGF/lib/glm"]
+	path = SGF/lib/glm
 	url = https://github.com/g-truc/glm.git
-[submodule "lib/googletest"]
-	path = lib/googletest
-	url = https://github.com/google/googletest.git
-[submodule "lib/stb"]
-	path = lib/stb
+[submodule "SGF/lib/stb"]
+	path = SGF/lib/stb
 	url = https://github.com/nothings/stb.git
-[submodule "lib/shl"]
-	path = lib/shl
-	url = https://github.com/Julian45398/shl.git
-[submodule "lib/vkl"]
-	path = lib/vkl
-	url = https://github.com/Julian45398/vkl.git
-[submodule "lib/tinygltf"]
-	path = lib/tinygltf
-	url = https://github.com/syoyo/tinygltf.git
-[submodule "lib/Vulkan-Headers"]
-	path = lib/Vulkan-Headers
+[submodule "SGF/lib/Vulkan-Headers"]
+	path = SGF/lib/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
-[submodule "lib/volk"]
-	path = lib/volk
+[submodule "SGF/lib/volk"]
+	path = SGF/lib/volk
 	url = https://github.com/zeux/volk.git
-[submodule "lib/nativefiledialog-extended"]
-	path = lib/nativefiledialog-extended
+[submodule "SGF/lib/nativefiledialog-extended"]
+	path = SGF/lib/nativefiledialog-extended
 	url = https://github.com/btzy/nativefiledialog-extended.git
 [submodule "SGF/lib/assimp"]
 	path = SGF/lib/assimp

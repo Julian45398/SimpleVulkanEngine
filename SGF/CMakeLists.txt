@@ -3,10 +3,7 @@ cmake_minimum_required (VERSION 3.16)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-project(SGF VERSION 0.0.1)
-
-set(GLOB_RECU)
-
+# Add custom cmake/ folder to module path
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
 
 add_library(SGF ${SRC_FILES})
