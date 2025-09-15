@@ -7,48 +7,48 @@ set(GLFW_VULKAN_STATIC ON)
 set(GLFW_BUILD_DOCS OFF)
 set(GLFW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/glfw")
 add_subdirectory(${GLFW_DIR})
-target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
-target_include_directories(${PROJECT_NAME} PUBLIC "${GLFW_DIR}/include")
+target_link_libraries(SGF PUBLIC glfw)
+target_include_directories(SGF PUBLIC "${GLFW_DIR}/include")
 
 
 #setting up native file dialog:
 set(NFD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/nativefiledialog-extended")
 add_subdirectory("${NFD_DIR}")
-target_link_libraries(${PROJECT_NAME} PRIVATE nfd)
-target_include_directories(${PROJECT_NAME} PUBLIC "${NFD_DIR}/src/include")
+target_link_libraries(SGF PRIVATE nfd)
+target_include_directories(SGF PUBLIC "${NFD_DIR}/src/include")
 
 #setting up imgui:
 set(IMGUI "imgui/")
-target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp"  "${IMGUI}imgui_demo.cpp" "${IMGUI}imgui_widgets.cpp")
+target_sources(SGF PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp"  "${IMGUI}imgui_demo.cpp" "${IMGUI}imgui_widgets.cpp")
 #target_sources(${PROJECT_NAME} PUBLIC "${IMGUI}backends/imgui_impl_glfw.cpp" "${IMGUI}backends/imgui_impl_vulkan.cpp" )
 
-target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI}")
-target_compile_definitions(${PROJECT_NAME} PRIVATE USE_IMGUI)
-target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GLFW)
+target_include_directories(SGF PUBLIC "${IMGUI}")
+target_compile_definitions(SGF PRIVATE USE_IMGUI)
+target_compile_definitions(SGF PRIVATE USE_GLFW)
 
 #volk:
-target_sources(${PROJECT_NAME} PUBLIC "volk/volk.c")
-target_compile_definitions(${PROJECT_NAME} PUBLIC VK_NO_PROTOTYPES IMGUI_IMPL_VULKAN_USE_VOLK)
+target_sources(SGF PUBLIC "volk/volk.c")
+target_compile_definitions(SGF PUBLIC VK_NO_PROTOTYPES IMGUI_IMPL_VULKAN_USE_VOLK)
 
 #define the platform specific options
 if (WIN32)
 	message(STATUS "building for windows")
 	if (MSVC)
-		target_compile_definitions(${PROJECT_NAME} PUBLIC _CRT_SECURE_NO_WARNINGS)
+		target_compile_definitions(SGF PUBLIC _CRT_SECURE_NO_WARNINGS)
 	endif()
-	target_compile_definitions(${PROJECT_NAME} PUBLIC SGF_OS_WINDOWS)
+	target_compile_definitions(SGF PUBLIC SGF_OS_WINDOWS)
 elseif(UNIX AND NOT APPLE)
-	target_compile_definitions(${PROJECT_NAME} PUBLIC SGF_OS_LINUX)
+	target_compile_definitions(SGF PUBLIC SGF_OS_LINUX)
 	option(SGF_USE_WAYLAND "defines usage of x11 wayland" FALSE)
 	if (SGF_USE_WAYLAND)
-		target_compile_definitions(${PROJECT_NAME} PUBLIC SGF_USE_WAYLAND)
+		target_compile_definitions(SGF PUBLIC SGF_USE_WAYLAND)
 	else()
-		target_compile_definitions(${PROJECT_NAME} PUBLIC SGF_USE_X11)
+		target_compile_definitions(SGF PUBLIC SGF_USE_X11)
 	endif()
 	message(STATUS "building for linux")
 elseif(UNIX)
 	message(STATUS "building for macOS")
-	target_compile_definitions(${PROJECT_NAME} PUBLIC SGF_OS_APPLE)
+	target_compile_definitions(SGF PUBLIC SGF_OS_APPLE)
 else()
 	message(FATAL_ERROR "unknown OS")
 endif()
@@ -56,9 +56,8 @@ endif()
 #VulkanMemoryAllocator:
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory("assimp")
-target_include_directories(${PROJECT_NAME} PUBLIC "assimp/include")
-target_link_libraries(${PROJECT_NAME} PUBLIC assimp)
-
+target_include_directories(SGF PUBLIC "assimp/include")
+target_link_libraries(SGF PUBLIC assimp)
 
 set(HEADER_DIRS PUBLIC
 	"shl" 
@@ -71,4 +70,4 @@ set(HEADER_DIRS PUBLIC
 	"Vulkan-Headers/include"
 )
 #adding header libraries:
-target_include_directories(${PROJECT_NAME} PUBLIC ${HEADER_DIRS})
+target_include_directories(SGF PUBLIC ${HEADER_DIRS})
