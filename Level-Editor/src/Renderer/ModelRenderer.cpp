@@ -1,29 +1,63 @@
 #include "ModelRenderer.hpp"
 
-
 namespace SGF {
+    constexpr size_t PAGE_SIZE = 2 << 27;
+    constexpr uint32_t MAX_TEXTURE_COUNT = 128;
     constexpr uint32_t MAX_INSTANCE_COUNT = 2048;
-    constexpr uint32_t VERTEX_START_BYTE_OFFSET = MAX_INSTANCE_COUNT * sizeof(glm::mat4);
-    constexpr VkDeviceSize PAGE_SIZE = 2 << 27;
-    constexpr uint32_t MAX_VERTICES = (PAGE_SIZE - MAX_INSTANCE_COUNT * sizeof(glm::mat4)) / sizeof(ModelVertex);
+    constexpr uint32_t MAX_INDEX_COUNT = 2 << 22;
+
+    constexpr size_t INDEX_BUFFER_SIZE = MAX_INDEX_COUNT * sizeof(uint32_t);
+    constexpr size_t INSTANCE_TRANSFORMS_SIZE = MAX_INSTANCE_COUNT * sizeof(glm::mat4);
+    constexpr size_t INSTANCE_TEXTURE_INDEX_SIZE = MAX_INSTANCE_COUNT * sizeof(uint32_t);
+    constexpr uint32_t MAX_VERTEX_COUNT = (PAGE_SIZE - INDEX_BUFFER_SIZE - INSTANCE_TRANSFORMS_SIZE - INSTANCE_TEXTURE_INDEX_SIZE) / (sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec2));
+
+    constexpr size_t VERTEX_POSITIONS_SIZE = MAX_VERTEX_COUNT * sizeof(glm::vec4);
+    constexpr size_t VERTEX_NORMALS_SIZE = MAX_VERTEX_COUNT * sizeof(glm::vec4);
+    constexpr size_t VERTEX_UV_COORDS_SIZE = MAX_VERTEX_COUNT * sizeof(glm::vec2);
+    constexpr size_t TOTAL_VERTEX_BUFFER_SIZE = VERTEX_POSITIONS_SIZE + VERTEX_NORMALS_SIZE + VERTEX_UV_COORDS_SIZE;
+
+    constexpr size_t INSTANCE_TRANSFORMS_BYTE_OFFSET = 0;
+    constexpr size_t INSTANCE_TEXTURE_INDEX_BYTE_OFFSET = INSTANCE_TRANSFORMS_SIZE;
+    constexpr size_t VERTEX_POSITIONS_BYTE_OFFSET = INSTANCE_TEXTURE_INDEX_BYTE_OFFSET + INSTANCE_TEXTURE_INDEX_SIZE;
+    constexpr size_t VERTEX_NORMALS_BYTE_OFFSET = VERTEX_POSITIONS_BYTE_OFFSET + VERTEX_POSITIONS_SIZE;
+    constexpr size_t VERTEX_UV_COORDS_BYTE_OFFSET = VERTEX_NORMALS_BYTE_OFFSET + VERTEX_NORMALS_SIZE;
+    constexpr size_t INDEX_BUFFER_BYTE_OFFSET = VERTEX_UV_COORDS_BYTE_OFFSET + VERTEX_UV_COORDS_SIZE;
+
+    constexpr size_t VERTEX_BUFFER_OFFSETS[] = { 
+        VERTEX_POSITIONS_BYTE_OFFSET,
+        VERTEX_NORMALS_BYTE_OFFSET,
+        VERTEX_UV_COORDS_BYTE_OFFSET,
+        INSTANCE_TRANSFORMS_BYTE_OFFSET,
+        INSTANCE_TEXTURE_INDEX_BYTE_OFFSET,
+    };
+    constexpr size_t VERTEX_ITEM_SIZES[] = {
+        sizeof(glm::vec4),
+        sizeof(glm::vec4),
+        sizeof(glm::vec2),
+        sizeof(glm::mat4),
+        sizeof(uint32_t),
+    };
+
+    static_assert((INDEX_BUFFER_BYTE_OFFSET + INDEX_BUFFER_SIZE) <= PAGE_SIZE);
+
     constexpr char MODEL_VERTEX_SHADER_FILE[] = "shaders/model.vert";
     constexpr char MODEL_FRAGMENT_SHADER_FILE[] = "shaders/model.frag";
     constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
-        {0, sizeof(ModelVertex), VK_VERTEX_INPUT_RATE_VERTEX},
-        {1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE}
+        {0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX},
+        {1, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX},
+        {2, sizeof(glm::vec2), VK_VERTEX_INPUT_RATE_VERTEX},
+        {3, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE},
+        {4, sizeof(uint32_t), VK_VERTEX_INPUT_RATE_INSTANCE},
     };
     constexpr VkVertexInputAttributeDescription MODEL_VERTEX_ATTRIBUTES[] = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ModelVertex, position)},
-        {1, 0, VK_FORMAT_R32_UINT, offsetof(ModelVertex, imageIndex)},
-        {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ModelVertex, normal)},
-        {3, 0, VK_FORMAT_R32_UINT, offsetof(ModelVertex, padding2)},
-        {4, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ModelVertex, uvCoord)},
-        {5, 0, VK_FORMAT_R32_UINT, offsetof(ModelVertex, padding3)},
-        {6, 0, VK_FORMAT_R32_UINT, offsetof(ModelVertex, padding4)},
-        {7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, 
-        {8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
-        {9, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
-        {10, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3}
+        {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 }, // Position
+        {1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0 }, // Normal
+        {2, 2, VK_FORMAT_R32G32_SFLOAT, 0 }, // UV
+        {3, 3, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // Transformation
+        {4, 3, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
+        {5, 3, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
+        {6, 3, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3},
+        {7, 4, VK_FORMAT_R32_UINT, 0}, // Texture index
     };
 
     inline const VkPipelineVertexInputStateCreateInfo MODEL_VERTEX_INPUT_INFO = {
@@ -36,9 +70,7 @@ namespace SGF {
 		.pVertexAttributeDescriptions = MODEL_VERTEX_ATTRIBUTES,
 	};
 
-
-
-    void ModelRenderer::Initialize(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout, uint32_t icount) {
+    void ModelRenderer::Initialize(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout) {
         auto& device = Device::Get();
         vertexBuffer = VK_NULL_HANDLE;
         vertexDeviceMemory = VK_NULL_HANDLE;
@@ -46,19 +78,14 @@ namespace SGF {
         fence = VK_NULL_HANDLE;
         commandPool = VK_NULL_HANDLE;
         commandBuffer = VK_NULL_HANDLE;
-        stagingBuffer = VK_NULL_HANDLE;
-        stagingMemory = VK_NULL_HANDLE;
-        stagingMapped = nullptr;
         descriptorLayout = VK_NULL_HANDLE;
         pipelineLayout = VK_NULL_HANDLE;
         pipeline = VK_NULL_HANDLE;
-        transformCount = 0;
-        vertexCount = 0;
-        indexCount = 0;
-
-        freeVertexBufferMemory = PAGE_SIZE - MAX_INSTANCE_COUNT * sizeof(glm::mat4);
-        imageCount = icount;
-
+        totalInstanceCount = 0;
+        totalVertexCount = 0;
+        totalIndexCount = 0;
+        totalTextureCount = 0;
+        info("Max Renderer vertex count: ", MAX_VERTEX_COUNT);
 
         // Vertex and Index Buffers:
         vertexBuffer = device.CreateBuffer(PAGE_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -80,38 +107,28 @@ namespace SGF {
         // DescriptorSets:
         {
             // Allocating Descriptor Sets:
-            descriptorSets.resize(icount);
-            for (auto& set : descriptorSets) {
-                set.set = device.AllocateDescriptorSet(descriptorPool, descriptorLayout);
-                //set.set = vkl::allocateDescriptorSet(SVE::getDevice(), descriptorPool, 1, &descriptorLayout);
-                // descriptors only invalidated after model was added
-                set.invalidated = false;
-            }
+            VkDescriptorSetLayout layouts[] = {descriptorLayout, descriptorLayout};
+            device.AllocateDescriptorSets(descriptorPool, layouts, descriptorSets);
+            descriptorInvalidated[0] = false;
+            descriptorInvalidated[1] = false;
 
             // Writing Descriptor Sets:
-            std::vector<VkWriteDescriptorSet> descriptor_writes(descriptorSets.size() * 2);
             VkDescriptorImageInfo sampler_info = { sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED };
-            VkDescriptorBufferInfo uniform_info = {VK_NULL_HANDLE, 0, VK_WHOLE_SIZE};
-            for (size_t i = 0; i < descriptorSets.size(); ++i) {
-                VkWriteDescriptorSet writes[] = {
-                    Vk::CreateDescriptorWrite(descriptorSets[i].set, 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1)
-                };
-                device.UpdateDescriptors(writes);
-                //vkUpdateDescriptorSets(device.getLogical(), ARRAY_SIZE(writes), writes, 0, nullptr);
-            }
+            VkWriteDescriptorSet writes[] = {
+                Vk::CreateDescriptorWrite(descriptorSets[0], 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1),
+                Vk::CreateDescriptorWrite(descriptorSets[1], 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1)
+            };
+            device.UpdateDescriptors(writes);
         }
 
         // Pipeline:
         {
             // Layout:
-            VkPushConstantRange push_constant_ranges[] = {
-                {VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Model::Mesh::imageIndex)}
-            };
             VkDescriptorSetLayout descriptor_layouts[] = {
                 uniformLayout,
                 descriptorLayout
             };
-            pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
+            pipelineLayout = device.CreatePipelineLayout(descriptor_layouts);
             //pipelineLayout = vkl::createPipelineLayout(SVE::getDevice(), ARRAY_SIZE(descriptor_layouts), descriptor_layouts, ARRAY_SIZE(push_constant_ranges), push_constant_ranges);
             // Pipeline:
             CreatePipeline(renderPass, subpass, VK_POLYGON_MODE_FILL);
@@ -125,56 +142,18 @@ namespace SGF {
 
     ModelRenderer::~ModelRenderer() {
         auto& device = Device::Get();
-        if (stagingMapped != nullptr) {
+        if (stagingBuffer.GetSize() != 0) {
             device.WaitFence(fence);
-            device.Reset(fence);
-            device.Destroy(stagingMemory, stagingBuffer);
         }
         device.Destroy(fence, commandPool, pipeline, pipelineLayout, descriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
     }
 
-    void ModelRenderer::AddModel(const Model& model) {
-        info("adding Model");
-        //const Model& model = *modelPtr;
-        size_t total_size = 0;
-
-        // get total allocation size:
-        for (size_t i = 0; i < model.images.size(); ++i) {
-            info("pixel size: ", model.images[i].pixels.size());
-            total_size += model.images[i].pixels.size();
-        }
-        size_t vertex_size = 0;
-        for (size_t i = 0; i < model.meshes.size(); ++i) {
-            vertex_size += model.meshes[i].indices.size() * sizeof(uint32_t);
-            vertex_size += model.meshes[i].vertices.size() * sizeof(ModelVertex);
-            total_size += model.meshes[i].instanceTransforms.size() * sizeof(glm::mat4);
-
-            //freeVertexBufferMemory -= model.meshes[i].indices.size() * sizeof(uint32_t);
-            //freeVertexBufferMemory -= model.meshes[i].vertices.size() * sizeof(ModelVertex);
-        }
-        if (freeVertexBufferMemory < vertex_size) {
-            warn("not enough free vertex memory for model!");
-            warn("failed to load model");
-            return;
-        }
-        else {
-            freeVertexBufferMemory -= vertex_size;
-        }
-        total_size += vertex_size;
-
+    size_t ModelRenderer::UploadTextures(const GenericModel& model) {
         auto& device = Device::Get();
-        stagingBuffer = device.CreateBuffer(total_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-        stagingMemory = device.AllocateMemory(stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        stagingMapped = (uint8_t*)device.MapMemory(stagingMemory);
-        device.Reset(commandPool);
-
-        Vk::BeginCommandBuffer(commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        
         size_t offset = 0;
         // Copy image data:
-        for (size_t i = 0; i < model.images.size(); ++i) {
-            total_size += model.images[i].pixels.size();
-            textures.push_back(textureAllocator.createImage(model.images[i].width, model.images[i].height));
+        for (size_t i = 0; i < model.textures.size(); ++i) {
+            textures.push_back(textureAllocator.createImage(model.textures[i].GetWidth(), model.textures[i].GetHeight()));
             auto& texture = textures.back();
 
             VkBufferImageCopy region{};
@@ -182,11 +161,10 @@ namespace SGF {
             region.imageSubresource = {};
             region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             region.imageSubresource.layerCount = 1;
-            region.imageExtent = { model.images[i].width, model.images[i].height, 1 };
+            region.imageExtent = { model.textures[i].GetWidth(), model.textures[i].GetHeight(), 1 };
 
-            size_t mem_size = model.images[i].pixels.size();
-            memcpy(stagingMapped + offset, model.images[i].pixels.data(), mem_size);
-            offset += mem_size;
+            size_t mem_size = model.textures[i].GetMemorySize();
+            offset = stagingBuffer.CopyData(model.textures[i].GetData(), mem_size, offset);
 
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -206,83 +184,125 @@ namespace SGF {
             barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, 1, &barrier);
         }
-
-        // Copy mesh data:
-        for (size_t i = 0; i < model.meshes.size(); ++i) {
-            const Model::Mesh& mesh = model.meshes[i];
-
-            // Instance transforms:
-            VkBufferCopy instance_region;
-            instance_region.dstOffset = transformCount * sizeof(glm::mat4);
-            instance_region.size = mesh.instanceTransforms.size() * sizeof(glm::mat4);
-            instance_region.srcOffset = offset;
-            transformCount += (uint32_t)mesh.instanceTransforms.size();
-            //debug("instance region offset: ", offset, " size: ", instance_region.size, " instance count: ", mesh.instanceTransforms.size(), " dst offset: ", instance_region.dstOffset);
-            memcpy(stagingMapped + offset, mesh.instanceTransforms.data(), instance_region.size);
-            offset += instance_region.size;
-            
-            // Indices:
-            VkBufferCopy index_region;
-            index_region.size = mesh.indices.size() * sizeof(uint32_t);
-            index_region.dstOffset = PAGE_SIZE - indexCount * sizeof(uint32_t) - index_region.size;
-            index_region.srcOffset = offset;
-            indexCount += (uint32_t)mesh.indices.size();
-            //debug("index region offset: ", offset, " size: ", index_region.size, " index count: ", mesh.indices.size(), " dst offset: ", index_region.dstOffset);
-            memcpy(stagingMapped + offset, mesh.indices.data(), index_region.size);
-            offset += index_region.size;
-
-            // Vertices:
-            VkBufferCopy vertex_region;
-            vertex_region.dstOffset = VERTEX_START_BYTE_OFFSET + vertexCount * sizeof(ModelVertex);
-            vertex_region.size = mesh.vertices.size() * sizeof(ModelVertex);
-            vertex_region.srcOffset = offset;
-            vertexCount += (uint32_t)mesh.vertices.size();
-            //debug("vertex region offset: ", offset, " size: ", vertex_region.size, " vertex count: ", mesh.vertices.size(), " dst offset: ", vertex_region.dstOffset);
-            memcpy(stagingMapped + offset, mesh.vertices.data(), vertex_region.size);
-            offset += vertex_region.size;
-
-            VkBufferCopy regions[] = {
-                instance_region, index_region, vertex_region
-            };
-
-            info("index ",i ," size: ", index_region.size, " index size offset : ", index_region.dstOffset," vertex size: ",vertex_region.size , " vertex offset : ", vertex_region.dstOffset);
-            vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, ARRAY_SIZE(regions), regions);
+        return offset;
+    }
+    size_t CalculateTotalRequiredStagingMemorySize(const GenericModel& model) {
+        size_t total_size = 0;
+        for (size_t i = 0; i < model.textures.size(); ++i) {
+            total_size += model.textures[i].GetMemorySize();
         }
+        total_size += model.indices.size() * sizeof(uint32_t);
+        total_size += model.vertexPositions.size() * sizeof(model.vertexPositions[0]);
+        total_size += model.vertexNormals.size() * sizeof(model.vertexNormals[0]);
+        total_size += model.uvCoordinates.size() * sizeof(model.vertexPositions[0]);
+            
+        for (size_t i = 0; i < model.meshInfos.size(); ++i) {
+            total_size += model.meshInfos[i].instanceTransforms.size() * (sizeof(glm::mat4) + sizeof(uint32_t));
+        }
+        return total_size;
+    }
+
+    void ModelRenderer::AddModel(const GenericModel& model) {
+        info("adding Model");
+        //const Model& model = *modelPtr;
+        size_t uploadMemorySize = CalculateTotalRequiredStagingMemorySize(model);
+
+        auto& device = Device::Get();
+
+        if (stagingBuffer.IsInitialized()) {
+            device.WaitFence(fence);
+            device.Reset(fence);
+            if (stagingBuffer.GetSize() < uploadMemorySize) 
+                stagingBuffer.Resize(uploadMemorySize);
+        } else {
+            stagingBuffer.Allocate(uploadMemorySize);
+        }
+        device.Reset(commandPool);
+        Vk::BeginCommandBuffer(commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+        size_t total_added_instances = model.GetTotalInstanceCount();
+        size_t offset = UploadTextures(model);
+        // Copy mesh data:
+        VkBufferCopy indexRegion;
+        indexRegion.size = model.indices.size() * sizeof(uint32_t);
+        indexRegion.srcOffset = offset;
+        indexRegion.dstOffset = INDEX_BUFFER_BYTE_OFFSET + totalIndexCount * sizeof(uint32_t);
+        offset = stagingBuffer.CopyData(model.indices.data(), indexRegion);
+
+        VkBufferCopy posRegion;
+        posRegion.size = model.vertexPositions.size() * sizeof(model.vertexPositions[0]);
+        posRegion.srcOffset = offset;
+        posRegion.dstOffset = VERTEX_POSITIONS_BYTE_OFFSET + totalVertexCount * sizeof(model.vertexPositions[0]);
+        offset = stagingBuffer.CopyData(model.vertexPositions.data(), posRegion);
+
+        VkBufferCopy normalRegion;
+        normalRegion.size = model.vertexNormals.size() * sizeof(model.vertexNormals[0]);
+        normalRegion.srcOffset = offset;
+        normalRegion.dstOffset = VERTEX_NORMALS_BYTE_OFFSET + totalVertexCount * sizeof(model.vertexNormals[0]);
+        offset = stagingBuffer.CopyData(model.vertexNormals.data(), normalRegion);
+
+        VkBufferCopy uvRegion;
+        uvRegion.size = model.uvCoordinates.size() * sizeof(model.uvCoordinates[0]);
+        uvRegion.srcOffset = offset;
+        uvRegion.dstOffset = VERTEX_UV_COORDS_BYTE_OFFSET + totalVertexCount * sizeof(model.uvCoordinates[0]);
+        offset = stagingBuffer.CopyData(model.uvCoordinates.data(), uvRegion);
+
+        VkBufferCopy transformsRegion;
+        transformsRegion.size = total_added_instances * sizeof(glm::mat4);
+        transformsRegion.srcOffset = offset;
+        transformsRegion.dstOffset = INSTANCE_TRANSFORMS_BYTE_OFFSET + totalInstanceCount * sizeof(glm::mat4);
+        offset += transformsRegion.size;
+
+        VkBufferCopy imageIndexRegion;
+        imageIndexRegion.size = total_added_instances * sizeof(uint32_t);
+        imageIndexRegion.srcOffset = offset;
+        imageIndexRegion.dstOffset = INSTANCE_TEXTURE_INDEX_BYTE_OFFSET + totalInstanceCount * sizeof(uint32_t);
+        // Copy instances
+        {
+            size_t transformOffset = transformsRegion.srcOffset;
+            size_t imageIndexOffset = imageIndexRegion.srcOffset;
+            for (size_t i = 0; i < model.meshInfos.size(); ++i) {
+                const GenericModel::MeshInfo& meshInfo = model.meshInfos[i];
+
+                size_t transforms_size = meshInfo.instanceTransforms.size() * sizeof(meshInfo.instanceTransforms[0]);
+                transformOffset = stagingBuffer.CopyData(meshInfo.instanceTransforms.data(), transforms_size, transformOffset);
+                // TextureIndices:
+                uint32_t texture_index = meshInfo.textureIndex + totalTextureCount;
+                for (size_t j = 0; j < meshInfo.instanceTransforms.size(); ++j) {
+                    imageIndexOffset = stagingBuffer.CopyData(&texture_index, sizeof(texture_index), imageIndexOffset);
+                }
+            }
+        }
+        
+        VkBufferCopy regions[] = {
+            indexRegion, posRegion, normalRegion, uvRegion, transformsRegion, imageIndexRegion 
+        };
+
+        //info("index ",i ," size: ", index_region.size, " index size offset : ", index_region.dstOffset," vertex size: ",vertex_region.size , " vertex offset : ", vertex_region.dstOffset);
+        vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, ARRAY_SIZE(regions), regions);
 
         // Submitting Commands:
         vkEndCommandBuffer(commandBuffer);
         Vk::SubmitCommands(device.GetGraphicsQueue(0), commandBuffer, fence);
 
+        totalInstanceCount += total_added_instances;
+        totalVertexCount += model.vertexPositions.size();
+        totalIndexCount += model.indices.size();
+        totalTextureCount += model.textures.size();
+
         ModelDrawData drawData;
-        drawData.imageCount = model.images.size();
-        drawData.instanceCount = 1;
-        drawData.meshes.resize(model.meshes.size());
-        for(size_t i = 0; i < model.meshes.size(); ++i) {
-            drawData.meshes[i].imageIndex = model.meshes[i].imageIndex;
-            drawData.meshes[i].indexCount = (uint32_t)model.meshes[i].indices.size();
-            drawData.meshes[i].vertexCount = (uint32_t)model.meshes[i].vertices.size();
-            drawData.meshes[i].instanceCount = (uint32_t)model.meshes[i].instanceTransforms.size();
+        drawData.meshes.resize(model.meshInfos.size());
+        for(size_t i = 0; i < model.meshInfos.size(); ++i) {
+            drawData.meshes[i].indexCount = (uint32_t)model.meshInfos[i].indexCount;
+            drawData.meshes[i].vertexCount = (uint32_t)model.meshInfos[i].vertexCount;
+            drawData.meshes[i].instanceCount = (uint32_t)model.meshInfos[i].instanceTransforms.size();
         }
         models.push_back(drawData);
-        //models.push_back(&model);
-        info("Model added. Free vertex memory: ", freeVertexBufferMemory);
-        uint32_t vertex_count = 0;
-        uint32_t index_count = 0;
-        for (size_t i = 0; i < models.size(); ++i) {
-            for(size_t j = 0; j < models[i].meshes.size(); ++j) {
-                vertex_count += models[i].meshes[j].vertexCount;
-                index_count += models[i].meshes[j].indexCount;
-            }
-        }
-        info("Total vertex count: ", vertex_count, " triangle count: ", index_count/3);
-        info("Total allocated image memory: ", textureAllocator.getAllocatedSize());
-        info("Total image count: ", textures.size());
-        warn("HelloWorld");
     }
 
-    void ModelRenderer::Draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight, uint32_t imageIndex) {
+    void ModelRenderer::Draw(VkCommandBuffer commands, VkDescriptorSet uniformSet, uint32_t viewportWidth, uint32_t viewportHeight, uint32_t frameIndex) {
         CheckTransferStatus();
-        UpdateTextureDescriptors(imageIndex);
+        UpdateTextureDescriptors(frameIndex);
 
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         VkViewport viewport = { (float)0.0f, (float)0.0f, (float)viewportWidth, (float)viewportHeight, 0.0f, 1.0f };
@@ -291,41 +311,35 @@ namespace SGF {
         vkCmdSetScissor(commands, 0, 1, &scissor);
         VkDescriptorSet sets[] = {
             uniformSet,
-            descriptorSets[imageIndex].set
+            descriptorSets[frameIndex]
         };
 
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
-        VkBuffer buffers[] = { vertexBuffer, vertexBuffer };
-        VkDeviceSize offsets[] = { VERTEX_START_BYTE_OFFSET, 0 };
-        static_assert(ARRAY_SIZE(buffers) == ARRAY_SIZE(offsets));
-        vkCmdBindVertexBuffers(commands, 0, ARRAY_SIZE(buffers), buffers, offsets);
-        vkCmdBindIndexBuffer(commands, vertexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        int32_t vertex_offset = 0;
+        const VkBuffer buffers[] = { 
+            vertexBuffer, 
+            vertexBuffer, 
+            vertexBuffer, 
+            vertexBuffer, 
+            vertexBuffer 
+        };
+        
+        static_assert(ARRAY_SIZE(buffers) == ARRAY_SIZE(VERTEX_BUFFER_OFFSETS));
+        vkCmdBindVertexBuffers(commands, 0, ARRAY_SIZE(buffers), buffers, VERTEX_BUFFER_OFFSETS);
+        vkCmdBindIndexBuffer(commands, vertexBuffer, INDEX_BUFFER_BYTE_OFFSET, VK_INDEX_TYPE_UINT32);
+        uint32_t vertex_offset = 0;
         uint32_t instance_offset = 0;
-        constexpr uint32_t max_index_offset = PAGE_SIZE / sizeof(uint32_t);
-        uint32_t first_index = max_index_offset;
-        uint32_t image_count = 0;
-        uint32_t totalVertexCount = 0;
-        uint32_t totalIndexCount = 0;
-        uint32_t totalMeshCount = 0;
+        uint32_t index_offset = 0;
         for (size_t i = 0; i < models.size(); ++i) {
             //const Model& model = models[i][0];
             const ModelDrawData& drawData = models[i];
-
-            totalMeshCount += (uint32_t)drawData.meshes.size();
-
             for (size_t j = 0; j < drawData.meshes.size(); ++j) {
                 const auto& mesh = drawData.meshes[j];
-                totalIndexCount += mesh.indexCount;
-                totalVertexCount += mesh.vertexCount;
-                first_index -= mesh.indexCount;
-                uint32_t image_offset = image_count + mesh.imageIndex;
-                vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(image_offset), &image_offset);
-                vkCmdDrawIndexed(commands, mesh.indexCount, mesh.instanceCount, first_index, vertex_offset, instance_offset);
+                //info("Drawing mesh: ", j, " indexCount: ", mesh.indexCount, " vertices: ", mesh.vertexCount);
+                vkCmdDrawIndexed(commands, mesh.indexCount, mesh.instanceCount, index_offset, vertex_offset, instance_offset);
                 vertex_offset += mesh.vertexCount;
                 instance_offset += mesh.instanceCount;
+                index_offset += mesh.indexCount;
             }
-            image_count += (uint32_t)drawData.imageCount;
         }
     }
 
@@ -335,20 +349,18 @@ namespace SGF {
         //createPipeline(polygonMode);
     }
     void ModelRenderer::InvalidateDescriptors() {
-        for (size_t i = 0; i < descriptorSets.size(); ++i) {
-            descriptorSets[i].invalidated = true;
-        }
+        descriptorInvalidated[0] = true;
+        descriptorInvalidated[1] = true;
         info("descriptors invalidated!");
     }
 
     void ModelRenderer::CheckTransferStatus() {
-        if (stagingMapped != nullptr) {
+        if (stagingBuffer.IsInitialized()) {
             auto& device = Device::Get();
             if (device.IsFenceSignaled(fence)) {
                 InvalidateDescriptors();
                 device.Reset(fence);
-                device.Destroy(stagingBuffer, stagingMemory);
-                stagingMapped = nullptr;
+                stagingBuffer.Clear();
             }
         }
     }
@@ -359,19 +371,15 @@ namespace SGF {
             .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).Build();
     }
 
-    void ModelRenderer::UpdateTextureDescriptors(uint32_t imageIndex) {
-        Descriptor& descriptor = descriptorSets[imageIndex];
+    void ModelRenderer::UpdateTextureDescriptors(uint32_t frameIndex) {
         auto& device = Device::Get();
-        if (descriptor.invalidated) {
+        if (descriptorInvalidated[frameIndex]) {
             std::vector<VkDescriptorImageInfo> texture_info(textures.size());
-            //VkWriteDescriptorSet descriptorWrites[]
             for (size_t i = 0; i < texture_info.size(); ++i) {
                 texture_info[i] = { VK_NULL_HANDLE, textures[i].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
             }
-            device.UpdateDescriptor(descriptor.set, 1, 0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, texture_info.data(), (uint32_t)texture_info.size());
-            //device.UpdateDescriptors(descriptorWrites);
-            //vkUpdateDescriptorSets(SVE::getDevice(), 1, &descriptor_write, 0, nullptr);
-            descriptor.invalidated = false;
+            device.UpdateDescriptor(descriptorSets[frameIndex], 1, 0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, texture_info.data(), (uint32_t)texture_info.size());
+            descriptorInvalidated[frameIndex] = false;
             info("Descriptor updated");
         }
     }

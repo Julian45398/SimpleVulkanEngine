@@ -1722,7 +1722,6 @@ namespace SGF {
         info.descriptorPool = pool;
         info.pSetLayouts = pSetLayouts;
         info.descriptorSetCount = setCount;
-        info.pSetLayouts = pSetLayouts;
         info.pNext = nullptr;
         AllocateDescriptorSets(info, pDescriptorSets);
     }

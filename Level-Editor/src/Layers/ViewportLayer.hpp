@@ -59,7 +59,7 @@ namespace SGF {
         VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
         UniformArray<glm::mat4> uniformBuffer;
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
-        std::vector<Model> models;
+        std::vector<GenericModel> models;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
         uint32_t width = 0;

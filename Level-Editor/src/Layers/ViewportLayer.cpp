@@ -55,7 +55,7 @@ namespace SGF {
 			};
 			device.UpdateDescriptors(writes);
 		}
-		modelRenderer.Initialize(renderPass, 0, descriptorPool, uniformLayout, SGF_FRAMES_IN_FLIGHT);
+		modelRenderer.Initialize(renderPass, 0, descriptorPool, uniformLayout);
 		gridRenderer.Init(renderPass, 0, uniformLayout);
 	}
 	ViewportLayer::~ViewportLayer() {
@@ -256,6 +256,7 @@ namespace SGF {
 
 
 
+		/*
 		Ray center_ray(pos, forward);
 		// getting closest intersection;
 		float closest = std::numeric_limits<float>::infinity();
@@ -273,6 +274,7 @@ namespace SGF {
 		} else {
 			ImGui::Text("no collision. Time: %.4fms", ellapsed);
 		}
+		*/
 
 		glm::vec3 up = camera.GetUp();
 		glm::vec3 right = camera.GetRight();

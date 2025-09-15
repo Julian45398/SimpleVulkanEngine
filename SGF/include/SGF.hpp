@@ -16,3 +16,4 @@
 #include "Render/Camera.hpp"
 #include "Render/UniformBuffer.hpp"
 #include "Render/ImageMemoryAllocator.hpp"
+#include "Render/StagingBuffer.hpp"
