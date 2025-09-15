@@ -124,9 +124,6 @@ namespace SGF {
         // Pipeline:
         {
             // Layout:
-            VkPushConstantRange push_constant_ranges[] = {
-                {VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Model::Mesh::imageIndex)}
-            };
             VkDescriptorSetLayout descriptor_layouts[] = {
                 uniformLayout,
                 descriptorLayout
