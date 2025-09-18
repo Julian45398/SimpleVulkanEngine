@@ -17,6 +17,11 @@ add_subdirectory("${NFD_DIR}")
 target_link_libraries(SGF PRIVATE nfd)
 target_include_directories(SGF PUBLIC "${NFD_DIR}/src/include")
 
+#adding fmt:
+add_subdirectory("fmt")
+target_link_libraries(SGF PUBLIC fmt)
+target_include_directories(SGF PUBLIC "/fmt/include")
+
 #setting up imgui:
 set(IMGUI "imgui/")
 target_sources(SGF PUBLIC "${IMGUI}imgui.cpp" "${IMGUI}imgui_tables.cpp" "${IMGUI}imgui_draw.cpp"  "${IMGUI}imgui_demo.cpp" "${IMGUI}imgui_widgets.cpp")

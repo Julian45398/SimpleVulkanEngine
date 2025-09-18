@@ -23,3 +23,6 @@
 [submodule "SGF/lib/assimp"]
 	path = SGF/lib/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "SGF/lib/fmt"]
+	path = SGF/lib/fmt
+	url = https://github.com/fmtlib/fmt.git
