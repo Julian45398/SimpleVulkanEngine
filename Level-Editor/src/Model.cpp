@@ -18,6 +18,7 @@ namespace SGF {
 		Clear();
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
+		debugName = scene->mName.C_Str();
 
 		if (scene == nullptr) {
 			SGF::warn("No Scene available!");
@@ -62,19 +63,15 @@ namespace SGF {
 			for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
 				aiMesh* mesh = scene->mMeshes[meshIndex];
 				auto& meshInfo = meshInfos[meshIndex];
-				info("Mesh: ", meshIndex, " vertexCount: ", mesh->mNumVertices);
 
 				// Get vertex positions and indices
-				print("Indices: [");
 				for (uint32_t j = 0; j < mesh->mNumFaces; ++j) {
 					auto& smf = mesh->mFaces[j];
 					assert(smf.mNumIndices == 3);
 					for (uint32_t k = 0; k < smf.mNumIndices; ++k) {
 						indices[meshInfo.indexOffset + j * smf.mNumIndices + k] = smf.mIndices[k];
-						print(" ", smf.mIndices[k]);
 					}
 				}
-				print(" ]\nVertices: [ ");
 				for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
 					auto& vert = mesh->mVertices[j];
 					//vertexPositions[m.j]
@@ -83,14 +80,12 @@ namespace SGF {
 					vertexPositions[meshInfo.vertexOffset + j].y = mesh->mVertices[j].y;
 					vertexPositions[meshInfo.vertexOffset + j].z = mesh->mVertices[j].z;
 					vertexPositions[meshInfo.vertexOffset + j].w = 1.0f;
-					print("{ ", mesh->mVertices[j].x, ", ", mesh->mVertices[j].y, ", ", mesh->mVertices[j].z, " } ");
 
 					vertexNormals[meshInfo.vertexOffset + j].x = mesh->mNormals[j].x;
 					vertexNormals[meshInfo.vertexOffset + j].y = mesh->mNormals[j].y;
 					vertexNormals[meshInfo.vertexOffset + j].z = mesh->mNormals[j].z;
 					vertexNormals[meshInfo.vertexOffset + j].w = 1.0f;
 				}
-				print(" ]\n");
 
 				{
 					uint32_t matIndex = mesh->mMaterialIndex;
@@ -142,22 +137,17 @@ namespace SGF {
 			// load all textures:
 			{
 				textures.reserve(diffuseTextures.size());
-				warn("Loading textures!");
 				for (size_t i = 0; i < diffuseTextures.size(); ++i) {
 					auto& path = diffuseTextures[i];
-					warn("Loading texture: ", path);
 					if (path.empty()) {
-						info("path is empty!");
+						warn("path is empty!");
 					}
 					else if (path[0] == '*') {
 						// Is embedded
-						info("Texture is embedded!");
 						unsigned int texIndex = std::stoi(path.substr(1));
 						const aiTexture* embeddedTex = scene->mTextures[texIndex];
 						if (embeddedTex->mHeight == 0) {
 							// is compressed
-							info("Embedded texture format: ", embeddedTex->achFormatHint);
-							//embeddedTex->pcData
 							textures.emplace_back((const uint8_t*)embeddedTex->pcData, embeddedTex->mWidth);
 						} else {
 							// is uncompressed
@@ -165,7 +155,6 @@ namespace SGF {
 						}
 					} else {
 						std::string texFilepath = GetDirectoryFromFilePath(filename) +'/' + path;
-						warn("Assimp texture Filepath: ", texFilepath);
 						textures.emplace_back(texFilepath.c_str());
 					}
 					assert(textures[i].GetWidth() != 0 && textures[i].GetHeight() != 0);

@@ -22,6 +22,7 @@ namespace SGF {
 		std::vector<glm::vec2> uvCoordinates;
 		std::vector<uint32_t> indices;
 		std::vector<Texture> textures;
+		std::string debugName;
 
 		inline GenericModel() = default;
 		inline GenericModel(const char* filename) { LoadFromFile(filename); }

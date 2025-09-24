@@ -5,7 +5,7 @@
 #include "Renderer/GridRenderer.hpp"
 #include "Renderer/ModelRenderer.hpp"
 #include "CameraController.hpp"
-
+#include "Viewport.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -21,8 +21,9 @@ namespace SGF {
         void RenderViewport(RenderEvent& event);
 	    void UpdateViewport(const UpdateEvent& event);
 	    void UpdateStatusWindow(const UpdateEvent& event);
+	    void UpdateModelWindow(const UpdateEvent& event);
 
-        inline VkRenderPass GetRenderPass() { return renderPass; }
+        inline VkRenderPass GetRenderPass() { return viewport.GetRenderPass(); }
 
         virtual bool OnEvent(const KeyPressedEvent& event) override;
         //virtual bool onKeyRepeat(const KeyRepeatEvent& event) override;
@@ -40,39 +41,30 @@ namespace SGF {
             INPUT_CAPTURED = BIT(2)
         };
         void ResizeFramebuffer(uint32_t width, uint32_t height);
-        void CreateFramebuffer();
-        void DestroyFramebuffer();
         CommandList commands[SGF_FRAMES_IN_FLIGHT];
-		VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
-        VkImage colorImage = VK_NULL_HANDLE;
-        VkImage depthImage = VK_NULL_HANDLE;
+        Viewport viewport;
         VkSampler sampler = VK_NULL_HANDLE;
         ImTextureID imGuiImageID = 0;
-        VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-        VkImageView colorImageView = VK_NULL_HANDLE;
-        VkImageView depthImageView = VK_NULL_HANDLE;
-        VkFramebuffer framebuffer = VK_NULL_HANDLE;
         VkSemaphore signalSemaphore = VK_NULL_HANDLE;
         VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
         VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
         UniformArray<glm::mat4> uniformBuffer;
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
         std::vector<GenericModel> models;
+        std::vector<ModelRenderer::ModelDrawData> modelDrawData;
+        uint32_t selectedModelIndex = UINT32_MAX;
+        uint32_t selectedMeshIndex = UINT32_MAX;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
-        uint32_t width = 0;
-        uint32_t height = 0;
-        VkFormat imageFormat;
         uint32_t imageIndex = 0;
         CameraController cameraController;
+        VkPipeline renderPipeline;
+        VkPipeline selectionPipeline;
         Cursor cursor;
         ModelRenderer modelRenderer;
         GridRenderer gridRenderer;
         float viewSize = 0.0f;
         float cameraZoom = 0.0f;
-        float aspectRatio = 0.0f;
         bool isOrthographic = false;
         uint32_t inputMode = 0;
 	};
