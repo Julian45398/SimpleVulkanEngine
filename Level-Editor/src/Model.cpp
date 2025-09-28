@@ -13,6 +13,145 @@
 
 namespace SGF {
 	void TraverseNode(GenericModel* model, aiNode* node, const aiMatrix4x4& parentTransform = aiMatrix4x4());
+	Texture TextureFromBaseColor(aiColor4D& baseColor) {
+		uint8_t texel[4];
+		texel[0] = static_cast<uint8_t>(glm::clamp(baseColor.r, 0.0f, 1.0f) * 255.0f);
+		texel[1] = static_cast<uint8_t>(glm::clamp(baseColor.g, 0.0f, 1.0f) * 255.0f);
+		texel[2] = static_cast<uint8_t>(glm::clamp(baseColor.b, 0.0f, 1.0f) * 255.0f);
+		texel[3] = static_cast<uint8_t>(glm::clamp(baseColor.a, 0.0f, 1.0f) * 255.0f);
+		return Texture(1, 1, texel);
+	}
+	
+	Texture LoadTextureFromAssimp(GenericModel* model, const aiScene* scene, std::string& path, const char* filename) {
+		if (path.empty()) {
+			aiColor4D baseColor(0.5, 0.5, 0.5, 1.f);
+			return TextureFromBaseColor(baseColor);
+		}
+		else if (path[0] == '*') {
+			// Is embedded
+			unsigned int texIndex = std::stoi(path.substr(1));
+			const aiTexture* embeddedTex = scene->mTextures[texIndex];
+			if (embeddedTex->mHeight == 0) {
+				// is compressed
+				return Texture((const uint8_t*)embeddedTex->pcData, embeddedTex->mWidth);
+			} else {
+				// is uncompressed
+				return Texture((uint32_t)embeddedTex->mWidth, (uint32_t)embeddedTex->mHeight, (uint8_t*)embeddedTex->pcData);
+			}
+		} else {
+			std::string texFilepath = GetDirectoryFromFilePath(filename) +'/' + path;
+			return Texture(texFilepath.c_str());
+		}
+		//assert(textures[i].GetWidth() != 0 && textures[i].GetHeight() != 0);
+	}
+	void GetVertexPositionsAndNormals(GenericModel* pModel, const aiMesh* pMesh, GenericModel::MeshInfo& meshInfo) {
+		for (uint32_t j = 0; j < pMesh->mNumVertices; ++j) {
+			auto& vert = pMesh->mVertices[j];
+			//vertexPositions[m.j]
+
+			pModel->vertices[meshInfo.vertexOffset + j].position.x = pMesh->mVertices[j].x;
+			pModel->vertices[meshInfo.vertexOffset + j].position.y = pMesh->mVertices[j].y;
+			pModel->vertices[meshInfo.vertexOffset + j].position.z = pMesh->mVertices[j].z;
+			pModel->vertices[meshInfo.vertexOffset + j].normal.x = pMesh->mNormals[j].x;
+			pModel->vertices[meshInfo.vertexOffset + j].normal.y = pMesh->mNormals[j].y;
+			pModel->vertices[meshInfo.vertexOffset + j].normal.z = pMesh->mNormals[j].z;
+			//vertices[meshInfo.vertexOffset + j].w = 1.0f;
+		}
+	}
+	void GetIndices(GenericModel* pModel, const aiMesh* pMesh, GenericModel::MeshInfo& meshInfo) {
+		for (uint32_t j = 0; j < pMesh->mNumFaces; ++j) {
+			auto& smf = pMesh->mFaces[j];
+			assert(smf.mNumIndices == 3);
+			for (uint32_t k = 0; k < smf.mNumIndices; ++k) {
+				pModel->indices[meshInfo.indexOffset + j * smf.mNumIndices + k] = smf.mIndices[k];
+			}
+		}
+	}
+
+	void LoadMesh(GenericModel* pModel, const aiScene* pScene, const aiMesh* pMesh, GenericModel::MeshInfo& meshInfo, std::vector<std::string>& diffuseTextures, const char* filename) {
+		// Get vertex positions and indices
+		GetIndices(pModel, pMesh, meshInfo);
+		
+		GetVertexPositionsAndNormals(pModel, pMesh, meshInfo);
+
+		{
+			aiMaterial* material = pScene->mMaterials[pMesh->mMaterialIndex];
+
+			uint32_t uvChannelIndex = 0;
+
+			bool hasTexture = false;
+			bool hasVertexColors = false;
+			bool hasBaseColor = false;
+			aiString texPath;
+			aiTextureType types[] = { aiTextureType_DIFFUSE, aiTextureType_BASE_COLOR };
+			for (auto type : types) {
+				if (material->GetTextureCount(type) > 0) {
+					// Get the first diffuse texture, along with the UV index it uses
+					if (material->GetTexture(type, 0, &texPath, nullptr, &uvChannelIndex) == AI_SUCCESS) {
+						bool isAlreadyInside = false;
+						for (size_t i = 0; i < diffuseTextures.size(); ++i) {
+							if ((diffuseTextures[i].length() == texPath.length) && strncmp(diffuseTextures[i].c_str(), texPath.C_Str(), texPath.length) == 0) {
+								isAlreadyInside = true;
+								meshInfo.textureIndex = (uint32_t)i;
+								break;
+							}
+						}
+						if (!isAlreadyInside) {
+							meshInfo.textureIndex = (uint32_t)pModel->textures.size();
+							diffuseTextures.emplace_back(texPath.C_Str());
+							pModel->textures.push_back(LoadTextureFromAssimp(pModel, pScene, diffuseTextures.back(), filename));
+						}
+
+						hasTexture = true;
+						break;
+					}
+				} else {
+					meshInfo.textureIndex = UINT32_MAX;
+				}
+			}
+			if (pMesh->HasVertexColors(0)) {
+				for (size_t j = 0; j < pMesh->mNumVertices; ++j) {
+					pModel->vertices[j + meshInfo.vertexOffset].color.r = pMesh->mColors[0][j].r;
+					pModel->vertices[j + meshInfo.vertexOffset].color.g = pMesh->mColors[0][j].g;
+					pModel->vertices[j + meshInfo.vertexOffset].color.b = pMesh->mColors[0][j].b;
+					pModel->vertices[j + meshInfo.vertexOffset].color.a = pMesh->mColors[0][j].a;
+				}
+				hasVertexColors = true;
+			} else {
+				aiColor4D baseColor(1.0f, 1.0f, 1.0f, 1.0f); // default white
+				if (AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &baseColor) ||
+					AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &baseColor)) {
+					hasBaseColor = true;
+					info("Base color is: ", baseColor.r, ", ", baseColor.g, ", ", baseColor.b, ", ", baseColor.a);
+				}
+				for (size_t j = 0; j < pMesh->mNumVertices; ++j) {
+					pModel->vertices[j + meshInfo.vertexOffset].color.r = baseColor.r;
+					pModel->vertices[j + meshInfo.vertexOffset].color.g = baseColor.g;
+					pModel->vertices[j + meshInfo.vertexOffset].color.b = baseColor.b;
+					pModel->vertices[j + meshInfo.vertexOffset].color.a = baseColor.a;
+				}
+			}
+
+			// Now get UVs from the correct channel
+			if (hasTexture && pMesh->HasTextureCoords(uvChannelIndex)) {
+				for (uint32_t j = 0; j < pMesh->mNumVertices; ++j) {
+					aiVector3D uv = pMesh->mTextureCoords[uvChannelIndex][j];
+					pModel->vertices[meshInfo.vertexOffset + j].uv.x = uv.x;
+					pModel->vertices[meshInfo.vertexOffset + j].uv.y = uv.y;
+				}
+			} else {
+				if (hasTexture) warn("mesh has a texture but doesnt have uv coordinates!");
+				for (uint32_t j = 0; j < pMesh->mNumVertices; ++j) {
+					pModel->vertices[meshInfo.vertexOffset + j].uv.x = 2.0f;
+					pModel->vertices[meshInfo.vertexOffset + j].uv.y = 2.0f;
+				}
+			}
+			if (hasBaseColor) info("has base color");
+			if (hasVertexColors) info("has vertex colors");
+			if (hasTexture) info("Has texture");
+			if (!hasBaseColor && !hasTexture && !hasVertexColors) warn("Mesh doesnt have any color information!");
+		}
+	}
 
 	void GenericModel::LoadFromFile(const char* filename) {
 		Clear();
@@ -50,115 +189,27 @@ namespace SGF {
 				totalIndices += sm->mNumFaces * 3;
 			}
 
-			vertexPositions.resize(totalVertices);
-			vertexNormals.resize(totalVertices);
-			uvCoordinates.resize(totalVertices);
+			vertices.resize(totalVertices);
 			indices.resize(totalIndices);
 		}
 		// Get texture uv-coordinates and texture indices
 		{
 			std::vector<std::string> diffuseTextures;
 			diffuseTextures.reserve(scene->mNumMeshes);
+			std::vector<aiColor4D> baseColors;
+			textures.reserve(scene->mNumMeshes);
 
 			for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
 				aiMesh* mesh = scene->mMeshes[meshIndex];
 				auto& meshInfo = meshInfos[meshIndex];
-
-				// Get vertex positions and indices
-				for (uint32_t j = 0; j < mesh->mNumFaces; ++j) {
-					auto& smf = mesh->mFaces[j];
-					assert(smf.mNumIndices == 3);
-					for (uint32_t k = 0; k < smf.mNumIndices; ++k) {
-						indices[meshInfo.indexOffset + j * smf.mNumIndices + k] = smf.mIndices[k];
-					}
-				}
-				for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
-					auto& vert = mesh->mVertices[j];
-					//vertexPositions[m.j]
-
-					vertexPositions[meshInfo.vertexOffset + j].x = mesh->mVertices[j].x;
-					vertexPositions[meshInfo.vertexOffset + j].y = mesh->mVertices[j].y;
-					vertexPositions[meshInfo.vertexOffset + j].z = mesh->mVertices[j].z;
-					vertexPositions[meshInfo.vertexOffset + j].w = 1.0f;
-
-					vertexNormals[meshInfo.vertexOffset + j].x = mesh->mNormals[j].x;
-					vertexNormals[meshInfo.vertexOffset + j].y = mesh->mNormals[j].y;
-					vertexNormals[meshInfo.vertexOffset + j].z = mesh->mNormals[j].z;
-					vertexNormals[meshInfo.vertexOffset + j].w = 1.0f;
-				}
-
-				{
-					uint32_t matIndex = mesh->mMaterialIndex;
-					aiMaterial* material = scene->mMaterials[matIndex];
-
-					uint32_t uvChannelIndex = 0;
-					uint32_t textureIndex = 0;
-
-					aiString texPath;
-					if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-						// Get the first diffuse texture, along with the UV index it uses
-						if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath, nullptr, &uvChannelIndex) == AI_SUCCESS) {
-							bool isAlreadyInside = false;
-							for (size_t i = 0; i < diffuseTextures.size(); ++i) {
-								if ((diffuseTextures[i].length() == texPath.length) && strncmp(diffuseTextures[i].c_str(), texPath.C_Str(), texPath.length) == 0) {
-									isAlreadyInside = true;
-									textureIndex = (uint32_t)i;
-									break;
-								}
-							}
-							if (!isAlreadyInside) {
-								textureIndex = (uint32_t)diffuseTextures.size();
-								diffuseTextures.emplace_back(texPath.C_Str());
-							}
-						}
-					} else {
-						warn("mesh doesnt have a diffuse texture!");
-						// TODO: handle case!
-					}
-					meshInfo.textureIndex = textureIndex;
-
-					// Now get UVs from the correct channel
-					if (mesh->HasTextureCoords(uvChannelIndex)) {
-						for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
-							aiVector3D uv = mesh->mTextureCoords[uvChannelIndex][j];
-							uvCoordinates[meshInfo.vertexOffset + j].x = uv.x;
-							uvCoordinates[meshInfo.vertexOffset + j].y = uv.y;
-						}
-					} else {
-						warn("mesh doesnt have uv coordinates!");
-						//  TODO: handle case!
-						for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
-							uvCoordinates[meshInfo.vertexOffset + j].x = 0.0f;
-							uvCoordinates[meshInfo.vertexOffset + j].y = 0.0f;
-						}
-					}
-				}
+				LoadMesh(this, scene, mesh, meshInfo, diffuseTextures, filename);
 			}
 			// load all textures:
 			{
-				textures.reserve(diffuseTextures.size());
 				for (size_t i = 0; i < diffuseTextures.size(); ++i) {
-					auto& path = diffuseTextures[i];
-					if (path.empty()) {
-						warn("path is empty!");
-					}
-					else if (path[0] == '*') {
-						// Is embedded
-						unsigned int texIndex = std::stoi(path.substr(1));
-						const aiTexture* embeddedTex = scene->mTextures[texIndex];
-						if (embeddedTex->mHeight == 0) {
-							// is compressed
-							textures.emplace_back((const uint8_t*)embeddedTex->pcData, embeddedTex->mWidth);
-						} else {
-							// is uncompressed
-							textures.emplace_back((uint32_t)embeddedTex->mWidth, (uint32_t)embeddedTex->mHeight, (uint8_t*)embeddedTex->pcData);
-						}
-					} else {
-						std::string texFilepath = GetDirectoryFromFilePath(filename) +'/' + path;
-						textures.emplace_back(texFilepath.c_str());
-					}
 					assert(textures[i].GetWidth() != 0 && textures[i].GetHeight() != 0);
 				}
+				textures.shrink_to_fit();
 			}
 		}
 		TraverseNode(this, scene->mRootNode);

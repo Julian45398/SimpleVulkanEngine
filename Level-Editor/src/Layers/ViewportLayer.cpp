@@ -231,21 +231,24 @@ namespace SGF {
 		if (Input::HasFocus()) {
 			cursorpos = Input::GetCursorPos();
 		}
-		if (ImGui::Button("Import GLTF-Model")) {
+		if (ImGui::Button("Import Model")) {
 			WindowHandle handle(ImGui::GetWindowViewport());
-			auto filename = handle.OpenFileDialog("GLTF files", "gltf, gdb");
+			auto filename = handle.OpenFileDialog("Model files", "gltf,glb,fbx,obj,usdz");
 			if (!filename.empty()) {
 				models.emplace_back(filename.c_str());
 				modelDrawData.push_back(modelRenderer.AddModel(models.back()));
 			}
 		}
+		ImGui::Separator();
+		ImGui::Text("Total Indices: %d, Total Vertices: %d,\nTotal Instances: %d, Total Textures: %d\nMemory Used: %ld, Allocated: %ld",
+			modelRenderer.GetTotalIndexCount(), modelRenderer.GetTotalVertexCount(),
+			modelRenderer.GetTotalInstanceCount(), modelRenderer.GetTextureCount(), modelRenderer.GetTotalDeviceMemoryUsed(), modelRenderer.GetTotalDeviceMemoryAllocated());
+
+		ImGui::Separator();
 		if (models.size() != 0) {
 			UpdateModelWindow(event);
 		}
 
-		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursorpos.x, cursorpos.y);
-		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursorPos.x, cursorPos.y);
-		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursorMove.x, cursorMove.y);
 		cursorMove.x = 0; cursorMove.y = 0;
 		if (isOrthographic) {
 			if (ImGui::Button("Set Perspective")) {
@@ -264,71 +267,6 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
-		const auto& camera = cameraController.GetCamera();
-		glm::vec3 pos = camera.GetPos();
-		glm::vec3 forward = camera.GetForward();
-
-		float p[] = {pos.x, pos.y, pos.z};
-		ImGui::InputFloat3("Camera Position: ", p, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		p[0] = forward.x;
-		p[1] = forward.y;
-		p[2] = forward.z;
-		ImGui::InputFloat3("Camera Forward: ", p, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		p[0] = camera.GetYaw();
-		p[1] = camera.GetPitch();
-		p[2] = camera.GetRoll();
-		ImGui::InputFloat3("Camera Rotation: ", p, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		float m[4] = {};
-		glm::mat4 mat = cameraController.GetViewProjMatrix(viewport.GetAspectRatio());
-		m[0] = mat[0][0];
-		m[1] = mat[0][1];
-		m[2] = mat[0][2];
-		m[3] = mat[0][3];
-		ImGui::InputFloat4("1", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		m[0] = mat[1][0];
-		m[1] = mat[1][1];
-		m[2] = mat[1][2];
-		m[3] = mat[1][3];
-		ImGui::InputFloat4("2", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		m[0] = mat[2][0];
-		m[1] = mat[2][1];
-		m[2] = mat[2][2];
-		m[3] = mat[2][3];
-		ImGui::InputFloat4("3", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		m[0] = mat[3][0];
-		m[1] = mat[3][1];
-		m[2] = mat[3][2];
-		m[3] = mat[3][3];
-		ImGui::InputFloat4("4", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-
-
-
-
-		/*
-		Ray center_ray(pos, forward);
-		// getting closest intersection;
-		float closest = std::numeric_limits<float>::infinity();
-		uint32_t modelIndex = models.size();
-
-		SGF::Timer time;
-		time.reset();
-		for (size_t i = 0; i < models.size(); ++i) {
-			float t = models[i].getIntersection(center_ray);
-			closest = std::min(t, closest);
-		}
-		double ellapsed = time.ellapsedMillis();
-		if (closest > 0 && closest != std::numeric_limits<float>::infinity()) {
-			ImGui::Text("colliding with model %i at %.4f distance. Time: %.4fms", (int)modelIndex, closest, ellapsed);
-		} else {
-			ImGui::Text("no collision. Time: %.4fms", ellapsed);
-		}
-		*/
-
-		glm::vec3 up = camera.GetUp();
-		glm::vec3 right = camera.GetRight();
-		float yaw = camera.GetYaw();
-		float pitch = camera.GetPitch();
-		ImGui::ColorButton("ColorButton", ImVec4(0.2, 0.8, 0.1, 1.0), 0, ImVec2(20.f, 20.f));
 		//ImGui::Text("Frame time: {d}", event.get);
 		ImGui::End();
 	}

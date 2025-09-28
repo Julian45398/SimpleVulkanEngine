@@ -25,15 +25,16 @@ namespace SGF {
 		std::vector<MemRegion> freeRegions;
 		std::vector<ImageRegion> imageRegions;
 	public:
-		const TextureImage createImage(uint32_t width, uint32_t height);
+		void AllocateNewPage();
+		const TextureImage CreateImage(uint32_t width, uint32_t height);
+		const TextureImage CreateDummyImage(uint32_t width, uint32_t height);
 
-		void destroyImage(const TextureImage& texture);
+		void DestroyImage(const TextureImage& texture);
 
-		inline size_t getAllocatedSize() {
-			return allocatedRegions.size() * REGION_SIZE;
-		}
+		inline size_t GetAllocatedSize() const { return allocatedRegions.size() * REGION_SIZE; }
+		inline size_t GetUsedMemorySize() const { size_t us = 0; for (auto& r : imageRegions) { us += r.region.size; } return us; }
 
-		void defragmentMemory();
+		void DefragmentMemory();
 
 		~ImageMemoryAllocator();
 	};
