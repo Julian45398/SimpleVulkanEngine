@@ -40,7 +40,7 @@ namespace SGF {
             INPUT_SELECTED = BIT(1),
             INPUT_CAPTURED = BIT(2)
         };
-        void ResizeFramebuffer(uint32_t width, uint32_t height);
+
         CommandList commands[SGF_FRAMES_IN_FLIGHT];
         Viewport viewport;
         VkSampler sampler = VK_NULL_HANDLE;
@@ -51,11 +51,12 @@ namespace SGF {
         UniformArray<glm::mat4> uniformBuffer;
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
         std::vector<GenericModel> models;
-        std::vector<ModelRenderer::ModelDrawData> modelDrawData;
-        uint32_t selectedModelIndex = UINT32_MAX;
-        uint32_t selectedMeshIndex = UINT32_MAX;
+        std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
+        const GenericModel* selectedModel = nullptr;
+        const GenericModel::Node* selectedNode = nullptr;
+        const uint32_t* selectedMesh = nullptr;
         uint32_t imageIndex = 0;
         CameraController cameraController;
         VkPipeline renderPipeline;
@@ -67,5 +68,11 @@ namespace SGF {
         float cameraZoom = 0.0f;
         bool isOrthographic = false;
         uint32_t inputMode = 0;
+
+    private:
+        void ResizeFramebuffer(uint32_t width, uint32_t height);
+	    void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
+	    void DrawNode(const GenericModel& model, const GenericModel::Node& node);
+	    void DrawModelNodeExcludeSelected(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
 	};
 }

@@ -33,7 +33,9 @@ void main() {
     //color.a = 1.0;
     //vec4 color2 = vec4(1.0, 1.0, 1.0, 1.0);
     outColor = mix(texture(sampler2D(textures[texIndex], texSampler), fragUV) * color * intensity, pc.color, pc.color.a);
+    //outColor = vec4(0.6, 0.6, 0.6, 1.0);
     //outColor = texture(texSampler, uvFragCoord) * color;
+    //outColor = texture(sampler2D(textures[texIndex], texSampler), fragUV) * color * intensity;
     outColor[3] = 1.0;
     //outColor = vec4(color, 1.0);
     //outColor = vec4(0.2, 0.3, 0.1, 1.0);

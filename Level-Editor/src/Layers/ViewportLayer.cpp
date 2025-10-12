@@ -35,15 +35,21 @@ namespace SGF {
 			device.UpdateDescriptors(writes);
 		}
 		modelRenderer.Initialize(viewport.GetRenderPass(), 0, descriptorPool, uniformLayout);
+
 		gridRenderer.Init(viewport.GetRenderPass(), 0, uniformLayout);
 		renderPipeline = Device::Get().CreateGraphicsPipeline(modelRenderer.GetPipelineLayout(), viewport.GetRenderPass(), 0)
             .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
             .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).Build();
+
+		models.emplace_back("assets/models/Low-Poly-Car.gltf");
+        modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
 	}
+
 	ViewportLayer::~ViewportLayer() {
 		auto& device = Device::Get();
 		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout);
 	}
+
 	void ViewportLayer::OnAttach() {
 	}
 	void ViewportLayer::OnDetach() {
@@ -98,6 +104,23 @@ namespace SGF {
 		UpdateStatusWindow(event);
 	}
 
+	void ViewportLayer::DrawModelNodeExcludeSelected(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const {
+		if (selectedNode == &node) {
+			if (nullptr == selectedMesh) return;
+			if (node.meshes.size() != 0) modelRenderer.SetMeshTransform(commands, node.globalTransform);
+			for (auto& m : node.meshes) {
+				if (&m == selectedMesh) continue;
+				modelRenderer.DrawMesh(commands, model.meshes[m]);
+			}
+		} else {
+			modelRenderer.DrawNode(commands, model, node);
+		}
+		for (auto& n : node.children) {
+			DrawModelNodeExcludeSelected(commands, model, model.nodes[n]);
+		}
+		
+	}
+
 	void ViewportLayer::RenderViewport(RenderEvent& event) {
 		VkClearValue clearValues[] = {
 			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
@@ -121,25 +144,53 @@ namespace SGF {
 		viewportSize.x = viewport.GetWidth();
 		viewportSize.y = viewport.GetHeight();
 		modelRenderer.PrepareDrawing(c, renderPipeline, uniformDescriptors[imageIndex], viewportSize, imageIndex);
-		if (selectedModelIndex != UINT32_MAX) {
-			for (size_t i = 0; i < modelDrawData.size(); ++i) {
-				if (i == selectedModelIndex) continue;
-				modelRenderer.DrawModel(c, modelDrawData[i]);
+		if (selectedModel != nullptr) {
+			auto selectedModelHandle = SIZE_MAX;
+			for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
+				if (&models[i] == selectedModel) {
+					selectedModelHandle = i;
+					continue;
+				};
+				modelRenderer.BindBuffersToModel(c, modelBindOffsets[i]);
+				modelRenderer.DrawModel(c, models[i]);
 			}
-			if (selectedMeshIndex != UINT32_MAX) {
-				for (size_t i = 0; i < modelDrawData[selectedModelIndex].meshes.size(); ++i) {
-					if (i == selectedMeshIndex) continue;
-					modelRenderer.DrawMesh(c, modelDrawData[selectedModelIndex].meshes[i]);
-				}
-				modelRenderer.SetColorModifier(c, glm::vec4(0.7f, 0.4f, 0.2f, 0.8f));
-				modelRenderer.DrawMesh(c, modelDrawData[selectedModelIndex].meshes[selectedMeshIndex]);
+			assert(selectedModelHandle != SIZE_MAX);
+			if (selectedModelHandle >= modelBindOffsets.size()) {
+				selectedModel = nullptr;
+				selectedMesh = nullptr;
+				selectedNode = nullptr;
 			} else {
-				modelRenderer.SetColorModifier(c, glm::vec4(0.7f, 0.4f, 0.2f, 0.8f));
-				modelRenderer.DrawModel(c, modelDrawData[selectedModelIndex]);
+				modelRenderer.BindBuffersToModel(c, modelBindOffsets[selectedModelHandle]);
+				auto& model = models[selectedModelHandle];
+				if (nullptr == selectedNode) {
+					assert(selectedMesh == nullptr);
+					modelRenderer.SetColorModifier(c, glm::vec4(0.2, 0.4, 0.7, 0.8));
+					modelRenderer.DrawModel(c, model);
+				} else { // node selected
+					if (nullptr == selectedMesh) {
+						DrawModelNodeExcludeSelected(c, model, model.GetRoot());
+						modelRenderer.SetColorModifier(c, glm::vec4(0.8, 0.45, 0.23, 0.8));
+						modelRenderer.DrawNodeRecursive(c, model, *selectedNode);
+					} else {
+						// Mesh Selected
+						for (auto& n : model.nodes) {
+							if (&n == selectedNode) continue;
+							modelRenderer.DrawNode(c, model, n);
+						}
+						modelRenderer.SetMeshTransform(c, selectedNode->globalTransform);
+						for (auto& mi : selectedNode->children) {
+							if (&mi == selectedMesh) continue;
+							modelRenderer.DrawMesh(c, model.meshes[mi]);
+						}
+						modelRenderer.SetColorModifier(c, glm::vec4(0.4, 0.7, 0.23, 0.8));
+						modelRenderer.DrawMesh(c, model.meshes[*selectedMesh]);
+					}
+				}
 			}
 		} else {
-			for (size_t i = 0; i < modelDrawData.size(); ++i) {
-				modelRenderer.DrawModel(c, modelDrawData[i]);
+			for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
+				modelRenderer.BindBuffersToModel(c, modelBindOffsets[i]);
+				modelRenderer.DrawModel(c, models[i]);
 			}
 		}
 		//modelRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight(), imageIndex);
@@ -181,47 +232,129 @@ namespace SGF {
 		ImGui::PopStyleVar();
 	}
 
+	void ViewportLayer::DrawNode(const GenericModel& model, const GenericModel::Node& node) {
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DrawLinesToNodes | ImGuiTreeNodeFlags_OpenOnArrow;
+		if (&node == selectedNode) {
+			flags |= ImGuiTreeNodeFlags_Selected;
+		}
+		if (node.children.size() == 0 && node.meshes.size() == 0) {
+			flags |= ImGuiTreeNodeFlags_Leaf;
+		}
+		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+			//ImGui::IsItemToggledSelection
+			selectedMesh = nullptr;
+			if (selectedNode == &node) {
+				selectedNode = nullptr;
+			} else {
+				selectedModel = &model;
+				selectedNode = &node;
+			}
+		}
+		if (open) {
+			// Draw Subnodes:
+			for (uint32_t child : node.children)
+				DrawNode(model, model.nodes[child]);
+			// Draw Meshes:
+			for (auto& m : node.meshes) {
+				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+				if (&m == selectedMesh) {
+					mflags |= ImGuiTreeNodeFlags_Selected;
+				}
+				ImGui::TreeNodeEx(&m, mflags, "Mesh %d", m);
+				if (ImGui::IsItemClicked()) {
+					if (&m == selectedMesh) {
+						selectedMesh = nullptr;
+					} else {
+						selectedNode = &node;
+						selectedModel = &model;
+						selectedMesh = &m;
+					}
+				}
+			}
+			ImGui::TreePop();
+		}
+		
+	}
+
+	void ViewportLayer::BuildNodeTree(const GenericModel& model, const GenericModel::Node& node) {
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
+		//if (i == ) flags |= ImGuiTreeNodeFlags_Selected;
+		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+			selectedNode = nullptr;
+			selectedMesh = nullptr;
+			if (selectedModel == &model) {
+				selectedModel = nullptr;
+			} else {
+				selectedModel = &model;
+			}
+		}
+		if (open) {
+			for (size_t i = 0; i < node.children.size(); ++i) {
+				DrawNode(model, model.nodes[node.children[i]]);
+			}
+			ImGui::TreePop();
+		}
+	}
+
 	void ViewportLayer::UpdateModelWindow(const UpdateEvent& event) {
 		ImGui::Separator();
 		ImGui::Text("Models");
 		for (size_t i = 0; i < models.size(); ++i) {
 			auto& model = models[i];
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
-			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
-			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].debugName.c_str());
+			if (&models[i] == selectedModel) flags |= ImGuiTreeNodeFlags_Selected;
+			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
 			if (ImGui::IsItemClicked()) {
-				if (!open) {
-					selectedModelIndex = UINT32_MAX; 
-					selectedMeshIndex = UINT32_MAX;
-					SGF::info("Model unselected!");
+				selectedNode = nullptr;
+				selectedMesh = nullptr;
+				if (selectedModel == &models[i]) {
+					selectedModel = nullptr;
 				} else {
-					SGF::info("Model Node selected!");
-					selectedModelIndex = i;
+					selectedModel = &models[i];
 				}
 			}
 			if (open) {
-				for (size_t j = 0; j < model.meshInfos.size(); ++j) {
-					ImGuiTreeNodeFlags subFlags = ImGuiTreeNodeFlags_Leaf;
-					if (j == selectedMeshIndex) subFlags |= ImGuiTreeNodeFlags_Selected;
-					bool subOpen = ImGui::TreeNodeEx(&model.meshInfos[j], subFlags, "Mesh: %ld", j);
-					if (ImGui::IsItemClicked()) {
-						if (!subOpen) {
-							selectedMeshIndex = UINT32_MAX;
-							SGF::info("Mesh unselected");
-						} else {
-							SGF::info("Mesh Node clicked!");
-							selectedMeshIndex = j;
-							selectedModelIndex = i;
-						}
-					}
-					if (subOpen) {
-						ImGui::TreePop();
-					}
-				}
+				DrawNode(model, model.nodes[0]);
 				ImGui::TreePop();
+			}
+			if (&model == selectedModel) {
+				//ImGui::Text("Model Vertices: ");
+				//for (auto& v : model.vertices) {
+					//ImGui::Text("Pos: [ %.4f, %.4f, %.4f ]", v.position.x, v.position.y, v.position.z);
+				//}
+				//ImGui::Text("Model Indices: "); {
+					//for (auto i : model.indices) {
+						//ImGui::Text("%d", i);
+					//}
+				//}
 			}
 		}
 		ImGui::Separator();
+		if (selectedNode) {
+			ImGui::Separator();
+			ImGui::Text("Selected Node: %s", selectedNode->name.c_str());
+			ImGui::Text("Mesh Count: %ld", selectedNode->meshes.size());
+			ImGui::Text("Children Count: %ld", selectedNode->children.size());
+			{
+				auto& t = selectedNode->globalTransform[0];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("0", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			} {
+				auto& t = selectedNode->globalTransform[1];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("1", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			} {
+				auto& t = selectedNode->globalTransform[2];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("2", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			} {
+				auto& t = selectedNode->globalTransform[3];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("3", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			}
+		}
 	}
 	
 	void ViewportLayer::UpdateStatusWindow(const UpdateEvent& event) {
@@ -236,13 +369,16 @@ namespace SGF {
 			auto filename = handle.OpenFileDialog("Model files", "gltf,glb,fbx,obj,usdz");
 			if (!filename.empty()) {
 				models.emplace_back(filename.c_str());
-				modelDrawData.push_back(modelRenderer.AddModel(models.back()));
+				modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
 			}
+			selectedModel = nullptr;
+			selectedNode = nullptr;
+			selectedMesh = nullptr;
 		}
 		ImGui::Separator();
-		ImGui::Text("Total Indices: %d, Total Vertices: %d,\nTotal Instances: %d, Total Textures: %d\nMemory Used: %ld, Allocated: %ld",
+		ImGui::Text("Total Indices: %d,\nTotal Vertices: %d,\nTotal Textures: %ld\nMemory Used: %ld,\nMemory Allocated: %ld",
 			modelRenderer.GetTotalIndexCount(), modelRenderer.GetTotalVertexCount(),
-			modelRenderer.GetTotalInstanceCount(), modelRenderer.GetTextureCount(), modelRenderer.GetTotalDeviceMemoryUsed(), modelRenderer.GetTotalDeviceMemoryAllocated());
+			modelRenderer.GetTextureCount(), modelRenderer.GetTotalDeviceMemoryUsed(), modelRenderer.GetTotalDeviceMemoryAllocated());
 
 		ImGui::Separator();
 		if (models.size() != 0) {
