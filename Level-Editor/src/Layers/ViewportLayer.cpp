@@ -118,7 +118,6 @@ namespace SGF {
 		for (auto& n : node.children) {
 			DrawModelNodeExcludeSelected(commands, model, model.nodes[n]);
 		}
-		
 	}
 
 	void ViewportLayer::RenderViewport(RenderEvent& event) {
@@ -137,9 +136,7 @@ namespace SGF {
 		renderArea.offset.y = 0;
 		auto& c = commands[imageIndex];
 		c.Begin();
-		//auto& c = event.getCommands();
 		c.BeginRenderPass(viewport.GetRenderPass(), viewport.GetFramebuffer(), renderArea, clearValues, ARRAY_SIZE(clearValues), VK_SUBPASS_CONTENTS_INLINE);
-		//c.Draw(3);
 		glm::uvec2 viewportSize;
 		viewportSize.x = viewport.GetWidth();
 		viewportSize.y = viewport.GetHeight();
@@ -215,15 +212,6 @@ namespace SGF {
 			UNSET_FLAG(inputMode, INPUT_HOVERED);
 		}
 
-		if (!HAS_FLAG(inputMode, INPUT_CAPTURED) && Input::HasFocus() && ImGui::IsWindowHovered()) {
-			/*
-			if (Input::IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-				ImGui::SetWindowFocus();
-				Input::CaptureCursor();
-				SET_FLAG(inputMode, INPUT_CAPTURED | INPUT_HOVERED | INPUT_SELECTED);
-			}
-			*/
-		}
 		if (HAS_FLAG(inputMode, INPUT_CAPTURED)) {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
@@ -279,7 +267,6 @@ namespace SGF {
 
 	void ViewportLayer::BuildNodeTree(const GenericModel& model, const GenericModel::Node& node) {
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
-		//if (i == ) flags |= ImGuiTreeNodeFlags_Selected;
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 			selectedNode = nullptr;
@@ -318,17 +305,6 @@ namespace SGF {
 			if (open) {
 				DrawNode(model, model.nodes[0]);
 				ImGui::TreePop();
-			}
-			if (&model == selectedModel) {
-				//ImGui::Text("Model Vertices: ");
-				//for (auto& v : model.vertices) {
-					//ImGui::Text("Pos: [ %.4f, %.4f, %.4f ]", v.position.x, v.position.y, v.position.z);
-				//}
-				//ImGui::Text("Model Indices: "); {
-					//for (auto i : model.indices) {
-						//ImGui::Text("%d", i);
-					//}
-				//}
 			}
 		}
 		ImGui::Separator();
@@ -403,7 +379,6 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
-		//ImGui::Text("Frame time: {d}", event.get);
 		ImGui::End();
 	}
 	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
@@ -415,7 +390,6 @@ namespace SGF {
 		}
 		else {
 			imGuiImageID = ImGuiLayer::AddVulkanTexture(descriptorPool, sampler, viewport.GetColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			//imGuiImageID = *(ImTextureID*)&descriptorSet;
 		}
 	}
 }

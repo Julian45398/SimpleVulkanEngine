@@ -4,6 +4,14 @@
 namespace SGF {
     class ModelRenderer {
     public:
+        struct Vertex {
+            Vertex(const glm::vec3& position, const glm::vec3& normal, const glm::vec2& uv, const glm::vec4& color, uint32_t textureIndex);
+            alignas(16) glm::vec3 position;
+            uint32_t normal;
+            alignas(8) glm::vec2 uv;
+            glm::vec<4, uint8_t> color;
+            uint32_t textureIndex;
+        };
         typedef size_t ModelHandle;
         struct ModelDrawData {
             uint32_t indexOffset;
@@ -22,8 +30,6 @@ namespace SGF {
         void BindBuffersToModel(VkCommandBuffer commands, ModelRenderer::ModelHandle handle) const;
 
         void DrawModel(VkCommandBuffer commands, const GenericModel& model) const;
-        //void DrawMesh(VkCommandBuffer commands, uint32_t modelIndex, uint32_t nodeIndex, uint32_t ) const;
-        //void DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
         void DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
         void DrawNode(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
         void DrawMesh(VkCommandBuffer commands, const GenericModel::Mesh& mesh) const;
@@ -37,24 +43,11 @@ namespace SGF {
         inline size_t GetTextureCount() const { return textures.size(); }
         inline uint32_t GetTotalVertexCount() const { return totalVertexCount; }
         inline uint32_t GetTotalIndexCount() const { return totalIndexCount; }
-        //inline uint32_t GetTotalInstanceCount() const { return totalInstanceCount; }
         inline VkPipelineLayout GetPipelineLayout() const { return pipelineLayout; } 
         inline VkDescriptorSet GetDescriptorSet(size_t index) const { return descriptorSets[index]; }
         inline VkDescriptorSetLayout GetDescriptorSetLayout() const { return descriptorLayout; }
         static constexpr VkPipelineVertexInputStateCreateInfo GetPipelineVertexInput() { return MODEL_VERTEX_INPUT_INFO; }
-        //void ChangePipelineSettings(VkPolygonMode polgyonMode);
-        struct Vertex {
-            Vertex(const glm::vec3& position, const glm::vec3& normal, const glm::vec2& uv, const glm::vec4& color, uint32_t textureIndex);
-            alignas(16) glm::vec3 position;
-            uint32_t normal;
-            alignas(8) glm::vec2 uv;
-            glm::vec<4, uint8_t> color;
-            uint32_t textureIndex;
-        };
-        //inline uint32_t GetMeshCount(ModelHandle handle) const { return modelDrawData[handle].meshCount; }
-        //inline uint32_t GetFirstIndex(ModelHandle handle) const { return modelDrawData[handle].firstMesh; }
-        //inline const glm::mat4& GetTransform(ModelHandle handle) const { return modelDrawData[handle].transform; }
-        //inline ModelHandle Duplicate(ModelHandle handle) { modelDrawData.push_back(modelDrawData[handle]); return modelDrawData.size()-1; }
+        
     private:
         static constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
             {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX},
@@ -85,9 +78,6 @@ namespace SGF {
 
         // Images:
         std::vector<TextureImage> textures;
-
-        //std::vector<MeshCollection> meshes;
-        //std::vector<ModelHandle> models;
         std::vector<ModelDrawData> modelDrawData;
         // Vertex buffers:
         VkBuffer vertexBuffer = VK_NULL_HANDLE;
@@ -104,25 +94,19 @@ namespace SGF {
         VkDescriptorSetLayout descriptorLayout = VK_NULL_HANDLE;
         // Pipeline:
         VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-        //VkPipeline pipeline = VK_NULL_HANDLE;
-        //uint32_t totalInstanceCount = 0;
         uint32_t totalVertexCount = 0;
         uint32_t totalIndexCount = 0;
         bool descriptorInvalidated[SGF_FRAMES_IN_FLIGHT] = {};
-        //size_t freeVertexBufferMemory = 0;
-
     private:
         void InvalidateDescriptors();
         void CheckTransferStatus();
 
-        //void CreatePipeline(VkRenderPass renderPass, uint32_t subpass, VkPolygonMode polygonMode);
         void UpdateTextureDescriptors(uint32_t imageCount);
         void BeginTransfer(const GenericModel& model);
         void FinalizeTransfer();
 
         size_t GetRequiredIndexMemorySize(const GenericModel& model) const;
         size_t GetRequiredVertexMemorySize(const GenericModel& model) const;
-        //size_t GetRequiredInstanceMemorySize(const GenericModel& model) const;
         size_t GetRequiredTextureMemorySize(const GenericModel& model) const;
         inline size_t GetTotalRequiredMemorySize(const GenericModel& model) const 
         { return GetRequiredIndexMemorySize(model) + GetRequiredVertexMemorySize(model) /*+ GetRequiredInstanceMemorySize(model)*/ + GetRequiredTextureMemorySize(model); }
