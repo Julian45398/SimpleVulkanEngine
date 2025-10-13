@@ -54,6 +54,8 @@ namespace SGF {
         std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
+        ImVec2 relativeCursor;
+        uint32_t cursorValue = 3320;
         const GenericModel* selectedModel = nullptr;
         const GenericModel::Node* selectedNode = nullptr;
         const uint32_t* selectedMesh = nullptr;
@@ -62,6 +64,9 @@ namespace SGF {
         VkPipeline renderPipeline;
         VkPipeline selectionPipeline;
         Cursor cursor;
+        VkBuffer modelPickBuffer;
+        VkDeviceMemory modelPickMemory;
+        uint32_t* modelPickMapped;
         ModelRenderer modelRenderer;
         GridRenderer gridRenderer;
         float viewSize = 0.0f;

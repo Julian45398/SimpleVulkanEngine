@@ -24,6 +24,7 @@ layout(location = 3) in float intensity;
 
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out uint modelPick;
 
 void main() {
     //outColor = texture(sampler2D(textures[texIndex], texSampler), fragUV) * color * pc.colorModifier;
@@ -36,6 +37,7 @@ void main() {
     //outColor = vec4(0.6, 0.6, 0.6, 1.0);
     //outColor = texture(texSampler, uvFragCoord) * color;
     //outColor = texture(sampler2D(textures[texIndex], texSampler), fragUV) * color * intensity;
+    modelPick = 42069;
     outColor[3] = 1.0;
     //outColor = vec4(color, 1.0);
     //outColor = vec4(0.2, 0.3, 0.1, 1.0);

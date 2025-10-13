@@ -36,10 +36,14 @@ namespace SGF {
 		}
 		modelRenderer.Initialize(viewport.GetRenderPass(), 0, descriptorPool, uniformLayout);
 
+		modelPickBuffer = device.CreateBuffer(sizeof(uint32_t) * SGF_FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		modelPickMemory = device.AllocateMemory(modelPickBuffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		modelPickMapped = (uint32_t*)device.MapMemory(modelPickMemory);
+
 		gridRenderer.Init(viewport.GetRenderPass(), 0, uniformLayout);
 		renderPipeline = Device::Get().CreateGraphicsPipeline(modelRenderer.GetPipelineLayout(), viewport.GetRenderPass(), 0)
             .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
-            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).Build();
+            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
 
 		models.emplace_back("assets/models/Low-Poly-Car.gltf");
         modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
@@ -123,7 +127,8 @@ namespace SGF {
 	void ViewportLayer::RenderViewport(RenderEvent& event) {
 		VkClearValue clearValues[] = {
 			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
-			SGF::Vk::CreateDepthClearValue(1.f, 0)
+			SGF::Vk::CreateColorClearValue(0U, 0U, 0U, 0U),
+			SGF::Vk::CreateDepthClearValue(1.f, 0),
 		};
 		if (isOrthographic) {
 			uniformBuffer.SetValueAt(imageIndex, cameraController.GetOrthoViewMatrix(viewSize, viewport.GetAspectRatio()));
@@ -193,6 +198,19 @@ namespace SGF {
 		//modelRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight(), imageIndex);
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 		c.EndRenderPass();
+
+		// Increment image index before buffer copy
+		VkBufferImageCopy region;
+		region.bufferImageHeight = 0;
+		region.bufferRowLength = 0;
+		region.bufferOffset = sizeof(uint32_t) * imageIndex;
+		region.imageExtent = { 1, 1, 1 }; 
+		region.imageOffset = { glm::clamp((int32_t)relativeCursor.x, 0, (int32_t)viewport.GetWidth()), glm::clamp((int32_t)relativeCursor.y, 0, (int32_t)viewport.GetHeight()), 0 };
+		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.layerCount = 1;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = 0;
+		vkCmdCopyImageToBuffer(c, viewport.GetPickImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, modelPickBuffer, 1, &region);
 		c.End();
 		c.Submit(nullptr, FLAG_NONE, signalSemaphore);
 		event.AddWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
@@ -211,11 +229,19 @@ namespace SGF {
 		} else {
 			UNSET_FLAG(inputMode, INPUT_HOVERED);
 		}
-
+		// Mouse relative to image (0,0 = top-left)
+		// Optionally normalize (0.0–1.0 range)
 		if (HAS_FLAG(inputMode, INPUT_CAPTURED)) {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
 		ImGui::Image(imGuiImageID, size);
+		ImVec2 mouse = ImGui::GetIO().MousePos;
+		ImVec2 imageMin = ImGui::GetItemRectMin();
+		ImVec2 imageMax = ImGui::GetItemRectMax();
+
+		relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
+		cursorValue = modelPickMapped[imageIndex]; 
+
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}
@@ -336,6 +362,11 @@ namespace SGF {
 	void ViewportLayer::UpdateStatusWindow(const UpdateEvent& event) {
 		ImGui::Begin("Debug Window",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
+
+		ImGui::Text("Relative Pos: (%.3f, %.3f)", relativeCursor.x, relativeCursor.y);
+		ImGui::Text("Cursor Value: %d", cursorValue);
+
+
 		glm::vec2 cursorpos(0.0f, 0.0f);
 		if (Input::HasFocus()) {
 			cursorpos = Input::GetCursorPos();

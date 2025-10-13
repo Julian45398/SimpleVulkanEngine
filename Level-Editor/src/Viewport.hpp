@@ -12,7 +12,9 @@ namespace SGF {
         inline VkRenderPass GetRenderPass() { return renderPass; }
         inline VkImage GetColorImage() { return colorImage; }
         inline VkImage GetDepthImage() { return depthImage; }
+        inline VkImage GetPickImage() { return pickImage; }
         inline VkImageView GetColorView() { return colorImageView; }
+        inline VkImageView GetPickView() { return pickImageView; }
         inline VkImageView GetDepthView() { return depthImageView; }
         inline VkFramebuffer GetFramebuffer() { return framebuffer; }
         inline VkExtent2D GetExtent() const { return extent; }
@@ -23,9 +25,11 @@ namespace SGF {
         VkRenderPass renderPass = VK_NULL_HANDLE;
         VkImage colorImage = VK_NULL_HANDLE;
         VkImage depthImage = VK_NULL_HANDLE;
+        VkImage pickImage = VK_NULL_HANDLE;
         VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
         VkImageView colorImageView = VK_NULL_HANDLE;
         VkImageView depthImageView = VK_NULL_HANDLE;
+        VkImageView pickImageView = VK_NULL_HANDLE;
         VkFramebuffer framebuffer = VK_NULL_HANDLE;
         VkExtent2D extent = {};
         VkFormat colorFormat = VK_FORMAT_MAX_ENUM;
