@@ -16,6 +16,7 @@ namespace SGF {
         struct ModelDrawData {
             uint32_t indexOffset;
             uint32_t vertexOffset;
+            uint32_t instanceOffset;
         };
     public:
         void Initialize(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout);
@@ -51,7 +52,7 @@ namespace SGF {
     private:
         static constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
             {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX},
-            //{1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE},
+            {1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE},
         };
 
         static constexpr VkVertexInputAttributeDescription MODEL_VERTEX_ATTRIBUTES[] = {
@@ -60,10 +61,10 @@ namespace SGF {
             {2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv) }, // UV
             {3, 0, VK_FORMAT_R8G8B8A8_SRGB, offsetof(Vertex, color) }, // Vertex Color 
             {4, 0, VK_FORMAT_R32_UINT, offsetof(Vertex, textureIndex) }, // Texture Index
-            //{5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // Transformation
-            //{6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
-            //{7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
-            //{8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3},
+            {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // Transformation
+            {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
+            {7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
+            {8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3},
         };
 
         static constexpr VkPipelineVertexInputStateCreateInfo MODEL_VERTEX_INPUT_INFO = {
@@ -96,6 +97,7 @@ namespace SGF {
         VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
         uint32_t totalVertexCount = 0;
         uint32_t totalIndexCount = 0;
+        uint32_t totalInstanceCount = 0;
         bool descriptorInvalidated[SGF_FRAMES_IN_FLIGHT] = {};
     private:
         void InvalidateDescriptors();
@@ -106,10 +108,11 @@ namespace SGF {
         void FinalizeTransfer();
 
         size_t GetRequiredIndexMemorySize(const GenericModel& model) const;
+        size_t GetRequiredInstanceMemorySize(const GenericModel& model) const;
         size_t GetRequiredVertexMemorySize(const GenericModel& model) const;
         size_t GetRequiredTextureMemorySize(const GenericModel& model) const;
         inline size_t GetTotalRequiredMemorySize(const GenericModel& model) const 
-        { return GetRequiredIndexMemorySize(model) + GetRequiredVertexMemorySize(model) /*+ GetRequiredInstanceMemorySize(model)*/ + GetRequiredTextureMemorySize(model); }
+        { return GetRequiredIndexMemorySize(model) + GetRequiredVertexMemorySize(model) + GetRequiredInstanceMemorySize(model) + GetRequiredTextureMemorySize(model); }
 
         size_t UploadTextures(const GenericModel& model, size_t startOffset);
         size_t PrepareVertexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);

@@ -78,6 +78,7 @@ namespace SGF {
 			glm::mat4 localTransform;
 			glm::mat4 globalTransform;
 			uint32_t parent;
+			uint32_t index;
 			std::vector<uint32_t> children;
 			std::vector<uint32_t> meshes;
 			std::string name;

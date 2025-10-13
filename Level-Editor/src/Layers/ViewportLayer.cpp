@@ -237,7 +237,6 @@ namespace SGF {
 		ImGui::Image(imGuiImageID, size);
 		ImVec2 mouse = ImGui::GetIO().MousePos;
 		ImVec2 imageMin = ImGui::GetItemRectMin();
-		ImVec2 imageMax = ImGui::GetItemRectMax();
 
 		relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
 		cursorValue = modelPickMapped[imageIndex]; 

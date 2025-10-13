@@ -8,6 +8,7 @@ layout (set = 0, binding = 0) uniform UniformBuffer {
 layout(push_constant) uniform Push {
     mat4 model;
     vec4 color;
+    uint nodeIndex;
 } pc;
 
 
@@ -18,7 +19,7 @@ layout(location = 2) in vec2 uvCoord;
 layout(location = 3) in vec4 vertexColor;
 layout(location = 4) in uint textureIndex;
 
-//layout(location = 5) in mat4 modelTransform;
+layout(location = 5) in mat4 modelTransform;
 //layout(location = 7) in uint textureIndex;
 
 layout(location = 0) out vec2 fragUV;
@@ -36,7 +37,7 @@ layout(location = 3) out float intensity;
 const vec3 sunVektor = normalize(vec3(0.5, 0.5, 0.5));
 
 void main() {
-    gl_Position = ubo.transform * pc.model * vertexPosition;
+    gl_Position = ubo.transform * modelTransform * vertexPosition;
     //gl_Position = vec4(vertexPosition, 1.0);
     //gl_Position = vec4(positions[gl_VertexIndex], 1.0);
     //normal = 0.5 * (normalize(vertexNormal) + vec3(1.0, 1.0, 1.0));

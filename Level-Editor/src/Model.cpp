@@ -400,6 +400,7 @@ namespace SGF {
 			auto& root = nodes[0];
 			root.parent = UINT32_MAX;
 			root.name = pRoot->mName.Empty() ? "root" : pRoot->mName.C_Str();
+			root.index = 0;
 			BuildNode(this, pRoot, root);
 			root.children.reserve(pRoot->mNumChildren);
 			pAttachmentNode = &root;
@@ -496,6 +497,7 @@ namespace SGF {
 		}
 
 		node.parent = parentIndex;
+		node.index = nodeIndex;
 		pModel->nodes[parentIndex].children.push_back(nodeIndex);
 
 		BuildNode(pModel, pNode, node);

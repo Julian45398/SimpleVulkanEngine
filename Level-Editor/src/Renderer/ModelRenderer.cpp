@@ -7,18 +7,18 @@ namespace SGF {
     constexpr uint32_t MAX_INDEX_COUNT = 2 << 22;
 
     constexpr size_t INDEX_BUFFER_SIZE = MAX_INDEX_COUNT * sizeof(uint32_t);
-    //constexpr size_t INSTANCE_BUFFER_SIZE = MAX_INSTANCE_COUNT * sizeof(glm::mat4);
-    constexpr size_t VERTEX_BUFFER_SIZE = PAGE_SIZE - INDEX_BUFFER_SIZE;// - INSTANCE_BUFFER_SIZE;
+    constexpr size_t INSTANCE_BUFFER_SIZE = MAX_INSTANCE_COUNT * sizeof(glm::mat4);
+    constexpr size_t VERTEX_BUFFER_SIZE = PAGE_SIZE - INDEX_BUFFER_SIZE - INSTANCE_BUFFER_SIZE;
 
     constexpr uint32_t MAX_VERTEX_COUNT = VERTEX_BUFFER_SIZE / sizeof(ModelRenderer::Vertex);
 
-    //constexpr size_t INSTANCE_BYTE_OFFSET = 0;
-    constexpr size_t VERTEX_BYTE_OFFSET = 0;//INSTANCE_BYTE_OFFSET + INSTANCE_BUFFER_SIZE;
+    constexpr size_t INSTANCE_BYTE_OFFSET = 0;
+    constexpr size_t VERTEX_BYTE_OFFSET = INSTANCE_BYTE_OFFSET + INSTANCE_BUFFER_SIZE;
     constexpr size_t INDEX_BUFFER_BYTE_OFFSET = VERTEX_BYTE_OFFSET + VERTEX_BUFFER_SIZE;
 
     constexpr size_t VERTEX_BUFFER_OFFSETS[]{
         VERTEX_BYTE_OFFSET,
-        //INSTANCE_BYTE_OFFSET,
+        INSTANCE_BYTE_OFFSET,
     };
 
     inline uint32_t PackNormalA2B10G10R10(const glm::vec3& n) {
@@ -56,6 +56,7 @@ namespace SGF {
         //totalInstanceCount = 0;
         totalVertexCount = 0;
         totalIndexCount = 0;
+        totalInstanceCount = 0;
 
         // Vertex and Index Buffers:
         vertexBuffer = device.CreateBuffer(PAGE_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -110,8 +111,13 @@ namespace SGF {
             colorOverlayRange.offset = sizeof(glm::mat4);
             colorOverlayRange.size = sizeof(glm::vec4);
             colorOverlayRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+            VkPushConstantRange nodeIndexRange;
+            nodeIndexRange.offset = sizeof(glm::mat4) + sizeof(glm::vec4);
+            nodeIndexRange.size = sizeof(uint32_t);
+            nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             VkPushConstantRange push_constant_ranges[] = {
-               modelTransformRange, colorOverlayRange
+               modelTransformRange, colorOverlayRange, nodeIndexRange
             };
             pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
         }
@@ -180,6 +186,9 @@ namespace SGF {
     size_t ModelRenderer::GetRequiredIndexMemorySize(const GenericModel& model) const {
         return model.indices.size() * sizeof(model.indices[0]);
     }
+    size_t ModelRenderer::GetRequiredInstanceMemorySize(const GenericModel& model) const {
+        return model.nodes.size() * sizeof(model.nodes[0].globalTransform);
+    }
     size_t ModelRenderer::GetRequiredVertexMemorySize(const GenericModel& model) const {
         return model.vertices.size() * sizeof(ModelRenderer::Vertex);
     }
@@ -242,6 +251,17 @@ namespace SGF {
         return startOffset;
     }
 
+    size_t ModelRenderer::PrepareInstanceUpload(const GenericModel& model, size_t offset, VkBufferCopy* pRegion) {
+        auto& region = *pRegion;
+        region.srcOffset = offset;
+        region.size = model.nodes.size() * sizeof(glm::mat4);
+        region.dstOffset = totalInstanceCount * sizeof(glm::mat4);
+        for (size_t i = 0; i < model.nodes.size(); ++i) {
+            offset = stagingBuffer.CopyData(&model.nodes[i].globalTransform, sizeof(glm::mat4), offset);
+        }
+        return offset;
+    }
+
     ModelRenderer::ModelHandle ModelRenderer::UploadModel(const GenericModel& model) {
         size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
 
@@ -255,8 +275,11 @@ namespace SGF {
         VkBufferCopy vertexRegion;
         offset = PrepareVertexUpload(model, offset, &vertexRegion);
         
+        VkBufferCopy instanceRegion;
+        offset = PrepareInstanceUpload(model, offset, &instanceRegion);
+        
         VkBufferCopy regions[] = {
-            indexRegion, vertexRegion
+            indexRegion, vertexRegion, instanceRegion
         };
 
         vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, ARRAY_SIZE(regions), regions);
@@ -270,8 +293,10 @@ namespace SGF {
         ModelDrawData drawData;
         drawData.indexOffset = totalIndexCount;
         drawData.vertexOffset = totalVertexCount;
+        drawData.instanceOffset = totalInstanceCount;
         totalIndexCount += model.indices.size();
         totalVertexCount += model.vertices.size();
+        totalInstanceCount += model.nodes.size();
         modelDrawData.push_back(drawData);
         return modelDrawData.size()-1;
     }
@@ -311,8 +336,14 @@ namespace SGF {
     }
         
     void ModelRenderer::BindBuffersToModel(VkCommandBuffer commands, ModelRenderer::ModelHandle handle) const {
-        VkDeviceSize offset = modelDrawData[handle].vertexOffset * sizeof(ModelRenderer::Vertex) + VERTEX_BYTE_OFFSET;
-        vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &offset);
+        VkDeviceSize offsets[] = {
+            modelDrawData[handle].vertexOffset * sizeof(ModelRenderer::Vertex) + VERTEX_BYTE_OFFSET,
+            modelDrawData[handle].instanceOffset * sizeof(glm::mat4) + INSTANCE_BYTE_OFFSET,
+        };
+        VkBuffer buffers[] = {
+            vertexBuffer, vertexBuffer
+        };
+        vkCmdBindVertexBuffers(commands, 0, ARRAY_SIZE(buffers), buffers, offsets);
         vkCmdBindIndexBuffer(commands, vertexBuffer, INDEX_BUFFER_BYTE_OFFSET + modelDrawData[handle].indexOffset * sizeof(uint32_t), VK_INDEX_TYPE_UINT32);
     }
     void ModelRenderer::DrawModel(VkCommandBuffer commands, const GenericModel& model) const {
@@ -321,9 +352,10 @@ namespace SGF {
     void ModelRenderer::DrawNode(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const {
         if (node.meshes.size() == 0) return;
         SetMeshTransform(commands, node.globalTransform);
+        vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(uint32_t), &node.index);
         for (size_t i = 0; i < node.meshes.size(); ++i) {
             auto& m = model.GetMesh(node, i);
-            vkCmdDrawIndexed(commands, m.indexCount, 1, m.indexOffset, m.vertexOffset, 0);
+            vkCmdDrawIndexed(commands, m.indexCount, 1, m.indexOffset, m.vertexOffset, node.index);
         }
     }
     void ModelRenderer::DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const {

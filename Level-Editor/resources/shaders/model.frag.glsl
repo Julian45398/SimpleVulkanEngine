@@ -10,6 +10,7 @@ layout(set = 1, binding = 1) uniform texture2D textures[128];
 layout(push_constant) uniform Push {
     mat4 model;
     vec4 color;
+    uint nodeIndex;
 } pc;
 
 //layout(location = 0) in vec2 fragUV;
@@ -37,7 +38,7 @@ void main() {
     //outColor = vec4(0.6, 0.6, 0.6, 1.0);
     //outColor = texture(texSampler, uvFragCoord) * color;
     //outColor = texture(sampler2D(textures[texIndex], texSampler), fragUV) * color * intensity;
-    modelPick = 42069;
+    modelPick = pc.nodeIndex;
     outColor[3] = 1.0;
     //outColor = vec4(color, 1.0);
     //outColor = vec4(0.2, 0.3, 0.1, 1.0);
