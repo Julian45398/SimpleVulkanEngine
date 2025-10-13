@@ -8,6 +8,11 @@
 #ifndef SGF_PIPELINE_MAX_PIPELINE_STAGES 
 #define SGF_PIPELINE_MAX_PIPELINE_STAGES 4
 #endif
+#ifndef SGF_PIPELINE_MAX_COLOR_BLEND_ATTACHMENTS
+#define SGF_PIPELINE_MAX_COLOR_BLEND_ATTACHMENTS 4
+#endif
+
+
 
 namespace SGF {
 	class GraphicsPipelineBuilder {
@@ -30,6 +35,16 @@ namespace SGF {
 		inline GraphicsPipelineBuilder& DynamicState(VkDynamicState state) { dynamicStates[dynamicStateInfo.dynamicStateCount] = state; dynamicStateInfo.dynamicStateCount++; return *this; }
 		inline GraphicsPipelineBuilder& SampleCount(VkSampleCountFlagBits sampleCount) { multisampleState.rasterizationSamples = sampleCount; return *this; }
 		inline GraphicsPipelineBuilder& FrontFace(VkFrontFace front) { rasterizationState.frontFace = front; return *this; }
+		inline GraphicsPipelineBuilder& SetColorBlendAttachment(bool blendEnable = false, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+			VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+			VkBlendOp colorBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA, VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+		{ auto& s = colorBlendAttachmentStates[colorBlendState.attachmentCount-1]; s.blendEnable = blendEnable; s.alphaBlendOp = alphaBlendOp; s.srcAlphaBlendFactor = srcAlphaBlendFactor; s.dstAlphaBlendFactor = dstAlphaBlendFactor; 
+			s.colorBlendOp = colorBlendOp; s.colorWriteMask = colorWriteMask; s.srcColorBlendFactor = srcColorBlendFactor; s.dstColorBlendFactor = dstColorBlendFactor; return *this; }
+		inline GraphicsPipelineBuilder& AddColorBlendAttachment(bool blendEnable = false, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+			VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+			VkBlendOp colorBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA, VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+		{  colorBlendState.attachmentCount++; return SetColorBlendAttachment(blendEnable, colorWriteMask, alphaBlendOp, srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, srcColorBlendFactor, dstColorBlendFactor); }
+		
 		//inline GraphicsPipelineBuilder& Rotation() 
 		~GraphicsPipelineBuilder();
 	private:
@@ -46,7 +61,7 @@ namespace SGF {
 		VkPipelineDepthStencilStateCreateInfo depthStencilState;
 		VkPipelineColorBlendStateCreateInfo colorBlendState;
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo;
-		VkPipelineColorBlendAttachmentState colorBlendAttachmentState;
+		VkPipelineColorBlendAttachmentState colorBlendAttachmentStates[SGF_PIPELINE_MAX_COLOR_BLEND_ATTACHMENTS];
 		VkPipelineShaderStageCreateInfo pipelineStages[SGF_PIPELINE_MAX_PIPELINE_STAGES];
 		VkViewport stViewport;
 		VkRect2D stScissor;

@@ -5,6 +5,8 @@ namespace SGF {
     namespace Vk {
         inline VkClearValue CreateDepthClearValue(float depth, uint32_t stencil) { VkClearValue value; value.depthStencil.depth = depth; value.depthStencil.stencil = stencil; return value; }
         inline VkClearValue CreateColorClearValue(float r, float g, float b, float a) { return { r, g, b , a }; }
+        inline VkClearValue CreateColorClearValue(uint32_t r, uint32_t g, uint32_t b, uint32_t a) { VkClearValue c; c.color.uint32[0] = r; c.color.uint32[1] = g;  c.color.uint32[2] = b; c.color.uint32[3] = a; return c; }
+        inline VkClearValue CreateColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { VkClearValue c; c.color.int32[0] = r; c.color.int32[1] = g;  c.color.int32[2] = b; c.color.int32[3] = a; return c; }
 
         inline VkDescriptorSetLayoutBinding CreateDescriptorSetLayoutBinding(uint32_t binding, VkDescriptorType descriptorType, uint32_t descriptorCount, VkShaderStageFlags stageFlags, const VkSampler* pImmutableSamplers = nullptr) 
         { return { binding, descriptorType, descriptorCount, stageFlags, pImmutableSamplers }; }
