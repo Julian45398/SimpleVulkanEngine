@@ -27,14 +27,14 @@ namespace SGF {
 		GraphicsPipelineBuilder& VertexShader(const char* filename);
 		GraphicsPipelineBuilder& FragmentShader(const char* filename);
 		inline GraphicsPipelineBuilder& VertexInput(const VkPipelineVertexInputStateCreateInfo& inputState) { info.pVertexInputState = &inputState; return *this; }
-		inline GraphicsPipelineBuilder& PolygonMode(VkPolygonMode mode) { rasterizationState.polygonMode = mode; return *this; }
-		inline GraphicsPipelineBuilder& Topology(VkPrimitiveTopology topology) { inputAssemblyState.topology = topology; return *this; }
+		inline GraphicsPipelineBuilder& PolygonMode(VkPolygonMode mode = VK_POLYGON_MODE_FILL) { rasterizationState.polygonMode = mode; return *this; }
+		inline GraphicsPipelineBuilder& Topology(VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST) { inputAssemblyState.topology = topology; return *this; }
 		inline GraphicsPipelineBuilder& Viewport(float width, float height, float xOffset = 0.f, float yOffset = 0.f, float minDepth = 0.0f, float maxDepth = 1.0f) { stViewport = { xOffset, yOffset, width, height, minDepth, maxDepth };  return *this; }
 		inline GraphicsPipelineBuilder& Scissor(uint32_t width, uint32_t height, int32_t xOffset = 0, int32_t yOffset = 0) { stScissor = { {xOffset, yOffset}, {width, height} };  return *this; }
-		inline GraphicsPipelineBuilder& Depth(bool test, bool write, VkCompareOp op = VK_COMPARE_OP_LESS) {depthStencilState.depthWriteEnable = (VkBool32)write; depthStencilState.depthTestEnable = (VkBool32)test; depthStencilState.depthCompareOp = op; return*this; }
+		inline GraphicsPipelineBuilder& Depth(bool test = true, bool write = true, VkCompareOp op = VK_COMPARE_OP_LESS) {depthStencilState.depthWriteEnable = (VkBool32)write; depthStencilState.depthTestEnable = (VkBool32)test; depthStencilState.depthCompareOp = op; return*this; }
 		inline GraphicsPipelineBuilder& DynamicState(VkDynamicState state) { dynamicStates[dynamicStateInfo.dynamicStateCount] = state; dynamicStateInfo.dynamicStateCount++; return *this; }
-		inline GraphicsPipelineBuilder& SampleCount(VkSampleCountFlagBits sampleCount) { multisampleState.rasterizationSamples = sampleCount; return *this; }
-		inline GraphicsPipelineBuilder& FrontFace(VkFrontFace front) { rasterizationState.frontFace = front; return *this; }
+		inline GraphicsPipelineBuilder& SampleCount(VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT) { multisampleState.rasterizationSamples = sampleCount; return *this; }
+		inline GraphicsPipelineBuilder& FrontFace(VkFrontFace front = VK_FRONT_FACE_COUNTER_CLOCKWISE) { rasterizationState.frontFace = front; return *this; }
 		inline GraphicsPipelineBuilder& SetColorBlendAttachment(bool blendEnable = false, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 			VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
 			VkBlendOp colorBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA, VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)

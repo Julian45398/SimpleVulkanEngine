@@ -20,7 +20,7 @@ namespace SGF {
 
         void RenderViewport(RenderEvent& event);
 	    void UpdateViewport(const UpdateEvent& event);
-	    void UpdateStatusWindow(const UpdateEvent& event);
+	    void UpdateDebugWindow(const UpdateEvent& event);
 	    void UpdateModelWindow(const UpdateEvent& event);
 
         inline VkRenderPass GetRenderPass() { return viewport.GetRenderPass(); }
@@ -40,6 +40,21 @@ namespace SGF {
             INPUT_SELECTED = BIT(1),
             INPUT_CAPTURED = BIT(2)
         };
+        enum class SelectionMode {
+            NODE,
+            MODEL,
+            NO_SELECTION
+        };
+        struct CursorHover {
+            inline CursorHover(uint32_t integer) { memcpy(this, &integer, sizeof(uint32_t)); }
+            inline CursorHover(uint32_t modelIndex, uint32_t nodeIndex) : model(modelIndex), node(nodeIndex) {}
+            inline bool operator==(CursorHover other) { return node == other.node && model == other.model; }
+            inline bool IsValid() const { return UINT32_MAX != ToInt(); }
+            inline uint32_t ToInt() const { return *(uint32_t*)this; }
+            uint32_t node : 20;
+            uint16_t model : 12;
+        };
+        static_assert(sizeof(CursorHover) == sizeof(uint32_t));
 
         CommandList commands[SGF_FRAMES_IN_FLIGHT];
         Viewport viewport;
@@ -52,32 +67,43 @@ namespace SGF {
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
         std::vector<GenericModel> models;
         std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
+        //std::set<uint32_t> selectionIndices;
+        uint32_t selectedModelIndex = UINT32_MAX; 
+        uint32_t selectedNodeIndex = UINT32_MAX;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
         ImVec2 relativeCursor;
-        uint32_t cursorValue = 3320;
-        const GenericModel* selectedModel = nullptr;
-        const GenericModel::Node* selectedNode = nullptr;
-        const uint32_t* selectedMesh = nullptr;
+        //uint32_t cursorValue = 3320;
+        CursorHover hoverValue = CursorHover(UINT32_MAX);
         uint32_t imageIndex = 0;
         CameraController cameraController;
         VkPipeline renderPipeline;
-        VkPipeline selectionPipeline;
+        VkPipelineLayout pipelineLayout;
+        VkPipeline outlinePipeline;
+        VkPipelineLayout outlineLayout;
         Cursor cursor;
         VkBuffer modelPickBuffer;
         VkDeviceMemory modelPickMemory;
-        uint32_t* modelPickMapped;
+        CursorHover* modelPickMapped;
         ModelRenderer modelRenderer;
         GridRenderer gridRenderer;
         float viewSize = 0.0f;
         float cameraZoom = 0.0f;
         bool isOrthographic = false;
         uint32_t inputMode = 0;
+        SelectionMode selectionMode = SelectionMode::MODEL;
 
     private:
         void ResizeFramebuffer(uint32_t width, uint32_t height);
 	    void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
-	    void DrawNode(const GenericModel& model, const GenericModel::Node& node);
-	    void DrawModelNodeExcludeSelected(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
+	    void DrawTreeNode(const GenericModel& model, const GenericModel::Node& node);
+	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
+	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
+        void RenderWireframe(RenderEvent& event);
+	    void RenderModel(RenderEvent& event, uint32_t modelIndex);
+        void RenderModelSelection(RenderEvent& event);
+        void RenderNodeSelection(RenderEvent& event);
+        void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
+        void ClearSelection();
 	};
 }

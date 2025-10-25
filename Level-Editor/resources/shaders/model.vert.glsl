@@ -1,14 +1,13 @@
 #version 450
 
-
 layout (set = 0, binding = 0) uniform UniformBuffer {
     mat4 transform;
 } ubo;
 
 layout(push_constant) uniform Push {
-    mat4 model;
     vec4 color;
     uint nodeIndex;
+    float transparency;
 } pc;
 
 

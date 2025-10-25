@@ -27,24 +27,23 @@ namespace SGF {
 
         ModelHandle UploadModel(const GenericModel& model);
 
-        void PrepareDrawing(VkCommandBuffer commands, VkPipeline pipeline, VkDescriptorSet uniformSet, glm::uvec2 viewportSize, uint32_t frameIndex, const glm::vec4& colorModifier = {1.f, 1.f, 1.f, 0.f});
+        void PrepareDrawing(uint32_t frameIndex);
         void BindBuffersToModel(VkCommandBuffer commands, ModelRenderer::ModelHandle handle) const;
 
         void DrawModel(VkCommandBuffer commands, const GenericModel& model) const;
         void DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
         void DrawNode(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
-        void DrawMesh(VkCommandBuffer commands, const GenericModel::Mesh& mesh) const;
-        void DrawMesh(VkCommandBuffer commands, const GenericModel::Mesh& mesh, const glm::mat4& meshTransform) const;
+        void DrawMesh(VkCommandBuffer commands, const GenericModel::Node& node, const GenericModel::Mesh& mesh) const;
 
-        void SetColorModifier(VkCommandBuffer commands, const glm::vec4& color = { 1.f, 1.f, 1.f, 1.f}) const;
-        void SetMeshTransform(VkCommandBuffer commands, const glm::mat4& transform) const;
+        //void SetColorModifier(VkCommandBuffer commands, const glm::vec4& color = { 1.f, 1.f, 1.f, 1.f}) const;
+        //void SetMeshTransform(VkCommandBuffer commands, const glm::mat4& transform) const;
 
         size_t GetTotalDeviceMemoryUsed() const;
         size_t GetTotalDeviceMemoryAllocated() const;
         inline size_t GetTextureCount() const { return textures.size(); }
         inline uint32_t GetTotalVertexCount() const { return totalVertexCount; }
         inline uint32_t GetTotalIndexCount() const { return totalIndexCount; }
-        inline VkPipelineLayout GetPipelineLayout() const { return pipelineLayout; } 
+        //inline VkPipelineLayout GetPipelineLayout() const { return pipelineLayout; } 
         inline VkDescriptorSet GetDescriptorSet(size_t index) const { return descriptorSets[index]; }
         inline VkDescriptorSetLayout GetDescriptorSetLayout() const { return descriptorLayout; }
         static constexpr VkPipelineVertexInputStateCreateInfo GetPipelineVertexInput() { return MODEL_VERTEX_INPUT_INFO; }
@@ -94,7 +93,7 @@ namespace SGF {
         VkDescriptorSet descriptorSets[SGF_FRAMES_IN_FLIGHT];
         VkDescriptorSetLayout descriptorLayout = VK_NULL_HANDLE;
         // Pipeline:
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        //VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
         uint32_t totalVertexCount = 0;
         uint32_t totalIndexCount = 0;
         uint32_t totalInstanceCount = 0;

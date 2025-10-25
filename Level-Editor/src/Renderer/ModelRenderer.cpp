@@ -95,32 +95,6 @@ namespace SGF {
         commandPool = device.CreateGraphicsCommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
         commandBuffer = device.AllocateCommandBuffer(commandPool);
         fence = device.CreateFence();
-        
-        // Pipeline:
-        {
-            // Layout:
-            VkDescriptorSetLayout descriptor_layouts[] = {
-                uniformLayout,
-                descriptorLayout
-            };
-            VkPushConstantRange modelTransformRange;
-            modelTransformRange.offset = 0;
-            modelTransformRange.size = sizeof(glm::mat4);
-            modelTransformRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-            VkPushConstantRange colorOverlayRange;
-            colorOverlayRange.offset = sizeof(glm::mat4);
-            colorOverlayRange.size = sizeof(glm::vec4);
-            colorOverlayRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-            VkPushConstantRange nodeIndexRange;
-            nodeIndexRange.offset = sizeof(glm::mat4) + sizeof(glm::vec4);
-            nodeIndexRange.size = sizeof(uint32_t);
-            nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            VkPushConstantRange push_constant_ranges[] = {
-               modelTransformRange, colorOverlayRange, nodeIndexRange
-            };
-            pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
-        }
     }
 
     ModelRenderer::~ModelRenderer() {
@@ -128,7 +102,7 @@ namespace SGF {
         if (stagingBuffer.GetSize() != 0) {
             device.WaitFence(fence);
         }
-        device.Destroy(fence, commandPool, pipelineLayout, descriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
+        device.Destroy(fence, commandPool, descriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
     }
 
     size_t ModelRenderer::UploadTexture(const TextureImage& image, const Texture& texture, size_t offset) {
@@ -301,30 +275,10 @@ namespace SGF {
         return modelDrawData.size()-1;
     }
 
-    void ModelRenderer::PrepareDrawing(VkCommandBuffer commands, VkPipeline pipeline, VkDescriptorSet uniformSet, glm::uvec2 viewportSize, uint32_t frameIndex, const glm::vec4& colorModifier) {
+    void ModelRenderer::PrepareDrawing(uint32_t frameIndex) {
         CheckTransferStatus();
         UpdateTextureDescriptors(frameIndex);
 
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-        vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(glm::vec4), &colorModifier);
-        VkViewport viewport = { (float)0.0f, (float)0.0f, (float)viewportSize.x, (float)viewportSize.y, 0.0f, 1.0f };
-        VkRect2D scissor = { {0, 0}, { viewportSize.x, viewportSize.y } };
-        vkCmdSetViewport(commands, 0, 1, &viewport);
-        vkCmdSetScissor(commands, 0, 1, &scissor);
-        VkDescriptorSet sets[] = {
-            uniformSet,
-            descriptorSets[frameIndex]
-        };
-
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
-    }
-
-    void ModelRenderer::SetColorModifier(VkCommandBuffer commands, const glm::vec4& color) const {
-        vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(glm::vec4), &color);
-    }
-
-    void ModelRenderer::SetMeshTransform(VkCommandBuffer commands, const glm::mat4& transform) const {
-        vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(transform), &transform);
     }
 
     size_t ModelRenderer::GetTotalDeviceMemoryUsed() const {
@@ -351,8 +305,6 @@ namespace SGF {
     }
     void ModelRenderer::DrawNode(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const {
         if (node.meshes.size() == 0) return;
-        SetMeshTransform(commands, node.globalTransform);
-        vkCmdPushConstants(commands, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(uint32_t), &node.index);
         for (size_t i = 0; i < node.meshes.size(); ++i) {
             auto& m = model.GetMesh(node, i);
             vkCmdDrawIndexed(commands, m.indexCount, 1, m.indexOffset, m.vertexOffset, node.index);
@@ -365,12 +317,8 @@ namespace SGF {
             DrawNodeRecursive(commands, model, n);
         }
     }
-    void ModelRenderer::DrawMesh(VkCommandBuffer commands, const GenericModel::Mesh& m) const {
-        vkCmdDrawIndexed(commands, m.indexCount, 1, m.indexOffset, m.vertexOffset, 0);
-    }
-    void ModelRenderer::DrawMesh(VkCommandBuffer commands, const GenericModel::Mesh& mesh, const glm::mat4& meshTransform) const {
-        SetMeshTransform(commands, meshTransform);
-        DrawMesh(commands, mesh);
+    void ModelRenderer::DrawMesh(VkCommandBuffer commands, const GenericModel::Node& node, const GenericModel::Mesh& m) const {
+        vkCmdDrawIndexed(commands, m.indexCount, 1, m.indexOffset, m.vertexOffset, node.index);
     }
 
     void ModelRenderer::InvalidateDescriptors() {
