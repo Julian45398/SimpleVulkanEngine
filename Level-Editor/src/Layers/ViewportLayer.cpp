@@ -1,5 +1,7 @@
 #include "ViewportLayer.hpp"
 
+#include "ImGuizmo.h"
+
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
 		cursor("assets/textures/zombie.png"), uniformBuffer(SGF_FRAMES_IN_FLIGHT) {
@@ -162,6 +164,7 @@ namespace SGF {
 	}
     
 	void ViewportLayer::OnEvent(const UpdateEvent& event) {
+		ImGuizmo::BeginFrame();
 		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 		UpdateViewport(event);
 		UpdateDebugWindow(event);

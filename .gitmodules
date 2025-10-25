@@ -26,3 +26,6 @@
 [submodule "SGF/lib/fmt"]
 	path = SGF/lib/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "Level-Editor/lib/ImGuizmo"]
+	path = Level-Editor/lib/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git
