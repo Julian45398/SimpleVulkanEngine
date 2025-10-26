@@ -125,11 +125,7 @@ namespace SGF {
 			glm::mat4 view = GetView();
 			//glm::mat4 view = glm::lookAt(pos, Pos + Transform[0], glm::vec3(0.0f, 0.0f, 1.0f));
 			glm::mat4 proj = GetProj(fovRadians, aspectRatio, nearClip, farClip);
-
-			glm::mat4 model = glm::rotate(glm::mat4(1.0f), 0.5f * glm::pi<float>(), -GetForward());
-			//glm::mat4 rot = glm::toMat4(rotation);
-			glm::mat4 res = proj * view;// *model;
-			return res;
+			return proj * view;// *model;
 		}
 		//inline Ray createRay(float xCenter, float yCenter) {
 		//}

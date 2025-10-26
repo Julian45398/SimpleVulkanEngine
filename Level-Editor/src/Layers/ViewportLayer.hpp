@@ -5,7 +5,7 @@
 #include "Renderer/GridRenderer.hpp"
 #include "Renderer/ModelRenderer.hpp"
 #include "CameraController.hpp"
-
+#include "Viewport.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -20,9 +20,10 @@ namespace SGF {
 
         void RenderViewport(RenderEvent& event);
 	    void UpdateViewport(const UpdateEvent& event);
-	    void UpdateStatusWindow(const UpdateEvent& event);
+	    void UpdateDebugWindow(const UpdateEvent& event);
+	    void UpdateModelWindow(const UpdateEvent& event);
 
-        inline VkRenderPass GetRenderPass() { return renderPass; }
+        inline VkRenderPass GetRenderPass() { return viewport.GetRenderPass(); }
 
         virtual bool OnEvent(const KeyPressedEvent& event) override;
         //virtual bool onKeyRepeat(const KeyRepeatEvent& event) override;
@@ -39,41 +40,70 @@ namespace SGF {
             INPUT_SELECTED = BIT(1),
             INPUT_CAPTURED = BIT(2)
         };
-        void ResizeFramebuffer(uint32_t width, uint32_t height);
-        void CreateFramebuffer();
-        void DestroyFramebuffer();
+        enum class SelectionMode {
+            NODE,
+            MODEL,
+            NO_SELECTION
+        };
+        struct CursorHover {
+            inline CursorHover(uint32_t integer) { memcpy(this, &integer, sizeof(uint32_t)); }
+            inline CursorHover(uint32_t modelIndex, uint32_t nodeIndex) : model(modelIndex), node(nodeIndex) {}
+            inline bool operator==(CursorHover other) { return node == other.node && model == other.model; }
+            inline bool IsValid() const { return UINT32_MAX != ToInt(); }
+            inline uint32_t ToInt() const { return *(uint32_t*)this; }
+            uint32_t node : 20;
+            uint16_t model : 12;
+        };
+        static_assert(sizeof(CursorHover) == sizeof(uint32_t));
+
         CommandList commands[SGF_FRAMES_IN_FLIGHT];
-		VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
-        VkImage colorImage = VK_NULL_HANDLE;
-        VkImage depthImage = VK_NULL_HANDLE;
+        Viewport viewport;
         VkSampler sampler = VK_NULL_HANDLE;
         ImTextureID imGuiImageID = 0;
-        VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-        VkImageView colorImageView = VK_NULL_HANDLE;
-        VkImageView depthImageView = VK_NULL_HANDLE;
-        VkFramebuffer framebuffer = VK_NULL_HANDLE;
         VkSemaphore signalSemaphore = VK_NULL_HANDLE;
         VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
         VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
         UniformArray<glm::mat4> uniformBuffer;
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
         std::vector<GenericModel> models;
+        std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
+        //std::set<uint32_t> selectionIndices;
+        uint32_t selectedModelIndex = UINT32_MAX; 
+        uint32_t selectedNodeIndex = UINT32_MAX;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
-        uint32_t width = 0;
-        uint32_t height = 0;
-        VkFormat imageFormat;
+        ImVec2 relativeCursor;
+        //uint32_t cursorValue = 3320;
+        CursorHover hoverValue = CursorHover(UINT32_MAX);
         uint32_t imageIndex = 0;
         CameraController cameraController;
+        VkPipeline renderPipeline;
+        VkPipelineLayout pipelineLayout;
+        VkPipeline outlinePipeline;
+        VkPipelineLayout outlineLayout;
         Cursor cursor;
+        VkBuffer modelPickBuffer;
+        VkDeviceMemory modelPickMemory;
+        CursorHover* modelPickMapped;
         ModelRenderer modelRenderer;
         GridRenderer gridRenderer;
         float viewSize = 0.0f;
         float cameraZoom = 0.0f;
-        float aspectRatio = 0.0f;
         bool isOrthographic = false;
         uint32_t inputMode = 0;
+        SelectionMode selectionMode = SelectionMode::MODEL;
+
+    private:
+        void ResizeFramebuffer(uint32_t width, uint32_t height);
+	    void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
+	    void DrawTreeNode(const GenericModel& model, const GenericModel::Node& node);
+	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
+	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
+        void RenderWireframe(RenderEvent& event);
+	    void RenderModel(RenderEvent& event, uint32_t modelIndex);
+        void RenderModelSelection(RenderEvent& event);
+        void RenderNodeSelection(RenderEvent& event);
+        void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
+        void ClearSelection();
 	};
 }

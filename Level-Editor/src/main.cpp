@@ -7,7 +7,7 @@ void SGF::PreInit() {
 	SGF::Device::RequireGraphicsQueues(1);
 	SGF::Device::RequireTransferQueues(1);
 	SGF::Window::SetCreateFlags(WINDOW_FLAG_RESIZABLE | WINDOW_FLAG_NO_COLOR_CLEAR);
-	SGF::Window::SetTitle("How are you?");
+	SGF::Window::SetTitle("Level-Editor");
 	SGF::Window::SetSize(1280, 800);
 	//SGF::Window::SetMultisample();
 	//SGF::Window::AddDepthImage(VK_FORMAT_D16_UNORM, 1.f, 0);

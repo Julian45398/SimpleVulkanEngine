@@ -46,5 +46,3 @@ foreach(SHADER_FILE ${SHADER_FILES})
 
 	add_dependencies(${PROJECT_NAME} ${TARGET_NAME})
 endforeach()
-
-

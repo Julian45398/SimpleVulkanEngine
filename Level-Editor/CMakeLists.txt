@@ -43,6 +43,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE PROJECT_VERSION_PATCH="${PROJ
 
 target_sources(${PROJECT_NAME} PUBLIC ${PLATFORM_FILES})
 
+add_subdirectory(lib)
+
 target_include_directories(${PROJECT_NAME} PUBLIC ${INCLUDE_DIR})
 
 target_include_directories(${PROJECT_NAME} PUBLIC "src/")

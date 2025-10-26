@@ -1,27 +1,11 @@
 #include "ViewportLayer.hpp"
 
+#include "ImGuizmo.h"
+
 namespace SGF {
-	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), imageFormat(colorFormat), 
+	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
 		cursor("assets/textures/zombie.png"), uniformBuffer(SGF_FRAMES_IN_FLIGHT) {
 		auto& device = Device::Get();
-		const std::vector<VkAttachmentDescription> attachments = {
-			SGF::Vk::CreateAttachmentDescription(imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ATTACHMENT_LOAD_OP_DONT_CARE),
-			SGF::Vk::CreateAttachmentDescription(VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-		};
-		auto colorRef = SGF::Vk::CreateAttachmentReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		auto depthRef = SGF::Vk::CreateAttachmentReference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-		const std::vector<VkSubpassDescription> subpasses = {
-			SGF::Vk::CreateSubpassDescription(&colorRef, 1, nullptr, &depthRef)
-		};
-		const std::vector<VkSubpassDependency> dependencies = {
-			{ VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
-		};
-		renderPass = device.CreateRenderPass(attachments, subpasses, dependencies);
-		pipelineLayout = device.CreatePipelineLayout(nullptr, 0, nullptr, 0);
-		graphicsPipeline = device.CreateGraphicsPipeline(pipelineLayout, renderPass, 0).DynamicState(VK_DYNAMIC_STATE_SCISSOR).DynamicState(VK_DYNAMIC_STATE_VIEWPORT)
-				.VertexShader("shaders/test_triangle.vert").FragmentShader("shaders/test_triangle.frag").SampleCount(VK_SAMPLE_COUNT_1_BIT).Build();
 		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
 		signalSemaphore = device.CreateSemaphore();
 
@@ -37,7 +21,6 @@ namespace SGF {
 		};
 		uniformLayout = device.CreateDescriptorSetLayout(layoutBindings);
 
-
 		VkDescriptorSetLayout layouts[SGF_FRAMES_IN_FLIGHT];
 		for (uint32_t i = 0; i <  SGF_FRAMES_IN_FLIGHT; ++i) {
 			commands[i].Init(QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
@@ -45,8 +28,6 @@ namespace SGF {
 		}
 		device.AllocateDescriptorSets(descriptorPool, layouts, uniformDescriptors);
 		// Writing Descriptor Sets:
-		//std::vector<VkWriteDescriptorSet> descriptor_writes(uniformDescriptors.size());
-		//VkWriteDescriptorSet descriptorWrites[SGF_MAX_FRAMES_IN_FLIGHT];
 		VkDescriptorBufferInfo uniform_info = {VK_NULL_HANDLE, 0, VK_WHOLE_SIZE};
 		for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
 			uniform_info.buffer = uniformBuffer.GetBuffer(i);
@@ -55,24 +36,95 @@ namespace SGF {
 			};
 			device.UpdateDescriptors(writes);
 		}
-		modelRenderer.Initialize(renderPass, 0, descriptorPool, uniformLayout);
-		gridRenderer.Init(renderPass, 0, uniformLayout);
+		modelRenderer.Initialize(viewport.GetRenderPass(), 0, descriptorPool, uniformLayout);
+
+		modelPickBuffer = device.CreateBuffer(sizeof(uint32_t) * SGF_FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		modelPickMemory = device.AllocateMemory(modelPickBuffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		modelPickMapped = (CursorHover*)device.MapMemory(modelPickMemory);
+
+		gridRenderer.Init(viewport.GetRenderPass(), 0, uniformLayout);
+		VkDescriptorSetLayout descriptorLayouts[] = {
+			uniformLayout, modelRenderer.GetDescriptorSetLayout()
+		};
+		// Pipeline:
+        {
+            // Layout:
+            VkDescriptorSetLayout descriptor_layouts[] = {
+                uniformLayout,
+				modelRenderer.GetDescriptorSetLayout()
+            };
+            VkPushConstantRange colorOverlayRange;
+            colorOverlayRange.offset = 0;
+            colorOverlayRange.size = sizeof(glm::vec4);
+            colorOverlayRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            VkPushConstantRange nodeIndexRange;
+            nodeIndexRange.offset = sizeof(glm::vec4);
+            nodeIndexRange.size = sizeof(uint32_t);
+            nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            VkPushConstantRange transparency;
+            transparency.offset = sizeof(glm::vec4) + sizeof(uint32_t);
+            transparency.size = sizeof(float);
+            transparency.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            VkPushConstantRange push_constant_ranges[] = {
+               colorOverlayRange, nodeIndexRange, transparency 
+            };
+            pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
+			outlineLayout = device.CreatePipelineLayout(descriptor_layouts);
+        }
+		renderPipeline = device.CreateGraphicsPipeline(pipelineLayout, viewport.GetRenderPass(), 0)
+            .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
+            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
+		outlinePipeline = device.CreateGraphicsPipeline(outlineLayout, viewport.GetRenderPass(), 0)
+            .FragmentShader("shaders/outline.frag").VertexShader("shaders/outline.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
+            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).FrontFace(VK_FRONT_FACE_CLOCKWISE).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).Build();
+
+
+		models.emplace_back("assets/models/Low-Poly-Car.gltf");
+        modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
 	}
+
 	ViewportLayer::~ViewportLayer() {
 		auto& device = Device::Get();
-		DestroyFramebuffer();
-		device.Destroy(renderPass, graphicsPipeline, pipelineLayout, sampler, signalSemaphore, descriptorPool, uniformLayout);
+		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout);
 	}
-	void ViewportLayer::OnAttach() {
-	}
-	void ViewportLayer::OnDetach() {
-	}
+	void ViewportLayer::OnAttach() {}
+	void ViewportLayer::OnDetach() {}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
+		VkClearValue clearValues[] = {
+			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
+			SGF::Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
+			SGF::Vk::CreateDepthClearValue(1.f, 0),
+		};
+		VkRect2D renderArea;
+		renderArea.extent = viewport.GetExtent();
+		renderArea.offset.x = 0;
+		renderArea.offset.y = 0;
+		auto& c = commands[imageIndex];
+		c.Begin();
+		c.BeginRenderPass(viewport.GetRenderPass(), viewport.GetFramebuffer(), renderArea, clearValues, ARRAY_SIZE(clearValues), VK_SUBPASS_CONTENTS_INLINE);
+		modelRenderer.PrepareDrawing(imageIndex);
+
 		RenderViewport(event);
+
+		c.EndRenderPass();
+		// Increment image index before buffer copy
+		VkBufferImageCopy region;
+		region.bufferImageHeight = 0;
+		region.bufferRowLength = 0;
+		region.bufferOffset = sizeof(uint32_t) * imageIndex;
+		region.imageExtent = { 1, 1, 1 }; 
+		region.imageOffset = { glm::clamp((int32_t)relativeCursor.x, 0, (int32_t)viewport.GetWidth()), glm::clamp((int32_t)relativeCursor.y, 0, (int32_t)viewport.GetHeight()), 0 };
+		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.layerCount = 1;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = 0;
+		vkCmdCopyImageToBuffer(c, viewport.GetPickImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, modelPickBuffer, 1, &region);
+		c.End();
+		c.Submit(nullptr, FLAG_NONE, signalSemaphore);
+		event.AddWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		imageIndex = (imageIndex + 1) % SGF_FRAMES_IN_FLIGHT;
 	}
-	void ViewportLayer::OnEvent(const WindowResizeEvent& event) {
-		SGF::info("WindowResized: width: ", event.GetWidth(), " height: ", event.GetHeight());
-	}
+	void ViewportLayer::OnEvent(const WindowResizeEvent& event) {}
 	bool ViewportLayer::OnEvent(const KeyPressedEvent& event) {
 		if (inputMode == INPUT_CAPTURED && event.GetKey() == SGF::KEY_ESCAPE) {
 			event.GetWindow().FreeCursor();
@@ -110,50 +162,165 @@ namespace SGF {
 		}
 		return false;
 	}
-	
     
 	void ViewportLayer::OnEvent(const UpdateEvent& event) {
+		ImGuizmo::BeginFrame();
 		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 		UpdateViewport(event);
-		UpdateStatusWindow(event);
+		UpdateDebugWindow(event);
+		UpdateModelWindow(event);
 	}
 
-	void ViewportLayer::RenderViewport(RenderEvent& event) {
-		VkClearValue clearValues[] = {
-			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
-			SGF::Vk::CreateDepthClearValue(1.f, 0)
-		};
-		if (isOrthographic) {
-			uniformBuffer.SetValueAt(imageIndex, cameraController.GetOrthoViewMatrix(viewSize, aspectRatio));
-		} else {
-			uniformBuffer.SetValueAt(imageIndex, cameraController.GetViewProjMatrix(aspectRatio));
-		}
-		VkRect2D renderArea;
-		renderArea.extent.width = width;
-		renderArea.extent.height = height;
-		renderArea.offset.x = 0;
-		renderArea.offset.y = 0;
+	void ViewportLayer::DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const {
 		auto& c = commands[imageIndex];
-		c.Begin();
-		//auto& c = event.getCommands();
-		c.BeginRenderPass(renderPass,framebuffer, renderArea, clearValues, ARRAY_SIZE(clearValues), VK_SUBPASS_CONTENTS_INLINE);
-		c.BindGraphicsPipeline(graphicsPipeline);
-		c.SetRenderArea(width, height);
-		//c.Draw(3);
-		modelRenderer.Draw(c, uniformDescriptors[imageIndex], width, height, imageIndex);
-		gridRenderer.Draw(c, uniformDescriptors[imageIndex], width, height);
-		c.EndRenderPass();
-		c.End();
-		c.Submit(nullptr, FLAG_NONE, signalSemaphore);
-		event.AddWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-		imageIndex = (imageIndex + 1) % SGF_FRAMES_IN_FLIGHT;
+		if (&model == &models[selectedModelIndex] && selectedNodeIndex == node.index) return;
+		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
+		modelRenderer.DrawNode(c, model, node);
+		for (auto& n : node.children) {
+			DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
+		}
+	}
+	void ViewportLayer::DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const {
+		auto& c = commands[imageIndex];
+		if (&model == &models[selectedModelIndex] && selectedNodeIndex == node.index) return;
+		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
+		modelRenderer.DrawNode(c, model, node);
+		for (auto& n : node.children) {
+			DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
+		}
+	}
+
+	void ViewportLayer::RenderWireframe(RenderEvent& event) {
+
+	}
+	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
+	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
+	const glm::vec4 SELECTED_HOVERED_COLOR(.7f, .2f, .4f, .7f);
+	const glm::vec4 HOVER_COLOR(.7f, .4f, .2f, .8f);
+	const float MESH_TRANSPARENCY = .6f;
+	const float NO_TRANSPARENCY = 1.f;
+
+	void ViewportLayer::RenderModel(RenderEvent& event, uint32_t modelIndex) {
+		CursorHover currentID(modelIndex, 0);
+		const glm::vec4* selectionColor;
+		float transparency = 1.f;
+		if (selectedModelIndex == UINT32_MAX) {
+			selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
+		} else if (modelIndex == selectedModelIndex) {
+			selectionColor = &NO_COLOR_MODIFIER;
+		} else {
+			selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
+			transparency = (modelIndex == hoverValue.model) ? 1.f : MESH_TRANSPARENCY;
+		}
+		auto& c = commands[imageIndex];
+		modelRenderer.BindBuffersToModel(c, modelBindOffsets[modelIndex]);
+		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
+		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
+		for (size_t j = 0; j < models[modelIndex].nodes.size(); ++j) {
+			currentID.node = j;
+			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
+			modelRenderer.DrawNode(c, models[modelIndex], models[modelIndex].nodes[j]);
+		}
+	}
+
+	// Model Selection:
+	void ViewportLayer::RenderModelSelection(RenderEvent& event) {
+		BindPipeline(renderPipeline, pipelineLayout);
+		assert(modelBindOffsets.size() == models.size());
+		assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
+		
+		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
+			RenderModel(event, i);
+		}
+	}
+	
+	void ViewportLayer::RenderNodeSelection(RenderEvent& event) {
+		auto& c = commands[imageIndex];
+		BindPipeline(renderPipeline, pipelineLayout);
+		assert(modelBindOffsets.size() == models.size());
+		CursorHover currentID(0, 0);
+		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
+			currentID.model = i;
+			const glm::vec4* selectionColor = &NO_COLOR_MODIFIER;
+			float transparency = 1.f;
+			if (selectedModelIndex != UINT32_MAX) {
+				transparency = MESH_TRANSPARENCY;
+			}
+			modelRenderer.BindBuffersToModel(c, modelBindOffsets[i]);
+			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
+			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
+			for (size_t j = 0; j < models[i].nodes.size(); ++j) {
+				currentID.node = j;
+				if (currentID == hoverValue) continue;
+				if (selectedModelIndex == i && selectedNodeIndex == j) {
+					uint8_t tempArray[sizeof(currentID) + sizeof(transparency)];
+					memcpy(tempArray, &currentID, sizeof(currentID));
+					memcpy(tempArray + sizeof(currentID), &NO_TRANSPARENCY, sizeof(transparency));
+					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(tempArray), tempArray);
+					modelRenderer.DrawNode(c, models[i], models[i].nodes[j]);
+					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(transparency), &transparency);
+				} else {
+					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
+					modelRenderer.DrawNode(c, models[i], models[i].nodes[j]);
+				}
+			}
+			if (hoverValue.IsValid()) {
+				selectionColor = (selectedModelIndex == hoverValue.model && selectedNodeIndex == hoverValue.node) ? &NO_COLOR_MODIFIER : &HOVER_COLOR;
+				uint8_t tempArray[sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float)];
+				memcpy(tempArray, selectionColor, sizeof(glm::vec4));
+				memcpy(tempArray + sizeof(glm::vec4), &hoverValue, sizeof(uint32_t));
+				memcpy(tempArray + sizeof(glm::vec4) + sizeof(uint32_t), &NO_TRANSPARENCY, sizeof(float));
+				vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(tempArray), tempArray);
+				modelRenderer.DrawNode(c, models[i], models[i].nodes[hoverValue.node]);
+			}
+		}
+	}
+	void ViewportLayer::BindPipeline(VkPipeline pipeline, VkPipelineLayout layout) {
+		auto& c = commands[imageIndex];
+		VkDescriptorSet sets[] = {
+			uniformDescriptors[imageIndex],
+			modelRenderer.GetDescriptorSet(imageIndex),
+		};
+		vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+		vkCmdBindDescriptorSets(c, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
+		glm::uvec2 viewportSize;
+		viewportSize.x = viewport.GetWidth();
+		viewportSize.y = viewport.GetHeight();
+        VkViewport view = { (float)0.0f, (float)0.0f, (float)viewport.GetWidth(), (float)viewport.GetHeight(), 0.0f, 1.0f };
+        VkRect2D scissor = { {0, 0}, viewport.GetExtent() };
+        vkCmdSetViewport(c, 0, 1, &view);
+        vkCmdSetScissor(c, 0, 1, &scissor);
+	}
+	void ViewportLayer::RenderViewport(RenderEvent& event) {
+		auto& c = commands[imageIndex];
+		if (isOrthographic) {
+			uniformBuffer.SetValueAt(imageIndex, cameraController.GetOrthoViewMatrix(viewSize, viewport.GetAspectRatio()));
+		} else {
+			uniformBuffer.SetValueAt(imageIndex, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()));
+		}
+		if (selectionMode == SelectionMode::MODEL) {
+			RenderModelSelection(event);
+		} else {
+			RenderNodeSelection(event);
+		}
+
+		if (selectedModelIndex != UINT32_MAX) {
+			BindPipeline(outlinePipeline, pipelineLayout);
+			modelRenderer.BindBuffersToModel(c, modelBindOffsets[selectedModelIndex]);
+			if (selectionMode == SelectionMode::MODEL) {
+				modelRenderer.DrawModel(c, models[selectedModelIndex]);
+			} else {
+				modelRenderer.DrawNode(c, models[selectedModelIndex], models[selectedModelIndex].nodes[selectedNodeIndex]);
+			}
+		}
+		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 	}
 
 	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Viewport", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImVec2 size = ImGui::GetContentRegionAvail();
-		if ((uint32_t)size.x != width || (uint32_t)size.y != height) {
+		if ((uint32_t)size.x != viewport.GetWidth() || (uint32_t)size.y != viewport.GetHeight()) {
 			ResizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
 		}
 		if (ImGui::IsWindowHovered()) {
@@ -161,43 +328,178 @@ namespace SGF {
 		} else {
 			UNSET_FLAG(inputMode, INPUT_HOVERED);
 		}
-
-		if (!HAS_FLAG(inputMode, INPUT_CAPTURED) && Input::HasFocus() && ImGui::IsWindowHovered()) {
-			/*
-			if (Input::IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-				ImGui::SetWindowFocus();
-				Input::CaptureCursor();
-				SET_FLAG(inputMode, INPUT_CAPTURED | INPUT_HOVERED | INPUT_SELECTED);
-			}
-			*/
-		}
 		if (HAS_FLAG(inputMode, INPUT_CAPTURED)) {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
 		ImGui::Image(imGuiImageID, size);
-		ImGui::End();
-		ImGui::PopStyleVar();
-	}
-	
-	void ViewportLayer::UpdateStatusWindow(const UpdateEvent& event) {
-		ImGui::Begin("debug information",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
-		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
-		glm::vec2 cursorpos(0.0f, 0.0f);
-		if (Input::HasFocus()) {
-			cursorpos = Input::GetCursorPos();
+		// Get hover value
+		if (ImGui::IsItemHovered()) {
+			ImVec2 mouse = ImGui::GetIO().MousePos;
+			ImVec2 imageMin = ImGui::GetItemRectMin();
+			relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
+			hoverValue = modelPickMapped[imageIndex];
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+				if (ImGuizmo::IsOver()) {
+					// Do nothing, gizmo is being used
+				} else if (hoverValue.IsValid()) {
+					selectedModelIndex = hoverValue.model;
+					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex].GetRoot().index;
+				} else {
+					selectedModelIndex = UINT32_MAX;
+					selectedModelIndex = UINT32_MAX;
+				}
+			}
+		} else {
+			hoverValue = CursorHover(UINT32_MAX);
 		}
-		if (ImGui::Button("Import GLTF-Model")) {
-			WindowHandle handle(ImGui::GetWindowViewport());
-			auto filename = handle.OpenFileDialog("GLTF files", "gltf, gdb");
-			if (!filename.empty()) {
-				models.emplace_back(filename.c_str());
-				modelRenderer.AddModel(models.back());
+		if (selectedModelIndex != UINT32_MAX) {
+			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::SetDrawlist();
+			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, viewport.GetWidth(), viewport.GetHeight());
+			//ImGuizmo::DecomposeMatrixToComponents()
+			auto view = cameraController.GetViewMatrix();
+			// Create a scaling matrix that flips the Y axis
+			glm::mat4 flipY = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
+			// Apply the flip
+			view = flipY * view;
+
+			auto& model = models[selectedModelIndex];
+			auto& node = model.GetNode(selectedNodeIndex);
+			auto proj = cameraController.GetProjMatrix(viewport.GetAspectRatio());
+			auto globalTransform = model.GetNode(selectedNodeIndex).globalTransform;
+			glm::mat4 delta(1.f);
+			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
+			if (ImGuizmo::IsUsing()) {
+				if (selectionMode == SelectionMode::MODEL) {
+					// Apply to root node
+					model.TransformNodeRecursive(node, delta);
+				} else if (selectionMode == SelectionMode::NODE) {
+					model.TransformNode(node, delta);
+				}
+				modelRenderer.UpdateInstanceTransforms(modelBindOffsets[selectedModelIndex], model);
 			}
 		}
 
-		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursorpos.x, cursorpos.y);
-		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursorPos.x, cursorPos.y);
-		ImGui::Text("Cursor Pos: { %.4f, %.4f }", cursorMove.x, cursorMove.y);
+		ImGui::End();
+		ImGui::PopStyleVar();
+	}
+
+	void ViewportLayer::DrawTreeNode(const GenericModel& model, const GenericModel::Node& node) {
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DrawLinesToNodes | ImGuiTreeNodeFlags_OpenOnArrow;
+		if (node.children.size() == 0 && node.meshes.size() == 0) {
+			flags |= ImGuiTreeNodeFlags_Leaf;
+		}
+		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+			//ImGui::IsItemToggledSelection
+			info("Node clicked!");
+			//selectedModelIndex = UINT32_MAX;
+		}
+		if (open) {
+			// Draw Subnodes:
+			for (uint32_t child : node.children)
+				DrawTreeNode(model, model.nodes[child]);
+			// Draw Meshes:
+			for (auto& m : node.meshes) {
+				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+				ImGui::TreeNodeEx(&m, mflags, "Mesh %d", m);
+				if (ImGui::IsItemClicked()) {
+					info("Mesh clicked");
+				}
+			}
+			ImGui::TreePop();
+		}
+	}
+
+    void ViewportLayer::ClearSelection() {
+		selectedModelIndex = UINT32_MAX;
+		selectedNodeIndex = UINT32_MAX;
+	}
+
+	void ViewportLayer::UpdateModelWindow(const UpdateEvent& event) {
+		ImGui::Begin("Models",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
+		if (models.size() == 0) ImGui::Text("No Models Loaded!");
+		for (size_t i = 0; i < models.size(); ++i) {
+			auto& model = models[i];
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
+			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
+			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
+			if (ImGui::IsItemClicked()) {
+				info("Model Clicked!");
+			}
+			if (open) {
+				DrawTreeNode(model, model.nodes[0]);
+				ImGui::TreePop();
+			}
+		}
+		ImGui::Separator();
+		if (ImGui::Button("Import Model")) {
+			WindowHandle handle(ImGui::GetWindowViewport());
+			auto filename = handle.OpenFileDialog("Model files", "gltf,glb,fbx,obj,usdz");
+			if (!filename.empty()) {
+				models.emplace_back(filename.c_str());
+				modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
+			}
+			ClearSelection();
+		}
+		if (selectionMode == SelectionMode::MODEL) {
+			if (ImGui::Button("Selection Mode: Model")) {
+				selectionMode = SelectionMode::NODE; 
+				ClearSelection();
+			}
+		} else if (selectionMode == SelectionMode::NODE) {
+			if (ImGui::Button("Selection Mode: Node ")) {
+				selectionMode = SelectionMode::MODEL;
+				ClearSelection();
+			}
+		}
+		ImGui::Separator();
+		if (selectedModelIndex != UINT32_MAX) {
+			auto& selectedModel = models[selectedModelIndex];
+			ImGui::Text("Model: %s", selectedModel.GetName().c_str());
+			auto& node = selectedModel.GetNodes()[selectedNodeIndex];
+			ImGui::Separator();
+			ImGui::Text("Selected Node: %s", node.name.c_str());
+			ImGui::Text("Mesh Count: %ld", node.meshes.size());
+			ImGui::Text("Children Count: %ld", node.children.size());
+			{
+				auto& t = node.globalTransform[0];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("0", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			} {
+				auto& t = node.globalTransform[1];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("1", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			} {
+				auto& t = node.globalTransform[2];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("2", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			} {
+				auto& t = node.globalTransform[3];
+				float floats[4] = { t[0], t[1], t[2], t[3] };
+				ImGui::InputFloat4("3", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+			}
+		}
+		
+		
+		ImGui::Separator();
+		ImGui::End();
+	}
+	
+	void ViewportLayer::UpdateDebugWindow(const UpdateEvent& event) {
+		ImGui::Begin("Debug Window",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
+		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
+
+		ImGui::Text("Relative Pos: (%.3f, %.3f)", relativeCursor.x, relativeCursor.y);
+		ImGui::Text("Model: %d, Node: %d", hoverValue.model, hoverValue.node);
+
+		ImGui::Text("Total Indices: %d,\nTotal Vertices: %d,\nTotal Textures: %ld\nMemory Used: %ld,\nMemory Allocated: %ld",
+			modelRenderer.GetTotalIndexCount(), modelRenderer.GetTotalVertexCount(),
+			modelRenderer.GetTextureCount(), modelRenderer.GetTotalDeviceMemoryUsed(), modelRenderer.GetTotalDeviceMemoryAllocated());
+
+		ImGui::Text("Selected ModelIndex: %d", selectedModelIndex);
+		ImGui::Separator();
+
 		cursorMove.x = 0; cursorMove.y = 0;
 		if (isOrthographic) {
 			if (ImGui::Button("Set Perspective")) {
@@ -216,110 +518,18 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
-		const auto& camera = cameraController.GetCamera();
-		glm::vec3 pos = camera.GetPos();
-		glm::vec3 forward = camera.GetForward();
-
-		float p[] = {pos.x, pos.y, pos.z};
-		ImGui::InputFloat3("Camera Position: ", p, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		p[0] = forward.x;
-		p[1] = forward.y;
-		p[2] = forward.z;
-		ImGui::InputFloat3("Camera Forward: ", p, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		p[0] = camera.GetYaw();
-		p[1] = camera.GetPitch();
-		p[2] = camera.GetRoll();
-		ImGui::InputFloat3("Camera Rotation: ", p, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		float m[4] = {};
-		glm::mat4 mat = cameraController.GetViewProjMatrix(aspectRatio);
-		m[0] = mat[0][0];
-		m[1] = mat[0][1];
-		m[2] = mat[0][2];
-		m[3] = mat[0][3];
-		ImGui::InputFloat4("1", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		m[0] = mat[1][0];
-		m[1] = mat[1][1];
-		m[2] = mat[1][2];
-		m[3] = mat[1][3];
-		ImGui::InputFloat4("2", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		m[0] = mat[2][0];
-		m[1] = mat[2][1];
-		m[2] = mat[2][2];
-		m[3] = mat[2][3];
-		ImGui::InputFloat4("3", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-		m[0] = mat[3][0];
-		m[1] = mat[3][1];
-		m[2] = mat[3][2];
-		m[3] = mat[3][3];
-		ImGui::InputFloat4("4", m, "%.3f", ImGuiInputTextFlags_ReadOnly);
-
-
-
-
-		/*
-		Ray center_ray(pos, forward);
-		// getting closest intersection;
-		float closest = std::numeric_limits<float>::infinity();
-		uint32_t modelIndex = models.size();
-
-		SGF::Timer time;
-		time.reset();
-		for (size_t i = 0; i < models.size(); ++i) {
-			float t = models[i].getIntersection(center_ray);
-			closest = std::min(t, closest);
-		}
-		double ellapsed = time.ellapsedMillis();
-		if (closest > 0 && closest != std::numeric_limits<float>::infinity()) {
-			ImGui::Text("colliding with model %i at %.4f distance. Time: %.4fms", (int)modelIndex, closest, ellapsed);
-		} else {
-			ImGui::Text("no collision. Time: %.4fms", ellapsed);
-		}
-		*/
-
-		glm::vec3 up = camera.GetUp();
-		glm::vec3 right = camera.GetRight();
-		float yaw = camera.GetYaw();
-		float pitch = camera.GetPitch();
-		ImGui::ColorButton("ColorButton", ImVec4(0.2, 0.8, 0.1, 1.0), 0, ImVec2(20.f, 20.f));
-		//ImGui::Text("Frame time: {d}", event.get);
 		ImGui::End();
 	}
+
 	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
-		width = w;
-		height = h;
-		info("Resizing framebuffer");
-		if (colorImage != VK_NULL_HANDLE) {
-			DestroyFramebuffer();
-			info("framebuffer destroyed");
-		}
-		CreateFramebuffer();
-	}
-	void ViewportLayer::CreateFramebuffer() {
+		viewport.Resize(w, h);
 		auto& device = Device::Get();
-
-		colorImage = device.CreateImage2D((uint32_t)width, (uint32_t)height, imageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-		depthImage = device.CreateImage2D((uint32_t)width, (uint32_t)height, VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-		//depthImage = CreateImage(info);
-
 		device.WaitIdle();
-		VkImage images[] = { colorImage, depthImage };
-		deviceMemory = device.AllocateMemory(images, ARRAY_SIZE(images));
-		colorImageView = device.CreateImageView2D(colorImage, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-		depthImageView = device.CreateImageView2D(depthImage, VK_FORMAT_D16_UNORM, VK_IMAGE_ASPECT_DEPTH_BIT);
-		VkImageView imageViews[] = { colorImageView, depthImageView };
-		framebuffer = device.CreateFramebuffer(renderPass, imageViews, ARRAY_SIZE(imageViews), (uint32_t)width, (uint32_t)height, 1);
 		if (imGuiImageID != 0) {
-			ImGuiLayer::UpdateVulkanTexture(imGuiImageID, sampler, colorImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			ImGuiLayer::UpdateVulkanTexture(imGuiImageID, sampler, viewport.GetColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
 		else {
-			imGuiImageID = ImGuiLayer::AddVulkanTexture(descriptorPool, sampler, colorImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			//imGuiImageID = *(ImTextureID*)&descriptorSet;
+			imGuiImageID = ImGuiLayer::AddVulkanTexture(descriptorPool, sampler, viewport.GetColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
-		aspectRatio = ((float)width/(float)height);
-	}
-	void ViewportLayer::DestroyFramebuffer() {
-		auto& device = Device::Get();
-		device.WaitIdle();
-		device.Destroy(framebuffer, colorImageView, colorImage, depthImageView, depthImage, deviceMemory);
 	}
 }
