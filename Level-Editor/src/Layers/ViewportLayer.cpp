@@ -339,7 +339,9 @@ namespace SGF {
 			relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
 			hoverValue = modelPickMapped[imageIndex];
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-				if (hoverValue.IsValid()) {
+				if (ImGuizmo::IsOver()) {
+					// Do nothing, gizmo is being used
+				} else if (hoverValue.IsValid()) {
 					selectedModelIndex = hoverValue.model;
 					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex].GetRoot().index;
 				} else {
@@ -349,6 +351,33 @@ namespace SGF {
 			}
 		} else {
 			hoverValue = CursorHover(UINT32_MAX);
+		}
+		if (selectedModelIndex != UINT32_MAX) {
+			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::SetDrawlist();
+			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, viewport.GetWidth(), viewport.GetHeight());
+			//ImGuizmo::DecomposeMatrixToComponents()
+			auto view = cameraController.GetViewMatrix();
+			// Create a scaling matrix that flips the Y axis
+			glm::mat4 flipY = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
+			// Apply the flip
+			view = flipY * view;
+
+			auto& model = models[selectedModelIndex];
+			auto& node = model.GetNode(selectedNodeIndex);
+			auto proj = cameraController.GetProjMatrix(viewport.GetAspectRatio());
+			auto globalTransform = model.GetNode(selectedNodeIndex).globalTransform;
+			glm::mat4 delta(1.f);
+			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
+			if (ImGuizmo::IsUsing()) {
+				if (selectionMode == SelectionMode::MODEL) {
+					// Apply to root node
+					model.TransformNodeRecursive(node, delta);
+				} else if (selectionMode == SelectionMode::NODE) {
+					model.TransformNode(node, delta);
+				}
+				modelRenderer.UpdateInstanceTransforms(modelBindOffsets[selectedModelIndex], model);
+			}
 		}
 
 		ImGui::End();

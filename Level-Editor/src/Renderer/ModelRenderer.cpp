@@ -275,6 +275,68 @@ namespace SGF {
         return modelDrawData.size()-1;
     }
 
+    // New: update already-uploaded instance transforms for a model handle
+    void ModelRenderer::UpdateInstanceTransforms(ModelHandle handle, const GenericModel& model) {
+        if (handle >= modelDrawData.size()) return;
+
+        auto& device = Device::Get();
+        const size_t transformCount = model.nodes.size();
+        if (transformCount == 0) return;
+        const size_t uploadSize = transformCount * sizeof(glm::mat4);
+
+        // Ensure staging buffer is ready and large enough
+        if (stagingBuffer.IsInitialized()) {
+            device.WaitFence(fence);
+            device.Reset(fence);
+            if (stagingBuffer.GetSize() < uploadSize) {
+                stagingBuffer.Resize(uploadSize);
+            }
+        } else {
+            stagingBuffer.Allocate(uploadSize);
+        }
+
+        // Reset command pool and begin one-time command buffer
+        device.Reset(commandPool);
+        Vk::BeginCommandBuffer(commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+        // Copy transforms into staging buffer
+        size_t offset = 0;
+        for (size_t i = 0; i < transformCount; ++i) {
+            offset = stagingBuffer.CopyData(&model.nodes[i].globalTransform, sizeof(glm::mat4), offset);
+        }
+
+        // Prepare buffer copy from staging -> device-local instance region
+        VkBufferCopy region{};
+        region.srcOffset = 0;
+        region.dstOffset = INSTANCE_BYTE_OFFSET + modelDrawData[handle].instanceOffset * sizeof(glm::mat4);
+        region.size = uploadSize;
+
+        vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, 1, &region);
+
+        VkBufferMemoryBarrier bufferBarrier{};
+        bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bufferBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT;
+        bufferBarrier.srcQueueFamilyIndex = Device::Get().GetGraphicsFamily();
+        bufferBarrier.dstQueueFamilyIndex = Device::Get().GetGraphicsFamily();
+        bufferBarrier.buffer = vertexBuffer;
+        bufferBarrier.offset = 0; // or restrict to the dstOffset/size for tighter scope
+        bufferBarrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+            0,
+            0, nullptr,
+            1, &bufferBarrier,
+            0, nullptr
+        );
+
+        // Submit and signal fence
+        FinalizeTransfer();
+    }
+
     void ModelRenderer::PrepareDrawing(uint32_t frameIndex) {
         CheckTransferStatus();
         UpdateTextureDescriptors(frameIndex);

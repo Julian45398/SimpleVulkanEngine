@@ -464,15 +464,16 @@ namespace SGF {
 	}
 	void BuildNode(GenericModel* pModel, aiNode* pNode, GenericModel::Node& node) {
 		// Copy transformation matrix
+		glm::mat4 localTransform(1.f);
 		for (uint32_t j = 0; j < 4; ++j) {
 			for (uint32_t k = 0; k < 4; ++k) {
-				node.localTransform[k][j] = pNode->mTransformation[j][k];
+				localTransform[k][j] = pNode->mTransformation[j][k];
 			}
 		}
 		if (node.parent != UINT32_MAX) {
-			node.globalTransform = pModel->nodes[node.parent].globalTransform * node.localTransform;
+			node.globalTransform = pModel->nodes[node.parent].globalTransform * localTransform;
 		} else {
-			node.globalTransform = node.localTransform;
+			node.globalTransform = localTransform;
 		}
 		// Process all meshes under this node
 		node.meshes.reserve(pNode->mNumMeshes);
@@ -506,6 +507,14 @@ namespace SGF {
 		node.children.reserve(pNode->mNumChildren);
 		for (unsigned int i = 0; i < pNode->mNumChildren; ++i) {
 			TraverseNode(pModel, pNode->mChildren[i], nodeIndex);
+		}
+	}
+
+	// Apply a delta transform to the node and all its descendants
+	void GenericModel::TransformNodeRecursive(GenericModel::Node& node, const glm::mat4& deltaTransform) {
+		TransformNode(node, deltaTransform);
+		for (uint32_t childIndex : node.children) {
+			TransformNodeRecursive(nodes[childIndex], deltaTransform);
 		}
 	}
 }

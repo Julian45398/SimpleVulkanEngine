@@ -75,7 +75,7 @@ namespace SGF {
 		};
 
 		struct Node {
-			glm::mat4 localTransform;
+			//glm::mat4 localTransform;
 			glm::mat4 globalTransform;
 			uint32_t parent;
 			uint32_t index;
@@ -113,6 +113,8 @@ namespace SGF {
 		inline const std::vector<uint32_t>& GetIndices() const { return indices; }
 		inline const std::vector<Vertex>& GetVertices() const { return vertices; }
 		inline const std::vector<Node>& GetNodes() const { return nodes; }
+		inline Node& GetNode(size_t index) { return nodes[index]; }
+		inline const Node& GetNode(size_t index) const { return nodes[index]; }
 		inline const std::vector<Mesh>& GetMeshes() const { return meshes; }
 		inline size_t GetVertexCount() const { return vertices.size(); }
 		inline size_t GetIndexCount() const { return indices.size(); }
@@ -126,6 +128,9 @@ namespace SGF {
         const Node& Duplicate(const Node& node);
 		const Node& AddChild(const Node& node, const std::string& name, const glm::mat4& transform);
         void Remove(const Node& node);
+
+		inline void TransformNode(Node& node, const glm::mat4& deltaTransform) { node.globalTransform = deltaTransform * node.globalTransform; }
+		void TransformNodeRecursive(Node& node, const glm::mat4& deltaTransform);
 
 		std::vector<Node> GetChildren(const Node& node) const;
 		std::vector<Mesh> GetMeshes(const Node& node) const;

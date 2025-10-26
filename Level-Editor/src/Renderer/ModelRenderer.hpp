@@ -26,6 +26,7 @@ namespace SGF {
         ~ModelRenderer();
 
         ModelHandle UploadModel(const GenericModel& model);
+        void UpdateInstanceTransforms(ModelHandle handle, const GenericModel& model);
 
         void PrepareDrawing(uint32_t frameIndex);
         void BindBuffersToModel(VkCommandBuffer commands, ModelRenderer::ModelHandle handle) const;
