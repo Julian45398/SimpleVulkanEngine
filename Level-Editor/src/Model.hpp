@@ -107,6 +107,7 @@ namespace SGF {
 
 		inline GenericModel() = default;
 		inline GenericModel(const char* filename) { ImportModel(filename); }
+		inline bool operator==(const GenericModel& other) const { return indices.data() == other.indices.data();}
 
 
         inline const std::string& GetName() const { return name; }

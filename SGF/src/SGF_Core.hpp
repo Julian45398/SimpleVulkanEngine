@@ -16,6 +16,7 @@ namespace SGF {
 #include <limits>
 #include <vector>
 #include <set>
+#include <map>
 #include <stack>
 #include <string>
 #include <type_traits>

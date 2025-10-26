@@ -79,8 +79,13 @@ namespace SGF {
             .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).FrontFace(VK_FRONT_FACE_CLOCKWISE).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).Build();
 
 
-		models.emplace_back("assets/models/Low-Poly-Car.gltf");
-        modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
+		scenes.push_back(new Scene("Scene 1"));
+		activeScene = scenes.back();
+		sceneHierarchyPanel.SetScene(activeScene);
+		activeScene->ImportModel("assets/models/Low-Poly-Car.gltf");
+		modelRenderer.BeginTransfer(modelRenderer.GetRequiredMemorySize(activeScene->GetModels().back()));
+        modelBindOffsets.push_back(modelRenderer.UploadModel(activeScene->GetModel(0)));
+		modelRenderer.FinalizeTransfer();
 	}
 
 	ViewportLayer::~ViewportLayer() {
@@ -171,24 +176,24 @@ namespace SGF {
 		UpdateModelWindow(event);
 	}
 
-	void ViewportLayer::DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const {
-		auto& c = commands[imageIndex];
-		if (&model == &models[selectedModelIndex] && selectedNodeIndex == node.index) return;
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
-		modelRenderer.DrawNode(c, model, node);
-		for (auto& n : node.children) {
-			DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
-		}
-	}
-	void ViewportLayer::DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const {
-		auto& c = commands[imageIndex];
-		if (&model == &models[selectedModelIndex] && selectedNodeIndex == node.index) return;
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
-		modelRenderer.DrawNode(c, model, node);
-		for (auto& n : node.children) {
-			DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
-		}
-	}
+	//void ViewportLayer::DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const {
+		//auto& c = commands[imageIndex];
+		//if (&model == &activeScene->GetModel(selectedModelIndex) && selectedNodeIndex == node.index) return;
+		//vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
+		//modelRenderer.DrawNode(c, model, node);
+		//for (auto& n : node.children) {
+			//DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
+		//}
+	//}
+	//void ViewportLayer::DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const {
+		//auto& c = commands[imageIndex];
+		//if (&model == &activeScene->GetModel(selectedModelIndex) && selectedNodeIndex == node.index) return;
+		//vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
+		//modelRenderer.DrawNode(c, model, node);
+		//for (auto& n : node.children) {
+			//DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
+		//}
+	//}
 
 	void ViewportLayer::RenderWireframe(RenderEvent& event) {
 
@@ -197,81 +202,94 @@ namespace SGF {
 	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
 	const glm::vec4 SELECTED_HOVERED_COLOR(.7f, .2f, .4f, .7f);
 	const glm::vec4 HOVER_COLOR(.7f, .4f, .2f, .8f);
-	const float MESH_TRANSPARENCY = .6f;
+	const float MESH_TRANSPARENCY = .4f;
 	const float NO_TRANSPARENCY = 1.f;
 
-	void ViewportLayer::RenderModel(RenderEvent& event, uint32_t modelIndex) {
-		CursorHover currentID(modelIndex, 0);
-		const glm::vec4* selectionColor;
-		float transparency = 1.f;
-		if (selectedModelIndex == UINT32_MAX) {
-			selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
-		} else if (modelIndex == selectedModelIndex) {
-			selectionColor = &NO_COLOR_MODIFIER;
-		} else {
-			selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
-			transparency = (modelIndex == hoverValue.model) ? 1.f : MESH_TRANSPARENCY;
-		}
-		auto& c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, modelBindOffsets[modelIndex]);
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
-		for (size_t j = 0; j < models[modelIndex].nodes.size(); ++j) {
-			currentID.node = j;
-			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
-			modelRenderer.DrawNode(c, models[modelIndex], models[modelIndex].nodes[j]);
-		}
-	}
+	//void ViewportLayer::RenderModel(RenderEvent& event, uint32_t modelIndex) {
+		//CursorHover currentID(modelIndex, 0);
+		//const glm::vec4* selectionColor;
+		//float transparency = 1.f;
+		//auto& selection = sceneHierarchyPanel.GetCurrentSelection();
+		//auto it = selection.find(modelIndex);
+		//selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
+		////
+		//if (it != selection.end()) {
+			//selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
+		//} else if (modelIndex == selectedModelIndex) {
+			//selectionColor = &NO_COLOR_MODIFIER;
+		//} else {
+			//selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
+			//transparency = (modelIndex == hoverValue.model) ? 1.f : MESH_TRANSPARENCY;
+		//}
+		//auto& c = commands[imageIndex];
+		//modelRenderer.BindBuffersToModel(c, modelBindOffsets[modelIndex]);
+		//vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
+		//vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
+		//auto& model = activeScene->GetModel(modelIndex);
+		//for (size_t j = 0; j < model.nodes.size(); ++j) {
+			//currentID.node = j;
+			//vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
+			//modelRenderer.DrawNode(c, model, model.nodes[j]);
+		//}
+	//}
 
 	// Model Selection:
-	void ViewportLayer::RenderModelSelection(RenderEvent& event) {
-		BindPipeline(renderPipeline, pipelineLayout);
-		assert(modelBindOffsets.size() == models.size());
-		assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
+	//void ViewportLayer::RenderModelSelection(RenderEvent& event) {
+		//BindPipeline(renderPipeline, pipelineLayout);
+		//assert(modelBindOffsets.size() == activeScene->GetModelCount());
+		//assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == activeScene->GetModel(selectedModelIndex).GetRoot().index);
 		
-		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
-			RenderModel(event, i);
-		}
+		//for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
+			//RenderModel(event, i);
+		//}
+	//}
+	glm::mat4 ViewportLayer::GetGizmoTransform() {
+		// TODO: Find rule for Gizmo position for multi-selection:
+		auto& firstSelection = *sceneHierarchyPanel.GetCurrentSelection().begin();
+		auto& firstModel = activeScene->GetModel(firstSelection.first);
+		auto& firstNode = firstModel.GetNode(*firstSelection.second.begin());
+		return firstNode.globalTransform;
 	}
 	
 	void ViewportLayer::RenderNodeSelection(RenderEvent& event) {
 		auto& c = commands[imageIndex];
 		BindPipeline(renderPipeline, pipelineLayout);
-		assert(modelBindOffsets.size() == models.size());
+		assert(modelBindOffsets.size() == activeScene->GetModelCount());
 		CursorHover currentID(0, 0);
 		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
 			currentID.model = i;
 			const glm::vec4* selectionColor = &NO_COLOR_MODIFIER;
-			float transparency = 1.f;
-			if (selectedModelIndex != UINT32_MAX) {
+			float transparency = NO_TRANSPARENCY;
+			if (sceneHierarchyPanel.HasSelection()) {
 				transparency = MESH_TRANSPARENCY;
 			}
 			modelRenderer.BindBuffersToModel(c, modelBindOffsets[i]);
 			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
 			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
-			for (size_t j = 0; j < models[i].nodes.size(); ++j) {
+			auto& model = activeScene->GetModel(i);
+			for (size_t j = 0; j < model.nodes.size(); ++j) {
 				currentID.node = j;
 				if (currentID == hoverValue) continue;
-				if (selectedModelIndex == i && selectedNodeIndex == j) {
+				if (sceneHierarchyPanel.IsSelected(i, j)) {
 					uint8_t tempArray[sizeof(currentID) + sizeof(transparency)];
 					memcpy(tempArray, &currentID, sizeof(currentID));
 					memcpy(tempArray + sizeof(currentID), &NO_TRANSPARENCY, sizeof(transparency));
 					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(tempArray), tempArray);
-					modelRenderer.DrawNode(c, models[i], models[i].nodes[j]);
+					modelRenderer.DrawNode(c, model, model.nodes[j]);
 					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(transparency), &transparency);
 				} else {
 					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
-					modelRenderer.DrawNode(c, models[i], models[i].nodes[j]);
+					modelRenderer.DrawNode(c, model, model.nodes[j]);
 				}
 			}
 			if (hoverValue.IsValid()) {
-				selectionColor = (selectedModelIndex == hoverValue.model && selectedNodeIndex == hoverValue.node) ? &NO_COLOR_MODIFIER : &HOVER_COLOR;
+				selectionColor = (sceneHierarchyPanel.IsSelected(hoverValue.model, hoverValue.node)) ? &NO_COLOR_MODIFIER : &HOVER_COLOR;
 				uint8_t tempArray[sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float)];
 				memcpy(tempArray, selectionColor, sizeof(glm::vec4));
 				memcpy(tempArray + sizeof(glm::vec4), &hoverValue, sizeof(uint32_t));
 				memcpy(tempArray + sizeof(glm::vec4) + sizeof(uint32_t), &NO_TRANSPARENCY, sizeof(float));
 				vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(tempArray), tempArray);
-				modelRenderer.DrawNode(c, models[i], models[i].nodes[hoverValue.node]);
+				modelRenderer.DrawNode(c, model, model.nodes[hoverValue.node]);
 			}
 		}
 	}
@@ -298,27 +316,23 @@ namespace SGF {
 		} else {
 			uniformBuffer.SetValueAt(imageIndex, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()));
 		}
-		if (selectionMode == SelectionMode::MODEL) {
-			RenderModelSelection(event);
-		} else {
-			RenderNodeSelection(event);
-		}
+		RenderNodeSelection(event);
 
-		if (selectedModelIndex != UINT32_MAX) {
+		// Draw Outline for selected nodes
+		if (sceneHierarchyPanel.HasSelection()) {
 			BindPipeline(outlinePipeline, pipelineLayout);
-			modelRenderer.BindBuffersToModel(c, modelBindOffsets[selectedModelIndex]);
-			if (selectionMode == SelectionMode::MODEL) {
-				modelRenderer.DrawModel(c, models[selectedModelIndex]);
-			} else {
-				modelRenderer.DrawNode(c, models[selectedModelIndex], models[selectedModelIndex].nodes[selectedNodeIndex]);
+			for (const auto& selection : sceneHierarchyPanel.GetCurrentSelection()) {
+				auto& model = activeScene->GetModel(selection.first);
+				modelRenderer.BindBuffersToModel(c, modelBindOffsets[selection.first]);
+				for (uint32_t nodeIndex : selection.second) {
+					modelRenderer.DrawNode(c, model, model.nodes[nodeIndex]);
+				}
 			}
+
 		}
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 	}
-
-	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-		ImGui::Begin("Viewport", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
+	void ViewportLayer::UpdateActiveScene(const UpdateEvent& event) {
 		ImVec2 size = ImGui::GetContentRegionAvail();
 		if ((uint32_t)size.x != viewport.GetWidth() || (uint32_t)size.y != viewport.GetHeight()) {
 			ResizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
@@ -342,17 +356,16 @@ namespace SGF {
 				if (ImGuizmo::IsOver()) {
 					// Do nothing, gizmo is being used
 				} else if (hoverValue.IsValid()) {
-					selectedModelIndex = hoverValue.model;
-					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex].GetRoot().index;
+					if (!ImGui::IsKeyDown(ImGuiKey_ModCtrl)) sceneHierarchyPanel.ClearSelection();
+					sceneHierarchyPanel.AddSelection(hoverValue.model, hoverValue.node);
 				} else {
-					selectedModelIndex = UINT32_MAX;
-					selectedModelIndex = UINT32_MAX;
+					sceneHierarchyPanel.ClearSelection();
 				}
 			}
 		} else {
 			hoverValue = CursorHover(UINT32_MAX);
 		}
-		if (selectedModelIndex != UINT32_MAX) {
+		if (sceneHierarchyPanel.HasSelection()) {
 			ImGuizmo::SetOrthographic(false);
 			ImGuizmo::SetDrawlist();
 			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, viewport.GetWidth(), viewport.GetHeight());
@@ -363,119 +376,98 @@ namespace SGF {
 			// Apply the flip
 			view = flipY * view;
 
-			auto& model = models[selectedModelIndex];
-			auto& node = model.GetNode(selectedNodeIndex);
+			
+			auto globalTransform = GetGizmoTransform();
 			auto proj = cameraController.GetProjMatrix(viewport.GetAspectRatio());
-			auto globalTransform = model.GetNode(selectedNodeIndex).globalTransform;
+
 			glm::mat4 delta(1.f);
-			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
+			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::ROTATE | ImGuizmo::TRANSLATE, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
 			if (ImGuizmo::IsUsing()) {
-				if (selectionMode == SelectionMode::MODEL) {
-					// Apply to root node
-					model.TransformNodeRecursive(node, delta);
-				} else if (selectionMode == SelectionMode::NODE) {
-					model.TransformNode(node, delta);
+				size_t transferSize = 0;
+				for (auto& selection : sceneHierarchyPanel.GetCurrentSelection()) {
+					transferSize += activeScene->GetModel(selection.first).GetNodeCount() * sizeof(glm::mat4);
 				}
-				modelRenderer.UpdateInstanceTransforms(modelBindOffsets[selectedModelIndex], model);
+				modelRenderer.BeginTransfer(transferSize);
+				for (auto& selection : sceneHierarchyPanel.GetCurrentSelection()) {
+					auto& model = activeScene->GetModel(selection.first);
+					for (auto nodeIndex : selection.second) {
+						auto& node = model.GetNode(nodeIndex);
+						model.TransformNode(node, delta);
+					}
+					modelRenderer.UpdateInstanceTransforms(modelBindOffsets[selection.first], model);
+				}
+				modelRenderer.FinalizeTransfer();
 			}
 		}
+	}
 
+	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+		flags |= (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : 0;
+		if (ImGui::Begin("Viewport", nullptr, flags)) {
+			ImGui::BeginTabBar("Scene Tabs", ImGuiTabBarFlags_Reorderable |
+				ImGuiTabBarFlags_NoCloseWithMiddleMouseButton |
+				ImGuiTabBarFlags_NoTabListScrollingButtons |
+				ImGuiTabBarFlags_FittingPolicyScroll);
+			for (auto& scene : scenes) {
+				if (ImGui::BeginTabItem(scene->GetName().c_str())) {
+					UpdateActiveScene(event);
+					ImGui::EndTabItem();
+				}
+			}
+			ImGui::EndTabBar();
+			//UpdateActiveScene(event);
+		}
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}
 
-	void ViewportLayer::DrawTreeNode(const GenericModel& model, const GenericModel::Node& node) {
-		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DrawLinesToNodes | ImGuiTreeNodeFlags_OpenOnArrow;
-		if (node.children.size() == 0 && node.meshes.size() == 0) {
-			flags |= ImGuiTreeNodeFlags_Leaf;
-		}
-		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
-		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-			//ImGui::IsItemToggledSelection
-			info("Node clicked!");
-			//selectedModelIndex = UINT32_MAX;
-		}
-		if (open) {
-			// Draw Subnodes:
-			for (uint32_t child : node.children)
-				DrawTreeNode(model, model.nodes[child]);
-			// Draw Meshes:
-			for (auto& m : node.meshes) {
-				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-				ImGui::TreeNodeEx(&m, mflags, "Mesh %d", m);
-				if (ImGui::IsItemClicked()) {
-					info("Mesh clicked");
-				}
-			}
-			ImGui::TreePop();
-		}
-	}
-
-    void ViewportLayer::ClearSelection() {
-		selectedModelIndex = UINT32_MAX;
-		selectedNodeIndex = UINT32_MAX;
-	}
-
 	void ViewportLayer::UpdateModelWindow(const UpdateEvent& event) {
 		ImGui::Begin("Models",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
-		if (models.size() == 0) ImGui::Text("No Models Loaded!");
-		for (size_t i = 0; i < models.size(); ++i) {
-			auto& model = models[i];
-			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
-			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
-			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
-			if (ImGui::IsItemClicked()) {
-				info("Model Clicked!");
-			}
-			if (open) {
-				DrawTreeNode(model, model.nodes[0]);
-				ImGui::TreePop();
-			}
-		}
+		if (activeScene->GetModelCount() == 0) ImGui::Text("No Models Loaded!");
 		ImGui::Separator();
 		if (ImGui::Button("Import Model")) {
 			WindowHandle handle(ImGui::GetWindowViewport());
 			auto filename = handle.OpenFileDialog("Model files", "gltf,glb,fbx,obj,usdz");
 			if (!filename.empty()) {
-				models.emplace_back(filename.c_str());
-				modelBindOffsets.push_back(modelRenderer.UploadModel(models.back()));
+				activeScene->ImportModel(filename.c_str());
+				//models.emplace_back(filename.c_str());
+				modelRenderer.BeginTransfer(modelRenderer.GetRequiredMemorySize(activeScene->GetModels().back()));
+				modelBindOffsets.push_back(modelRenderer.UploadModel(activeScene->GetModels().back()));
+				modelRenderer.FinalizeTransfer();
 			}
-			ClearSelection();
+			sceneHierarchyPanel.ClearSelection();
 		}
-		if (selectionMode == SelectionMode::MODEL) {
-			if (ImGui::Button("Selection Mode: Model")) {
-				selectionMode = SelectionMode::NODE; 
-				ClearSelection();
-			}
-		} else if (selectionMode == SelectionMode::NODE) {
-			if (ImGui::Button("Selection Mode: Node ")) {
-				selectionMode = SelectionMode::MODEL;
-				ClearSelection();
-			}
-		}
+		//if (selectionMode == SelectionMode::MODEL) {
+			//if (ImGui::Button("Selection Mode: Model")) {
+				//selectionMode = SelectionMode::NODE; 
+				//ClearSelection();
+			//}
+		//} else if (selectionMode == SelectionMode::NODE) {
+			//if (ImGui::Button("Selection Mode: Node ")) {
+				//selectionMode = SelectionMode::MODEL;
+				//ClearSelection();
+			//}
+		//}
 		ImGui::Separator();
-		if (selectedModelIndex != UINT32_MAX) {
-			auto& selectedModel = models[selectedModelIndex];
-			ImGui::Text("Model: %s", selectedModel.GetName().c_str());
-			auto& node = selectedModel.GetNodes()[selectedNodeIndex];
+		if (sceneHierarchyPanel.HasSelection()) {
+			auto globalTransform = GetGizmoTransform();
 			ImGui::Separator();
-			ImGui::Text("Selected Node: %s", node.name.c_str());
-			ImGui::Text("Mesh Count: %ld", node.meshes.size());
-			ImGui::Text("Children Count: %ld", node.children.size());
 			{
-				auto& t = node.globalTransform[0];
+				auto& t = globalTransform[0];
 				float floats[4] = { t[0], t[1], t[2], t[3] };
 				ImGui::InputFloat4("0", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[1];
+				auto& t = globalTransform[1];
 				float floats[4] = { t[0], t[1], t[2], t[3] };
 				ImGui::InputFloat4("1", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[2];
+				auto& t = globalTransform[2];
 				float floats[4] = { t[0], t[1], t[2], t[3] };
 				ImGui::InputFloat4("2", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[3];
+				auto& t = globalTransform[3];
 				float floats[4] = { t[0], t[1], t[2], t[3] };
 				ImGui::InputFloat4("3", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			}
@@ -484,6 +476,7 @@ namespace SGF {
 		
 		ImGui::Separator();
 		ImGui::End();
+		sceneHierarchyPanel.Draw();
 	}
 	
 	void ViewportLayer::UpdateDebugWindow(const UpdateEvent& event) {
@@ -497,7 +490,6 @@ namespace SGF {
 			modelRenderer.GetTotalIndexCount(), modelRenderer.GetTotalVertexCount(),
 			modelRenderer.GetTextureCount(), modelRenderer.GetTotalDeviceMemoryUsed(), modelRenderer.GetTotalDeviceMemoryAllocated());
 
-		ImGui::Text("Selected ModelIndex: %d", selectedModelIndex);
 		ImGui::Separator();
 
 		cursorMove.x = 0; cursorMove.y = 0;

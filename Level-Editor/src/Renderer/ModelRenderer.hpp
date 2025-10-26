@@ -25,6 +25,8 @@ namespace SGF {
         inline ModelRenderer() {}
         ~ModelRenderer();
 
+        void BeginTransfer(size_t uploadMemorySize);
+        void FinalizeTransfer();
         ModelHandle UploadModel(const GenericModel& model);
         void UpdateInstanceTransforms(ModelHandle handle, const GenericModel& model);
 
@@ -41,6 +43,9 @@ namespace SGF {
 
         size_t GetTotalDeviceMemoryUsed() const;
         size_t GetTotalDeviceMemoryAllocated() const;
+
+        inline size_t GetRequiredMemorySize(const GenericModel& model) const 
+        { return GetRequiredIndexMemorySize(model) + GetRequiredVertexMemorySize(model) + GetRequiredInstanceMemorySize(model) + GetRequiredTextureMemorySize(model); }
         inline size_t GetTextureCount() const { return textures.size(); }
         inline uint32_t GetTotalVertexCount() const { return totalVertexCount; }
         inline uint32_t GetTotalIndexCount() const { return totalIndexCount; }
@@ -104,15 +109,11 @@ namespace SGF {
         void CheckTransferStatus();
 
         void UpdateTextureDescriptors(uint32_t imageCount);
-        void BeginTransfer(const GenericModel& model);
-        void FinalizeTransfer();
 
         size_t GetRequiredIndexMemorySize(const GenericModel& model) const;
         size_t GetRequiredInstanceMemorySize(const GenericModel& model) const;
         size_t GetRequiredVertexMemorySize(const GenericModel& model) const;
         size_t GetRequiredTextureMemorySize(const GenericModel& model) const;
-        inline size_t GetTotalRequiredMemorySize(const GenericModel& model) const 
-        { return GetRequiredIndexMemorySize(model) + GetRequiredVertexMemorySize(model) + GetRequiredInstanceMemorySize(model) + GetRequiredTextureMemorySize(model); }
 
         size_t UploadTextures(const GenericModel& model, size_t startOffset);
         size_t PrepareVertexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);

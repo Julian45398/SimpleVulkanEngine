@@ -175,8 +175,8 @@ namespace SGF {
         return size;
     }
 
-    void ModelRenderer::BeginTransfer(const GenericModel& model) {
-        size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
+    void ModelRenderer::BeginTransfer(size_t uploadMemorySize) {
+        //size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
         auto& device = Device::Get();
 
         if (stagingBuffer.IsInitialized()) {
@@ -237,10 +237,7 @@ namespace SGF {
     }
 
     ModelRenderer::ModelHandle ModelRenderer::UploadModel(const GenericModel& model) {
-        size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
-
         auto& device = Device::Get();
-        BeginTransfer(model);
 
         VkBufferCopy indexRegion;
         size_t offset = PrepareIndexUpload(model, 0, &indexRegion);
@@ -259,10 +256,8 @@ namespace SGF {
         vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, ARRAY_SIZE(regions), regions);
 
         offset = UploadTextures(model, offset);
-        assert(offset == uploadMemorySize);
-
-        // Submitting Commands:
-        FinalizeTransfer();
+        assert(offset == GetRequiredMemorySize(model));
+        assert(offset <= stagingBuffer.GetSize());
 
         ModelDrawData drawData;
         drawData.indexOffset = totalIndexCount;
@@ -285,19 +280,19 @@ namespace SGF {
         const size_t uploadSize = transformCount * sizeof(glm::mat4);
 
         // Ensure staging buffer is ready and large enough
-        if (stagingBuffer.IsInitialized()) {
-            device.WaitFence(fence);
-            device.Reset(fence);
-            if (stagingBuffer.GetSize() < uploadSize) {
-                stagingBuffer.Resize(uploadSize);
-            }
-        } else {
-            stagingBuffer.Allocate(uploadSize);
-        }
+        //if (stagingBuffer.IsInitialized()) {
+            //device.WaitFence(fence);
+            //device.Reset(fence);
+            //if (stagingBuffer.GetSize() < uploadSize) {
+                //stagingBuffer.Resize(uploadSize);
+            //}
+        //} else {
+            //stagingBuffer.Allocate(uploadSize);
+        //}
 
-        // Reset command pool and begin one-time command buffer
-        device.Reset(commandPool);
-        Vk::BeginCommandBuffer(commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        //// Reset command pool and begin one-time command buffer
+        //device.Reset(commandPool);
+        //Vk::BeginCommandBuffer(commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
         // Copy transforms into staging buffer
         size_t offset = 0;
@@ -334,7 +329,7 @@ namespace SGF {
         );
 
         // Submit and signal fence
-        FinalizeTransfer();
+        //FinalizeTransfer();
     }
 
     void ModelRenderer::PrepareDrawing(uint32_t frameIndex) {

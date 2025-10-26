@@ -6,6 +6,8 @@
 #include "Renderer/ModelRenderer.hpp"
 #include "CameraController.hpp"
 #include "Viewport.hpp"
+#include "Editor/Scene.hpp"
+#include "Editor/SceneHierarchyPanel.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -65,11 +67,15 @@ namespace SGF {
         VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
         UniformArray<glm::mat4> uniformBuffer;
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
-        std::vector<GenericModel> models;
+        std::vector<Scene*> scenes;
+        Scene* activeScene = nullptr;
+        SceneHierarchyPanel sceneHierarchyPanel;
+        //std::vector<GenericModel> models;
         std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
         //std::set<uint32_t> selectionIndices;
-        uint32_t selectedModelIndex = UINT32_MAX; 
-        uint32_t selectedNodeIndex = UINT32_MAX;
+        //uint32_t selectedModelIndex = UINT32_MAX; 
+        //uint32_t selectedNodeIndex = UINT32_MAX;
+
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
         ImVec2 relativeCursor;
@@ -91,12 +97,12 @@ namespace SGF {
         float cameraZoom = 0.0f;
         bool isOrthographic = false;
         uint32_t inputMode = 0;
-        SelectionMode selectionMode = SelectionMode::MODEL;
+        //SelectionMode selectionMode = SelectionMode::MODEL;
 
     private:
         void ResizeFramebuffer(uint32_t width, uint32_t height);
-	    void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
-	    void DrawTreeNode(const GenericModel& model, const GenericModel::Node& node);
+	    //void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
+	    //void DrawTreeNode(const GenericModel& model, const GenericModel::Node& node);
 	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
 	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
         void RenderWireframe(RenderEvent& event);
@@ -104,6 +110,7 @@ namespace SGF {
         void RenderModelSelection(RenderEvent& event);
         void RenderNodeSelection(RenderEvent& event);
         void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
-        void ClearSelection();
+        void UpdateActiveScene(const UpdateEvent& event);
+	    glm::mat4 GetGizmoTransform();
 	};
 }
