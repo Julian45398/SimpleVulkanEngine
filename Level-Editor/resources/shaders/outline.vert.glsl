@@ -29,6 +29,6 @@ void main() {
 
     // Expand vertex
     //vec3 expandedPos = worldPos.xyz + worldNormal * 0.2;
-    vec3 expandedPos = vertexPosition + vertexNormal.xyz * 0.1;
+    vec3 expandedPos = vertexPosition + normalize(vertexNormal.xyz) * 0.1;
     gl_Position = ubo.transform * modelTransform * vec4(expandedPos, 1.0);
 }

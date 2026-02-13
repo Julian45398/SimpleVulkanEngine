@@ -88,9 +88,51 @@ namespace SGF {
 		modelRenderer.FinalizeTransfer();
 	}
 
+	void ViewportLayer::SceneCreationPopup() {
+		static char sceneName[256] = "";
+
+		// Trigger popup externally by setting showNewScenePopup = true
+		if (popupActive)
+		{
+			ImGui::OpenPopup("Create New Scene");
+			popupActive = false; // reset trigger
+		}
+
+		// Popup window
+		if (ImGui::BeginPopupModal("Create New Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("Enter scene name:");
+			ImGui::InputText("##SceneName", sceneName, IM_ARRAYSIZE(sceneName));
+
+			ImGui::Separator();
+
+			// Create button
+			if (ImGui::Button("Create", ImVec2(100, 0)) || (ImGui::IsKeyPressed(ImGuiKey_Enter) && sceneName[0] != '\0'))
+			{
+				// Handle scene creation here
+				printf("Created scene: %s\n", sceneName);
+				scenes.push_back(new Scene(sceneName));
+				activeScene = scenes.back();
+				sceneHierarchyPanel.SetScene(activeScene);
+				// Clear input field
+				sceneName[0] = '\0';
+				// Close the popup
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel", ImVec2(100, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+	}
+
 	ViewportLayer::~ViewportLayer() {
 		auto& device = Device::Get();
-		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout);
+		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout, modelPickBuffer, modelPickMemory, pipelineLayout, renderPipeline, outlineLayout, outlinePipeline);
 	}
 	void ViewportLayer::OnAttach() {}
 	void ViewportLayer::OnDetach() {}
@@ -170,6 +212,17 @@ namespace SGF {
     
 	void ViewportLayer::OnEvent(const UpdateEvent& event) {
 		ImGuizmo::BeginFrame();
+		ImGui::BeginMainMenuBar();
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("New Scene")) {
+				// Trigger the popup
+				info("New Scene popup activated");
+				popupActive = true;
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+		SceneCreationPopup();
 		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 		UpdateViewport(event);
 		UpdateDebugWindow(event);
@@ -202,7 +255,7 @@ namespace SGF {
 	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
 	const glm::vec4 SELECTED_HOVERED_COLOR(.7f, .2f, .4f, .7f);
 	const glm::vec4 HOVER_COLOR(.7f, .4f, .2f, .8f);
-	const float MESH_TRANSPARENCY = .4f;
+	const float MESH_TRANSPARENCY = .1f;
 	const float NO_TRANSPARENCY = 1.f;
 
 	//void ViewportLayer::RenderModel(RenderEvent& event, uint32_t modelIndex) {
@@ -282,7 +335,7 @@ namespace SGF {
 					modelRenderer.DrawNode(c, model, model.nodes[j]);
 				}
 			}
-			if (hoverValue.IsValid()) {
+			if (hoverValue.IsValid() && hoverValue.model == i) {
 				selectionColor = (sceneHierarchyPanel.IsSelected(hoverValue.model, hoverValue.node)) ? &NO_COLOR_MODIFIER : &HOVER_COLOR;
 				uint8_t tempArray[sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float)];
 				memcpy(tempArray, selectionColor, sizeof(glm::vec4));
@@ -292,6 +345,7 @@ namespace SGF {
 				modelRenderer.DrawNode(c, model, model.nodes[hoverValue.node]);
 			}
 		}
+		
 	}
 	void ViewportLayer::BindPipeline(VkPipeline pipeline, VkPipelineLayout layout) {
 		auto& c = commands[imageIndex];
@@ -320,12 +374,13 @@ namespace SGF {
 
 		// Draw Outline for selected nodes
 		if (sceneHierarchyPanel.HasSelection()) {
-			BindPipeline(outlinePipeline, pipelineLayout);
+			BindPipeline(outlinePipeline, outlineLayout);
 			for (const auto& selection : sceneHierarchyPanel.GetCurrentSelection()) {
 				auto& model = activeScene->GetModel(selection.first);
 				modelRenderer.BindBuffersToModel(c, modelBindOffsets[selection.first]);
 				for (uint32_t nodeIndex : selection.second) {
 					modelRenderer.DrawNode(c, model, model.nodes[nodeIndex]);
+					info("Drawing outline for model ", selection.first, " node: ", model.nodes[nodeIndex].name);
 				}
 			}
 

@@ -96,6 +96,7 @@ namespace SGF {
         float viewSize = 0.0f;
         float cameraZoom = 0.0f;
         bool isOrthographic = false;
+        bool popupActive = false;
         uint32_t inputMode = 0;
         //SelectionMode selectionMode = SelectionMode::MODEL;
 
@@ -111,6 +112,7 @@ namespace SGF {
         void RenderNodeSelection(RenderEvent& event);
         void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
         void UpdateActiveScene(const UpdateEvent& event);
+	    void SceneCreationPopup();
 	    glm::mat4 GetGizmoTransform();
 	};
 }
