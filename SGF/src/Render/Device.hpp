@@ -45,7 +45,7 @@ namespace SGF {
         inline bool HasFeatureEnabled(DeviceFeatureFlagBits feature) const { return (enabledFeatures & feature); }
 
         inline bool CheckSurfaceSupport(VkSurfaceKHR surface) const {
-            error("TODO: implement surface support function!");
+            Log::Error("TODO: implement surface support function!");
             return true;
         }
 

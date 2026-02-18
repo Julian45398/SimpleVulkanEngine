@@ -10,7 +10,7 @@ namespace SGF {
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 		std::vector<char> buffer;
 		if (!file.is_open()) {
-			SGF::error("Failed to open file: ", filename);
+			SGF::Log::Error("Failed to open file: {}", filename);
 			return buffer;
 		}
 
@@ -25,7 +25,7 @@ namespace SGF {
 	size_t LoadBinaryFileToBuffer(const char* filename, size_t bufSize, char* pBuf) {
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 		if (!file.is_open()) {
-			SGF::error("Failed to open file: ", filename);
+			SGF::Log::Error("Failed to open file: {}", filename);
 			return 0;
 		}
 		size_t fileSize = (size_t)file.tellg();
@@ -34,7 +34,7 @@ namespace SGF {
 			file.read(pBuf, fileSize);
 		}
 		else {
-			SGF::error("Buffer is smaller than the file-size!");
+			SGF::Log::Error("Buffer is smaller than the file-size!");
 			fileSize = 0;
 		}
 		file.close();
@@ -43,7 +43,7 @@ namespace SGF {
 	bool SaveBinaryFile(const char* filename, size_t dataSize, const char* pData) {
 		std::ofstream file(filename, std::ios::ate | std::ios::binary);
 		if (!file.is_open()) {
-			SGF::error("Failed to open file: ", filename);
+			SGF::Log::Error("Failed to open file: {}", filename);
 			return false;
 		}
 		file.write(pData, dataSize);

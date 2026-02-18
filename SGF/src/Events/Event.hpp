@@ -32,7 +32,7 @@ namespace SGF {
             inline static void Dispatch(const EVENT_TYPE& event) {
                 auto& listeners = GetListeners();
                 for (size_t i = listeners.size(); i > 0; --i) {
-                    SGF::debug("dispatching event: index ", i);
+                    SGF::Log::Debug("dispatching event: index ", i);
                     listeners[i-1].func(event, listeners[i-1].user);
                 }
             }

@@ -9,7 +9,7 @@ namespace SGF {
 		auto& device = SGF::Device::Get();
 		pipelineLayout = device.CreatePipelineLayout(&uniformLayout, 1);
 		pipeline = device.CreateGraphicsPipeline(pipelineLayout, renderPass, subpass)
-			.VertexShader(GRID_VERTEX_SHADER_FILE).FragmentShader(GRID_FRAGMENT_SHADER_FILE)
+			.VertexShader(GRID_VERTEX_SHADER_FILE).FragmentShader(GRID_FRAGMENT_SHADER_FILE).AddColorBlendAttachment(false, 0)
 			.DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, false, VK_COMPARE_OP_LESS).Build();
 	}
 

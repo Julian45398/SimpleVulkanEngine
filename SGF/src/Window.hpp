@@ -8,6 +8,8 @@
 namespace SGF {
     
     struct FileFilter {
+		inline FileFilter(const char* description, const char* filter) : filterDescription(description), filters(filter) {}
+		inline FileFilter() : filterDescription(nullptr), filters(nullptr) {}
 		const char* filterDescription;
 		const char* filters;
 	};
@@ -39,7 +41,6 @@ namespace SGF {
         inline WindowHandle() : nativeHandle(nullptr) {};
         inline WindowHandle(void* handle) : nativeHandle(handle) {};
         inline void SetHandle(void* handle) { nativeHandle = handle; }
-
         bool ShouldClose() const;
         uint32_t GetWidth() const;
         uint32_t GetHeight() const;
@@ -69,25 +70,28 @@ namespace SGF {
 
         void SetFullscreen() const;
         void SetWindowed(uint32_t width, uint32_t height) const;
+        void SetFocused() const;
         void Resize(uint32_t width, uint32_t height) const;
         void Minimize() const;
+        void Restore() const;
 
 		std::string OpenFileDialog(const FileFilter* pFilters, uint32_t filterCount) const;
 		inline std::string OpenFileDialog(const FileFilter& filter) const { return OpenFileDialog(&filter, 1); }
-		inline std::string OpenFileDialog(const char* filterDescription, const char* filter) const { return OpenFileDialog((FileFilter){filterDescription, filter}); }
+		inline std::string OpenFileDialog(const char* filterDescription, const char* filter) const { return OpenFileDialog(FileFilter(filterDescription, filter)); }
 		inline std::string OpenFileDialog(const std::vector<FileFilter>& filters) const { return OpenFileDialog(filters.data(), filters.size()); }
         template<uint32_t COUNT>
 		inline std::string OpenFileDialog(const FileFilter(&filters)[COUNT]) const { return OpenFileDialog(filters, COUNT); }
 
 		std::string SaveFileDialog(const FileFilter* pFilters, uint32_t filterCount) const;
 		inline std::string SaveFileDialog(const FileFilter& filter) const { return SaveFileDialog(&filter, 1); }
-		inline std::string SaveFileDialog(const char* filterDescription, const char* filter) const { return SaveFileDialog((FileFilter){filterDescription, filter}); }
+		inline std::string SaveFileDialog(const char* filterDescription, const char* filter) const { return SaveFileDialog(FileFilter(filterDescription, filter)); }
 		inline std::string SaveFileDialog(const std::vector<FileFilter>& filters) const { return SaveFileDialog(filters.data(), filters.size()); }
         template<uint32_t COUNT>
 		inline std::string SaveFileDialog(const FileFilter(&filters)[COUNT]) const { return SaveFileDialog(filters, COUNT); }
     private:
         void* nativeHandle;
     };
+
     class Input {
     public:
         static void PollEvents();

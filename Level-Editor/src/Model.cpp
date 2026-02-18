@@ -254,7 +254,7 @@ namespace SGF {
 	
 	Texture LoadTextureFromAssimp(GenericModel* model, const aiScene* scene, std::string& path, const char* filename) {
 		if (path.empty()) {
-			warn("Texture is requested but path is empty!");
+			Log::Warn("Texture is requested but path is empty!");
 			aiColor4D baseColor(0.5, 0.5, 0.5, 1.f);
 			return TextureFromBaseColor(baseColor);
 		}
@@ -351,7 +351,7 @@ namespace SGF {
 				if (AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &baseColor) ||
 					AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &baseColor)) {
 					hasBaseColor = true;
-					info("Base color is: ", baseColor.r, ", ", baseColor.g, ", ", baseColor.b, ", ", baseColor.a);
+					Log::Info("Base color is: [{}, {}, {}, {}]", baseColor.r, baseColor.g, baseColor.b, baseColor.a);
 				}
 				for (size_t j = 0; j < pMesh->mNumVertices; ++j) {
 					pModel->vertices[j + meshInfo.vertexOffset].color.r = baseColor.r;
@@ -369,16 +369,16 @@ namespace SGF {
 					pModel->vertices[meshInfo.vertexOffset + j].uv.y = uv.y;
 				}
 			} else {
-				if (hasTexture) warn("mesh has a texture but doesnt have uv coordinates!");
+				if (hasTexture) Log::Warn("mesh has a texture but doesnt have uv coordinates!");
 				for (uint32_t j = 0; j < pMesh->mNumVertices; ++j) {
 					pModel->vertices[meshInfo.vertexOffset + j].uv.x = 2.0f;
 					pModel->vertices[meshInfo.vertexOffset + j].uv.y = 2.0f;
 				}
 			}
-			if (hasBaseColor) info("has base color");
-			if (hasVertexColors) info("has vertex colors");
-			if (hasTexture) info("Has texture");
-			if (!hasBaseColor && !hasTexture && !hasVertexColors) warn("Mesh doesnt have any color information!");
+			if (hasBaseColor) Log::Info("has base color");
+			if (hasVertexColors) Log::Info("has vertex colors");
+			if (hasTexture) Log::Info("Has texture");
+			if (!hasBaseColor && !hasTexture && !hasVertexColors) Log::Warn("Mesh doesnt have any color information!");
 		}
 	}
 
@@ -390,7 +390,7 @@ namespace SGF {
 
 		const GenericModel::Node* pAttachmentNode = nullptr;
 		if (scene == nullptr) {
-			SGF::warn("No Scene available!");
+			SGF::Log::Warn("No Scene available!");
 			return nullptr;
 		}
 		auto* pRoot = scene->mRootNode;

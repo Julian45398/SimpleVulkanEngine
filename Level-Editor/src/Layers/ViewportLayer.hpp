@@ -52,7 +52,7 @@ namespace SGF {
             inline bool IsValid() const { return UINT32_MAX != ToInt(); }
             inline uint32_t ToInt() const { return *(uint32_t*)this; }
             uint32_t node : 20;
-            uint16_t model : 12;
+            uint32_t model : 12;
         };
         static_assert(sizeof(CursorHover) == sizeof(uint32_t));
 
@@ -81,7 +81,7 @@ namespace SGF {
         VkPipelineLayout pipelineLayout;
         VkPipeline outlinePipeline;
         VkPipelineLayout outlineLayout;
-        Cursor cursor;
+        //Cursor cursor;
         VkBuffer modelPickBuffer;
         VkDeviceMemory modelPickMemory;
         CursorHover* modelPickMapped;

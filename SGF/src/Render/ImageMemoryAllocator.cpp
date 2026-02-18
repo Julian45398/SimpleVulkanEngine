@@ -9,7 +9,7 @@ namespace SGF {
 		texture.image = device.CreateImage2D(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 		auto memreq = device.GetMemoryRequirements(texture.image);
 		if (memreq.size > REGION_SIZE) {
-			fatal("image memory requirement exceeds max byts size of: ", REGION_SIZE);
+			SGF::Log::Fatal("image memory requirement exceeds the memory-block size of: {}", REGION_SIZE);
 		}
 		bool region_found = false;
 		for (size_t i = 0; i < freeRegions.size(); ++i) {
@@ -63,7 +63,7 @@ namespace SGF {
 		texture.image = device.CreateImage2D(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 		auto memreq = device.GetMemoryRequirements(texture.image);
 		if (memreq.size > REGION_SIZE) {
-			fatal("image memory requirement exceeds max byts size of: ", REGION_SIZE);
+			SGF::Log::Fatal("image memory requirement exceeds max byts size of: {}", REGION_SIZE);
 		}
 		bool region_found = false;
 		for (size_t i = 0; i < freeRegions.size(); ++i) {
@@ -104,7 +104,7 @@ namespace SGF {
 	}
 
 	void ImageMemoryAllocator::DefragmentMemory() {
-		warn("Defragmentation of image allocator memory not implemented yet!");
+		SGF::Log::Warn("Defragmentation of image allocator memory not implemented yet!");
 	}
 
 	ImageMemoryAllocator::~ImageMemoryAllocator() {

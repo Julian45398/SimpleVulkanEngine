@@ -7,6 +7,12 @@
 #include "Filesystem/File.hpp"
 
 #ifdef SGF_OS_WINDOWS 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #define GLFW_EXPOSE_NATIVE_WIN32
 #elif defined(SGF_OS_LINUX)
 #ifdef SGF_USE_X11
@@ -23,6 +29,7 @@
 #include <nfd_glfw3.h>
 
 #include "Events/Event.hpp"
+#include <algorithm>
 
 #ifndef SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT
 #define SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT 1000000000
@@ -39,7 +46,11 @@ namespace SGF {
         glfwWaitEvents();
     }
     glm::dvec2 Input::GetCursorPos() {
-        static glm::dvec2 pos(0,0);
+        static glm::dvec2 pos(0, 0);
+        if (!HasFocus()) {
+            SGF::Log::Warn("Requesting cursor position but Window is not focused!");
+            return glm::dvec2(0, 0);
+        }
         assert(HasFocus());
         //assert(s_FocusedWindow.IsFocused());
         pos = s_FocusedWindow.GetCursorPos();
@@ -114,10 +125,10 @@ namespace SGF {
         }
         nativeHandle = glfwCreateWindow(width, height, title, monitor, nullptr);
         if (nativeHandle == nullptr) {
-            SGF::fatal(ERROR_CREATE_WINDOW);
+            SGF::Log::Fatal(ERROR_CREATE_WINDOW);
         }
         if (glfwRawMouseMotionSupported()) {
-            SGF::info("raw mouse motion supported!");
+            SGF::Log::Info("raw mouse motion supported!");
             glfwSetInputMode((GLFWwindow*)nativeHandle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         }
         if (flags & WINDOW_FLAG_RESIZABLE) {
@@ -187,10 +198,10 @@ namespace SGF {
             assert(window != nullptr);
             WindowHandle& win = *(WindowHandle*)&window;
             if (focus == GLFW_TRUE) {
-                SGF::info("Window: ", win.GetTitle(), " is now focused!");
+                SGF::Log::Info("Window: {} is now focused!", win.GetTitle());
                 Input::s_FocusedWindow.SetHandle(window);
             } else if (focus == GLFW_FALSE) {
-                SGF::info("Window: ", win.GetTitle(), " lost focus");
+                SGF::Log::Info("Window: {} lost focus!", win.GetTitle());
                 if (Input::s_FocusedWindow.GetHandle() == window) {
                     Input::s_FocusedWindow.SetHandle(nullptr);
                 }
@@ -224,11 +235,12 @@ namespace SGF {
         });
         glfwSetWindowCloseCallback((GLFWwindow*)nativeHandle, [](GLFWwindow* window) {
             WindowHandle& win = *(WindowHandle*)&window;
-            info("window should be closed: ", win.GetTitle());
+            SGF::Log::Info("window should be closed: {}", win.GetTitle());
             //WindowIconifyEvent event(win, iconified);
             //LayerStack::Get().OnEvent(event);
         });
         //glfwRestoreWindow()
+        SetFocused();
     }
     void WindowHandle::Close() {
         WindowCloseEvent event(*this);
@@ -337,6 +349,12 @@ namespace SGF {
         assert(nativeHandle);
         glfwSetWindowMonitor((GLFWwindow*)nativeHandle, nullptr, (int)(width / 2), (int)(height / 2), (int)width, (int)height, GLFW_DONT_CARE);
     }
+    void WindowHandle::SetFocused() const {
+        if (IsMinimized())
+            Restore();
+        glfwFocusWindow((GLFWwindow*)nativeHandle);
+        Input::s_FocusedWindow = nativeHandle;
+    }
     void WindowHandle::Resize(uint32_t width, uint32_t height) const {
         assert(nativeHandle);
         glfwSetWindowSize((GLFWwindow*)nativeHandle, (int)width, (int)height);
@@ -344,6 +362,9 @@ namespace SGF {
     void WindowHandle::Minimize() const {
         assert(nativeHandle);
         glfwIconifyWindow((GLFWwindow*)nativeHandle);
+    }
+    void WindowHandle::Restore() const {
+        glfwRestoreWindow((GLFWwindow*)nativeHandle);
     }
 	std::string WindowHandle::OpenFileDialog(const FileFilter* pFilters, uint32_t filterCount) const {
         assert(nativeHandle);
@@ -372,14 +393,14 @@ namespace SGF {
 
 		if (result == NFD_OKAY) {
 			filepath = outPath;
-			SGF::info("Picked file: ", filepath);
+			SGF::Log::Info("Picked file: {}", filepath);
 			NFD_FreePathU8(outPath);
 		}
 		else if (result == NFD_CANCEL) {
-			SGF::info("User pressed cancel.");
+			SGF::Log::Info("User pressed cancel.");
 		}
 		else {
-			SGF::error(NFD_GetError());
+			SGF::Log::Error("File dialog error: {}", NFD_GetError());
 		}
 		NFD_Quit();
 
@@ -393,7 +414,7 @@ namespace SGF {
 		nfdu8char_t* outPath;
 		nfdsavedialogu8args_t args = {};
 		if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow)) {
-			SGF::error(ERROR_OPEN_FILE_DIALOG);
+			SGF::Log::Error("{}", ERROR_OPEN_FILE_DIALOG);
 		}
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
 		args.filterCount = filterCount;
@@ -403,16 +424,16 @@ namespace SGF {
 		if (result == NFD_OKAY)
 		{
 			filepath = outPath;
-			SGF::info("User picked savefile: ", filepath);
+			SGF::Log::Info("User picked savefile: {}", filepath);
 			NFD_FreePathU8(outPath);
 		}
 		else if (result == NFD_CANCEL)
 		{
-			SGF::info("User pressed cancel.");
+			SGF::Log::Info("User pressed cancel.");
 		}
 		else
 		{
-			SGF::error(NFD_GetError());
+			SGF::Log::Error("File dialog error: {}", NFD_GetError());
 		}
 		NFD_Quit();
 
@@ -480,7 +501,7 @@ namespace SGF {
         VkResult res = VK_ERROR_OUT_OF_DATE_KHR;
 		res = vkAcquireNextImageKHR(device, swapchain, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailableSignal, fence, &imageIndex);
 		while (res == VK_ERROR_OUT_OF_DATE_KHR) {
-			debug("swapchain out of date!");
+			Log::Debug("swapchain out of date!");
             int w = 0, h = 0;
             glfwGetFramebufferSize((GLFWwindow*)windowHandle.GetHandle(), &w, &h);
             while (w == 0 || h == 0) {
@@ -493,9 +514,9 @@ namespace SGF {
 		    res = vkAcquireNextImageKHR(device, swapchain, SGF_SWAPCHAIN_NEXT_IMAGE_TIMEOUT, imageAvailableSignal, fence, &imageIndex);
 		}
         if (res == VK_SUBOPTIMAL_KHR) {
-            debug("swapchain image suboptimal");
+            Log::Debug("swapchain image suboptimal");
         } else if (res != VK_SUCCESS) {
-			fatal(ERROR_ACQUIRE_NEXT_IMAGE);
+			Log::Fatal(ERROR_ACQUIRE_NEXT_IMAGE);
 		}
     }
 	void Window::PresentFrame(const VkSemaphore* pWaitSemaphores, uint32_t waitCount) {
@@ -512,7 +533,7 @@ namespace SGF {
 		info.pResults = nullptr;
 		VkResult result = vkQueuePresentKHR(presentQueue, &info);
 		if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
-			SGF::info("swapchain out of date!");
+			SGF::Log::Info("swapchain out of date!");
             int w = 0, h = 0;
             glfwGetFramebufferSize((GLFWwindow*)windowHandle.GetHandle(), &w, &h);
             while (w == 0 || h == 0) {
@@ -524,7 +545,7 @@ namespace SGF {
             UpdateFramebuffers();
 		}
 		else if (result != VK_SUCCESS) {
-			fatal(ERROR_PRESENT_IMAGE);
+			SGF::Log::Fatal(ERROR_PRESENT_IMAGE);
 		}
 	}
 
@@ -538,13 +559,13 @@ namespace SGF {
         windowHandle.SetUserPointer(this);
 
         if (glfwCreateWindowSurface(SGF::g_VulkanInstance, (GLFWwindow*)windowHandle.GetHandle(), SGF::g_VulkanAllocator, &surface) != VK_SUCCESS) {
-            SGF::fatal(ERROR_CREATE_SURFACE);
+            SGF::Log::Fatal(ERROR_CREATE_SURFACE);
         }
 
         auto& device = Device::Get();
         assert(device.IsCreated());
         if (!device.CheckSurfaceSupport(surface)) {
-            SGF::fatal("device is missing surface support!");
+            SGF::Log::Fatal("device is missing surface support!");
         }
         presentQueue = device.GetPresentQueue();
         if (!(flags & WINDOW_FLAG_VSYNC)) {
@@ -555,21 +576,21 @@ namespace SGF {
         // Set GLFW callbacks
         glfwSetFramebufferSizeCallback((GLFWwindow*)windowHandle.GetHandle(), [](GLFWwindow* window, int width, int height) {
             WindowHandle& windowHandle = *(WindowHandle*)&window;
-            SGF::info("framebuffersizecallback ....");
+            SGF::Log::Debug("framebuffersizecallback ....");
             
 
             if (width == 0 || height == 0) {
-                SGF::info("window is minimized!");
+                SGF::Log::Debug("window is minimized!");
                 WindowMinimizeEvent event(windowHandle, true);
 				EventManager::Dispatch(event);
                 do {
                     glfwGetFramebufferSize(window, &width, &height);
                     glfwWaitEvents();
-                    SGF::info("polled events finished!");
+                    SGF::Log::Debug("polled events finished!");
                 } while (width == 0 || height == 0);
                 WindowMinimizeEvent maxEvent(windowHandle, false);
                 EventManager::Dispatch(maxEvent);
-                SGF::info("window is maximized again!");
+                SGF::Log::Debug("window is maximized again!");
             }
 			auto pWindow = (Window*)glfwGetWindowUserPointer(window);
             if (pWindow != nullptr) {
@@ -691,7 +712,7 @@ namespace SGF {
 		assert(attachmentData != nullptr);
 		DestroyFramebuffers();
         free(attachmentData);
-        info("freed memory!");
+        SGF::Log::Debug("freed memory!");
 		attachmentData = nullptr;
 	}
     void Window::SetRenderPass(const VkAttachmentDescription* pAttachments, const VkClearValue* pClearValues, uint32_t attCount, const VkSubpassDescription* pSubpasses, uint32_t subpassCount, const VkSubpassDependency* pDependencies, uint32_t dependencyCount) {
@@ -764,7 +785,7 @@ namespace SGF {
 		}
 		attachmentData = (char*)malloc(allocSize);
         if (attachmentData == nullptr) {
-            fatal("failed to allocate attachment data!");
+            SGF::Log::Fatal("failed to allocate attachment data!");
         }
 
 		memcpy(GetClearValuesMod(), pClearValues, sizeof(pClearValues[0]) * attCount);
@@ -800,14 +821,14 @@ namespace SGF {
 		CreateFramebuffers();
 	}
 	void Window::CreateFramebuffers() {
-		SGF::debug("creating framebuffers of swapchain!");
+		SGF::Log::Debug("creating framebuffers of swapchain!");
 		auto& dev = Device::Get();
 		assert(attachmentData != nullptr);
         {
             uint32_t count = imageCount;
 		    dev.GetSwapchainImages(swapchain, &count, GetImagesMod());
             if (count != imageCount) {
-                fatal(ERROR_CREATE_SWAPCHAIN);
+                SGF::Log::Fatal(ERROR_CREATE_SWAPCHAIN);
             }
         }
 		VkImageView* views = GetImageViewsMod();
@@ -870,7 +891,7 @@ namespace SGF {
 		}
 	}
     void Window::DestroyFramebuffers() {
-		SGF::debug("destroying framebuffers of swapchain!");
+		SGF::Log::Debug("destroying framebuffers of swapchain!");
 		auto& dev = Device::Get(); 
 		assert(attachmentData != nullptr);
 		auto imageViews = GetSwapchainImageViews();

@@ -3935,7 +3935,7 @@ namespace SGF {
 
 	void ImguiVulkanCheckResult(VkResult result) {
 		if (result != VK_SUCCESS) {
-			fatal(ERROR_VULKAN_IMGUI);
+			SGF::Log::Fatal(ERROR_VULKAN_IMGUI);
 		}
 	}
 

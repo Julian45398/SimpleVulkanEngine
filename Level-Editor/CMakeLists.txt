@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.16)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(Level-Editor VERSION 0.0.1)
@@ -51,4 +51,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC "src/")
 target_link_libraries(Level-Editor PRIVATE SGF)
 
 include("cmake/compile_shaders.cmake")
+
+# setze das Arbeitsverzeichnis für den VS-Debugger (nur für Visual Studio Generator)
+set_target_properties(Level-Editor PROPERTIES
+  VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/Level-Editor/resources"
+)
 

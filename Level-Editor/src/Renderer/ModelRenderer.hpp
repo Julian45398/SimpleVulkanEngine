@@ -1,3 +1,5 @@
+#pragma once
+
 #include <SGF.hpp>
 #include "Model.hpp"
 
@@ -59,7 +61,7 @@ namespace SGF {
             {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position) }, // Position
             {1, 0, VK_FORMAT_A2B10G10R10_UNORM_PACK32, offsetof(Vertex, normal) }, // Normal
             {2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv) }, // UV
-            {3, 0, VK_FORMAT_R8G8B8A8_SRGB, offsetof(Vertex, color) }, // Vertex Color 
+            {3, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(Vertex, color) }, // Vertex Color (UNORM statt sRGB)
             {4, 0, VK_FORMAT_R32_UINT, offsetof(Vertex, textureIndex) }, // Texture Index
             {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // Transformation
             {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
@@ -117,7 +119,7 @@ namespace SGF {
         size_t UploadTextures(const GenericModel& model, size_t startOffset);
         size_t PrepareVertexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);
         size_t PrepareIndexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);
-        size_t PrepareInstanceUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);
+        size_t PrepareInstanceUpload(const GenericModel& model, size_t offset, VkBufferCopy* pRegion);
         size_t UploadTexture(const TextureImage& image, const Texture& texture, size_t offset);
     };
 }

@@ -105,13 +105,14 @@ namespace SGF {
 			debugCallback, nullptr
 		};
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		SGF::Log::Debug("Creating vulkan debug messenger");
 
 		VkDebugUtilsMessengerEXT messenger;
 		if (func != nullptr && func(instance, &create_info, g_VulkanAllocator, &messenger) == VK_SUCCESS) {
 			return messenger;
 		}
 		else {
-            warn("Failed to create vulkan messenger!");
+            SGF::Log::Warn("Failed to create vulkan messenger!");
 			return VK_NULL_HANDLE;
 		}
 	}
@@ -124,15 +125,16 @@ namespace SGF {
     VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 		switch (message_severity) {
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+			SGF::Log::Debug(pCallbackData->pMessage);
 			break;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-			//Log.info(pCallbackData->pMessage);
+			SGF::Log::Info(pCallbackData->pMessage);
 			break;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-			warn(pCallbackData->pMessage);
+			SGF::Log::Warn(pCallbackData->pMessage);
 			break;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-			error(pCallbackData->pMessage);
+			SGF::Log::Error(pCallbackData->pMessage);
 			break;
 		}
 		return VK_FALSE;
@@ -145,7 +147,7 @@ namespace SGF {
 		uint32_t instance_extension_count;
 		const char** instance_extensions = glfwGetRequiredInstanceExtensions(&instance_extension_count);
 		if (instance_extensions == nullptr) {
-			fatal("missing support for required glfw extensions!");
+			SGF::Log::Fatal("missing support for required glfw extensions!");
 		}
 		std::vector<const char*> extensions(instance_extensions, instance_extensions + instance_extension_count);
         VkApplicationInfo app_info;
@@ -167,9 +169,9 @@ namespace SGF {
 		std::vector<VkLayerProperties> layers(layer_count);
 		vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
 		bool debug_support = false;
-		debug("available layers: ");
+		SGF::Log::Debug("{} vulkan layers available: ", layer_count);
 		for (uint32_t i = 0; i < layer_count; ++i) {
-			debug(layers[i].layerName);
+			SGF::Log::Debug("{}", layers[i].layerName);
 			if (strcmp(VULKAN_MESSENGER_NAME, layers[i].layerName) == 0) {
 				debug_support = true;
 				break;
@@ -179,7 +181,9 @@ namespace SGF {
 			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             info.enabledLayerCount = 1;
             info.ppEnabledLayerNames = &VULKAN_MESSENGER_NAME;
+			SGF::Log::Info("validation enabled");
         } else {
+			SGF::Log::Info("validation layer requested but not available, continuing without validation!");
             info.enabledLayerCount = 0;
             info.ppEnabledLayerNames = nullptr;
         }
@@ -190,7 +194,7 @@ namespace SGF {
         info.enabledExtensionCount = (uint32_t)extensions.size();
         info.ppEnabledExtensionNames = extensions.data();
         if (vkCreateInstance(&info, g_VulkanAllocator, &g_VulkanInstance) != VK_SUCCESS) {
-            fatal("Failed to create vulkan instance!");
+            SGF::Log::Fatal("Failed to create vulkan instance!");
         }
 		volkLoadInstance(g_VulkanInstance);
 #ifdef SGF_ENABLE_VALIDATION
@@ -221,6 +225,7 @@ namespace SGF {
 #endif
         glfwInit();
         initVulkan();
+		Device::RequireFeatures(DEVICE_FEATURE_INDEPENDENT_BLEND);
 		Device::PickNew();
 		Window::CreateMain();
     }
@@ -237,6 +242,7 @@ namespace SGF {
 	bool IsInitialized() {
 		return g_VulkanInstance != VK_NULL_HANDLE;
 	}
+
 	void Run() {
 		auto& window = Window::Get();
 		auto& device = Device::Get();
