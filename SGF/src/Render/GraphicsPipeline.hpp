@@ -35,12 +35,13 @@ namespace SGF {
 		inline GraphicsPipelineBuilder& DynamicState(VkDynamicState state) { dynamicStates[dynamicStateInfo.dynamicStateCount] = state; dynamicStateInfo.dynamicStateCount++; return *this; }
 		inline GraphicsPipelineBuilder& SampleCount(VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT) { multisampleState.rasterizationSamples = sampleCount; return *this; }
 		inline GraphicsPipelineBuilder& FrontFace(VkFrontFace front = VK_FRONT_FACE_COUNTER_CLOCKWISE) { rasterizationState.frontFace = front; return *this; }
-		inline GraphicsPipelineBuilder& SetColorBlendAttachment(bool blendEnable = false, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		inline GraphicsPipelineBuilder& SetColorBlendAttachment(bool blendEnable = true, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 			VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
 			VkBlendOp colorBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA, VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
 		{ auto& s = colorBlendAttachmentStates[colorBlendState.attachmentCount-1]; s.blendEnable = blendEnable; s.alphaBlendOp = alphaBlendOp; s.srcAlphaBlendFactor = srcAlphaBlendFactor; s.dstAlphaBlendFactor = dstAlphaBlendFactor; 
 			s.colorBlendOp = colorBlendOp; s.colorWriteMask = colorWriteMask; s.srcColorBlendFactor = srcColorBlendFactor; s.dstColorBlendFactor = dstColorBlendFactor; return *this; }
-		inline GraphicsPipelineBuilder& AddColorBlendAttachment(bool blendEnable = false, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+
+		inline GraphicsPipelineBuilder& AddColorBlendAttachment(bool blendEnable = true, VkColorComponentFlags colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 			VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, VkBlendFactor dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
 			VkBlendOp colorBlendOp = VK_BLEND_OP_ADD, VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA, VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
 		{  colorBlendState.attachmentCount++; return SetColorBlendAttachment(blendEnable, colorWriteMask, alphaBlendOp, srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, srcColorBlendFactor, dstColorBlendFactor); }

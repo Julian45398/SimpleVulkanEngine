@@ -146,7 +146,7 @@ namespace SGF {
             textures.push_back(textureAllocator.CreateImage(1, 1));
             Texture texture(1, 1, (uint8_t*)&DEFAULT_COLOR);
             UploadTexture(textures.back(), texture, 0);
-            info("Uploading Dummy Texture!");
+            SGF::Log::Info("Uploading Dummy Texture!");
         }
         // Copy image data:
         for (size_t i = 0; i < model.textures.size(); ++i) {

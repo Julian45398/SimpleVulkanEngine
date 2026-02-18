@@ -1,6 +1,7 @@
 #include "Render/ImageMemoryAllocator.hpp"
 #include "Render/Device.hpp"
 
+constexpr size_t MEM_REGION_SIZE = SGF::ImageMemoryAllocator::REGION_SIZE;
 namespace SGF {
 	const TextureImage ImageMemoryAllocator::CreateImage(uint32_t width, uint32_t height) {
 		auto& device = Device::Get();
@@ -8,8 +9,8 @@ namespace SGF {
 		MemRegion textureRegion;
 		texture.image = device.CreateImage2D(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 		auto memreq = device.GetMemoryRequirements(texture.image);
-		if (memreq.size > REGION_SIZE) {
-			fatal("image memory requirement exceeds max byts size of: ", REGION_SIZE);
+		if (memreq.size > MEM_REGION_SIZE) {
+			SGF::Log::Fatal("image memory requirement exceeds the memory-block size of: {}", MEM_REGION_SIZE);
 		}
 		bool region_found = false;
 		for (size_t i = 0; i < freeRegions.size(); ++i) {
@@ -42,14 +43,14 @@ namespace SGF {
 		}
 		if (!region_found) {
 			uint32_t size = (uint32_t)memreq.size;
-			memreq.size = REGION_SIZE;
+			memreq.size = MEM_REGION_SIZE;
 			VkDeviceMemory memory = device.AllocateMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			allocatedRegions.push_back(memory);
 			MemRegion region = { size, 0, (uint32_t)allocatedRegions.size() - 1 };
 			device.BindMemory(memory, texture.image, region.offset);
 			textureRegion = region;
 			region.offset = size;
-			region.size = (uint32_t)REGION_SIZE - size;
+			region.size = (uint32_t)MEM_REGION_SIZE - size;
 			freeRegions.push_back(region);
 		}
 		texture.view = device.CreateImageView2D(texture.image, VK_FORMAT_R8G8B8A8_SRGB);
@@ -62,8 +63,8 @@ namespace SGF {
 		MemRegion textureRegion;
 		texture.image = device.CreateImage2D(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 		auto memreq = device.GetMemoryRequirements(texture.image);
-		if (memreq.size > REGION_SIZE) {
-			fatal("image memory requirement exceeds max byts size of: ", REGION_SIZE);
+		if (memreq.size > MEM_REGION_SIZE) {
+			SGF::Log::Fatal("image memory requirement exceeds max byts size of: {}", MEM_REGION_SIZE);
 		}
 		bool region_found = false;
 		for (size_t i = 0; i < freeRegions.size(); ++i) {
@@ -76,10 +77,10 @@ namespace SGF {
 		}
 		if (!region_found) {
 			uint32_t size = (uint32_t)memreq.size;
-			memreq.size = REGION_SIZE;
+			memreq.size = MEM_REGION_SIZE;
 			VkDeviceMemory memory = device.AllocateMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			allocatedRegions.push_back(memory);
-			MemRegion region = { REGION_SIZE, 0, (uint32_t)allocatedRegions.size() - 1 };
+			MemRegion region = { MEM_REGION_SIZE, 0, (uint32_t)allocatedRegions.size() - 1 };
 			device.BindMemory(memory, texture.image, region.offset);
 			freeRegions.push_back(region);
 		}
@@ -104,7 +105,7 @@ namespace SGF {
 	}
 
 	void ImageMemoryAllocator::DefragmentMemory() {
-		warn("Defragmentation of image allocator memory not implemented yet!");
+		SGF::Log::Warn("Defragmentation of image allocator memory not implemented yet!");
 	}
 
 	ImageMemoryAllocator::~ImageMemoryAllocator() {

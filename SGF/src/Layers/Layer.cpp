@@ -4,7 +4,7 @@
 
 namespace SGF {
     Layer::Layer(const Layer& other) {
-        SGF::debug("Layer copy constructor called!");
+        SGF::Log::Debug("Layer copy constructor called!");
         layerIndex = UINT64_MAX;
         debugName = other.debugName;
     }
@@ -25,7 +25,7 @@ namespace SGF {
     }
     */
     Layer::~Layer() {
-        SGF::debug("Layer destructor called!");
+        SGF::Log::Debug("Layer destructor called!");
         if (layerIndex != UINT64_MAX) {
             //auto it = std::find(LayerStack::layers.begin(), LayerStack::layers.end(), this);
             //if (it != LayerStack::layers.end()) {

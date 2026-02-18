@@ -6,7 +6,7 @@
 #include "Window.hpp"
 
 namespace SGF {
-//inline VkClearValue createColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { return { r, g, b , a }; }
+	//inline VkClearValue createColorClearValue(int32_t r, int32_t g, int32_t b, int32_t a) { return { r, g, b , a }; }
 	//inline VkClearValue createColorClearValue(uint32_t r, uint32_t g, uint32_t b, uint32_t a) { return { r, g, b , a }; }
 
 	class CommandList {
@@ -178,7 +178,7 @@ namespace SGF {
 			info.pWaitSemaphores = pWaitSemaphores;
 			info.pSignalSemaphores = pSignalSemaphores;
 			if (vkQueueSubmit(queue, 1, &info, fence) != VK_SUCCESS) {
-				fatal(ERROR_QUEUE_SUBMIT);
+				SGF::Log::Fatal(ERROR_QUEUE_SUBMIT);
 			}
 		}
 		inline void Submit(const std::vector<VkSemaphore>& waitSemaphores, const std::vector<VkShaderStageFlags>& waitStages, const std::vector<VkSemaphore>& signalSemaphores) {
@@ -197,7 +197,7 @@ namespace SGF {
 			info.pWaitSemaphores = &waitSemaphore;
 			info.pSignalSemaphores = &signalSemaphore;
 			if (vkQueueSubmit(queue, 1, &info, fence) != VK_SUCCESS) {
-				fatal(ERROR_QUEUE_SUBMIT);
+				SGF::Log::Fatal(ERROR_QUEUE_SUBMIT);
 			}
 		}
 	private:

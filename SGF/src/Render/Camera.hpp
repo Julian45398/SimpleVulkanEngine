@@ -96,7 +96,7 @@ namespace SGF {
 		}
 		
 		inline void SetForward(const glm::vec3& forward) {
-			warn("TODO: implement Camera::setForward()");
+			SGF::Log::Warn("TODO: implement Camera::setForward()");
 			//rotation = glm::quatLookAt(forward, getUp());
 		}
 		inline glm::mat4 GetView() const {

@@ -86,10 +86,10 @@ namespace SGF {
     public:
         inline TestLayer(uint32_t num) : number(num), Layer("test_layer") {}
         inline void OnEvent(RenderEvent& event) override {
-            SGF::info("hello world: ", number, " ", GetName());
+            SGF::Log::Info("hello world: {}, {}", number, " ", GetName());
         }
         inline void OnEvent(const UpdateEvent& event) override {
-            SGF::info("how are you???, ", number, GetName());
+            SGF::Log::Info("how are you???, {}, name: {}", number, GetName());
         }
     private:
         uint32_t number;

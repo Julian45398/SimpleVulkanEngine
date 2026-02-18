@@ -4,7 +4,7 @@
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
-		cursor("assets/textures/zombie.png"), uniformBuffer(SGF_FRAMES_IN_FLIGHT) {
+		uniformBuffer(SGF_FRAMES_IN_FLIGHT) {
 		auto& device = Device::Get();
 		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
 		signalSemaphore = device.CreateSemaphore();
@@ -55,18 +55,18 @@ namespace SGF {
             };
             VkPushConstantRange colorOverlayRange;
             colorOverlayRange.offset = 0;
-            colorOverlayRange.size = sizeof(glm::vec4);
+            colorOverlayRange.size = sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float); // color overlay (vec4), node index (uint32), transparency (f32)
             colorOverlayRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            VkPushConstantRange nodeIndexRange;
-            nodeIndexRange.offset = sizeof(glm::vec4);
-            nodeIndexRange.size = sizeof(uint32_t);
-            nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            VkPushConstantRange transparency;
-            transparency.offset = sizeof(glm::vec4) + sizeof(uint32_t);
-            transparency.size = sizeof(float);
-            transparency.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            //VkPushConstantRange nodeIndexRange;
+            //nodeIndexRange.offset = sizeof(glm::vec4);
+            //nodeIndexRange.size = sizeof(uint32_t);
+            //nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            //VkPushConstantRange transparency;
+            //transparency.offset = sizeof(glm::vec4) + sizeof(uint32_t);
+            //transparency.size = sizeof(float);
+            //transparency.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             VkPushConstantRange push_constant_ranges[] = {
-               colorOverlayRange, nodeIndexRange, transparency 
+               colorOverlayRange//, nodeIndexRange, transparency 
             };
             pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
 			outlineLayout = device.CreatePipelineLayout(descriptor_layouts);
@@ -76,7 +76,8 @@ namespace SGF {
             .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
 		outlinePipeline = device.CreateGraphicsPipeline(outlineLayout, viewport.GetRenderPass(), 0)
             .FragmentShader("shaders/outline.frag").VertexShader("shaders/outline.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
-            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).FrontFace(VK_FRONT_FACE_CLOCKWISE).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).Build();
+            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).AddColorBlendAttachment(false, 0)
+			.FrontFace(VK_FRONT_FACE_CLOCKWISE).Build();
 
 
 		models.emplace_back("assets/models/Low-Poly-Car.gltf");
@@ -90,8 +91,9 @@ namespace SGF {
 	void ViewportLayer::OnAttach() {}
 	void ViewportLayer::OnDetach() {}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
+		SGF::Log::Debug("Doing render event");
 		VkClearValue clearValues[] = {
-			SGF::Vk::CreateColorClearValue(0.f, 0.f, 1.f, 1.f),
+			SGF::Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
 			SGF::Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
 			SGF::Vk::CreateDepthClearValue(1.f, 0),
 		};
@@ -107,13 +109,39 @@ namespace SGF {
 		RenderViewport(event);
 
 		c.EndRenderPass();
+
+		// Transition pick image from COLOR_ATTACHMENT_OPTIMAL -> TRANSFER_SRC_OPTIMAL
+		{
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.pNext = nullptr;
+			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = viewport.GetPickImage();
+			barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+			vkCmdPipelineBarrier(
+				c,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier
+			);
+		}
+
 		// Increment image index before buffer copy
 		VkBufferImageCopy region;
 		region.bufferImageHeight = 0;
 		region.bufferRowLength = 0;
 		region.bufferOffset = sizeof(uint32_t) * imageIndex;
 		region.imageExtent = { 1, 1, 1 }; 
-		region.imageOffset = { glm::clamp((int32_t)relativeCursor.x, 0, (int32_t)viewport.GetWidth()), glm::clamp((int32_t)relativeCursor.y, 0, (int32_t)viewport.GetHeight()), 0 };
+		region.imageOffset = { glm::clamp((int32_t)relativeCursor.x, 0, (int32_t)viewport.GetWidth() - 1), glm::clamp((int32_t)relativeCursor.y, 0, (int32_t)viewport.GetHeight() - 1), 0 };
 		region.imageSubresource.baseArrayLayer = 0;
 		region.imageSubresource.layerCount = 1;
 		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -128,7 +156,7 @@ namespace SGF {
 	bool ViewportLayer::OnEvent(const KeyPressedEvent& event) {
 		if (inputMode == INPUT_CAPTURED && event.GetKey() == SGF::KEY_ESCAPE) {
 			event.GetWindow().FreeCursor();
-			inputMode == INPUT_SELECTED;
+			inputMode = INPUT_SELECTED;
 			return true;
 		}
 		return false;
@@ -392,7 +420,7 @@ namespace SGF {
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 			//ImGui::IsItemToggledSelection
-			info("Node clicked!");
+			SGF::Log::Debug("Node clicked!");
 			//selectedModelIndex = UINT32_MAX;
 		}
 		if (open) {
@@ -404,7 +432,7 @@ namespace SGF {
 				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 				ImGui::TreeNodeEx(&m, mflags, "Mesh %d", m);
 				if (ImGui::IsItemClicked()) {
-					info("Mesh clicked");
+					SGF::Log::Debug("Mesh clicked");
 				}
 			}
 			ImGui::TreePop();
@@ -425,7 +453,7 @@ namespace SGF {
 			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
 			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
 			if (ImGui::IsItemClicked()) {
-				info("Model Clicked!");
+				SGF::Log::Debug("Model Clicked!");
 			}
 			if (open) {
 				DrawTreeNode(model, model.nodes[0]);
@@ -518,13 +546,14 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
+		ImGui::Text("Input has Focus %s", (SGF::Input::HasFocus()) ? "True" : "False");
 		ImGui::End();
 	}
 
 	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
-		viewport.Resize(w, h);
 		auto& device = Device::Get();
 		device.WaitIdle();
+		viewport.Resize(w, h);
 		if (imGuiImageID != 0) {
 			ImGuiLayer::UpdateVulkanTexture(imGuiImageID, sampler, viewport.GetColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}

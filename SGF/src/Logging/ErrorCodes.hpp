@@ -5,7 +5,8 @@
 #ifdef SGF_LOG_MSG
 #define SGF_ERROR(CODE,NAME,MSG) inline const char ERROR_##NAME[] = MSG
 #else
-#define SGF_ERROR(CODE,NAME,MSG) inline const uint32_t ERROR_##NAME = CODE
+#define SGF_ERROR(CODE,NAME,MSG) inline const char ERROR_##NAME[] = MSG
+//#define SGF_ERROR(CODE,NAME,MSG) inline const char ERROR_##NAME[] = #CODE
 #endif
 
 namespace SGF {
@@ -41,7 +42,6 @@ namespace SGF {
     SGF_ERROR(1108, ALLOCATE_DESCRIPTOR_SETS, "failed to allocate descriptor sets");
     SGF_ERROR(1109, CREATE_FENCE, "failed to create fence");
     SGF_ERROR(1110, CREATE_SEMAPHORE, "failed to create semaphore");
-
 
 
     SGF_ERROR(1006, CREATE_SWAPCHAIN, "failed to create swapchain");
