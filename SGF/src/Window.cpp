@@ -383,9 +383,12 @@ namespace SGF {
 #ifdef SGF_USE_X11
             args.parentWindow.handle = (void*)glfwGetX11Window((GLFWwindow*)nativeHandle);
             args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_X11;
+#elif defined(SGF_USE_WAYLAND)
+            args.parentWindow.handle = (void*)glfwGetWaylandWindow((GLFWwindow*)nativeHandle);
+            args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_WAYLAND;
 #endif
-            SGF::warn(ERROR_OPEN_FILE_DIALOG);
 #endif
+            SGF::Log::Warn("Failed to get native window handle for file dialog parent! File dialog may not work correctly!");
         }
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
 		args.filterCount = filterCount;
