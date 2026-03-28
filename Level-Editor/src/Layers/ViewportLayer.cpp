@@ -91,7 +91,6 @@ namespace SGF {
 	void ViewportLayer::OnAttach() {}
 	void ViewportLayer::OnDetach() {}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
-		SGF::Log::Debug("Doing render event");
 		VkClearValue clearValues[] = {
 			SGF::Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
 			SGF::Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
@@ -197,6 +196,7 @@ namespace SGF {
 		UpdateViewport(event);
 		UpdateDebugWindow(event);
 		UpdateModelWindow(event);
+		profiler.DisplayResults();
 	}
 
 	void ViewportLayer::DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const {
@@ -219,7 +219,6 @@ namespace SGF {
 	}
 
 	void ViewportLayer::RenderWireframe(RenderEvent& event) {
-
 	}
 	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
 	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
@@ -253,6 +252,7 @@ namespace SGF {
 
 	// Model Selection:
 	void ViewportLayer::RenderModelSelection(RenderEvent& event) {
+		auto s = profiler.ProfileScope("Model Selection");
 		BindPipeline(renderPipeline, pipelineLayout);
 		assert(modelBindOffsets.size() == models.size());
 		assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
@@ -320,6 +320,8 @@ namespace SGF {
         vkCmdSetScissor(c, 0, 1, &scissor);
 	}
 	void ViewportLayer::RenderViewport(RenderEvent& event) {
+		auto s = profiler.ProfileScope("Render Viewport");
+
 		auto& c = commands[imageIndex];
 		if (isOrthographic) {
 			uniformBuffer.SetValueAt(imageIndex, cameraController.GetOrthoViewMatrix(viewSize, viewport.GetAspectRatio()));
@@ -344,7 +346,10 @@ namespace SGF {
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 	}
 
+#include "ModelSelectionCPU.hpp"
+
 	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
+		auto s = profiler.ProfileScope("Update Viewport");
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Viewport", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImVec2 size = ImGui::GetContentRegionAvail();
@@ -365,6 +370,7 @@ namespace SGF {
 			ImVec2 mouse = ImGui::GetIO().MousePos;
 			ImVec2 imageMin = ImGui::GetItemRectMin();
 			relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
+			auto ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
 			hoverValue = modelPickMapped[imageIndex];
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 				if (ImGuizmo::IsOver()) {

@@ -17,3 +17,5 @@
 #include "Render/UniformBuffer.hpp"
 #include "Render/ImageMemoryAllocator.hpp"
 #include "Render/StagingBuffer.hpp"
+
+#include "Profiling.hpp"

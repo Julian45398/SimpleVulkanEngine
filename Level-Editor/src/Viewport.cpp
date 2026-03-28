@@ -1,7 +1,6 @@
 #include "Viewport.hpp"
 
 namespace SGF {
-
     Viewport::Viewport(VkFormat cFormat, VkFormat dFormat) : colorFormat(cFormat), depthFormat(dFormat) {
         auto& device = Device::Get();
 		const std::vector<VkAttachmentDescription> attachments = {

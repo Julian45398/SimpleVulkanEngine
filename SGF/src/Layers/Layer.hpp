@@ -6,11 +6,11 @@
 namespace SGF {
     class RenderEvent {
     public:
-        inline RenderEvent(double dTime, const CommandList& commandList, VkExtent2D framebufferSize) 
+        inline RenderEvent(double dTime, const CommandList& commandList, glm::uvec2 framebufferSize) 
             : deltaTime(dTime), commands(&commandList), renderArea(framebufferSize) {}
         inline double GetTime() const { return deltaTime; }
         inline const CommandList& GetCommands() const { return *commands; }
-        inline VkExtent2D GetFramebufferSize() const { return renderArea; }
+        inline glm::uvec2 GetFramebufferSize() const { return renderArea; }
         inline void AddWait(VkSemaphore semaphore, VkPipelineStageFlags waitStage) {
             waitSemaphores.push_back(semaphore);
             waitStages.push_back(waitStage);
@@ -30,7 +30,7 @@ namespace SGF {
     private:
         const CommandList* commands;
         double deltaTime;
-        const VkExtent2D renderArea;
+        const glm::uvec2 renderArea;
         std::vector<VkSemaphore> waitSemaphores;
         std::vector<VkSemaphore> signalSemaphores;
         std::vector<VkPipelineStageFlags> waitStages;

@@ -92,6 +92,8 @@ namespace SGF {
         bool isOrthographic = false;
         uint32_t inputMode = 0;
         SelectionMode selectionMode = SelectionMode::MODEL;
+		Profiler profiler;
+        Ray ray;
 
     private:
         void ResizeFramebuffer(uint32_t width, uint32_t height);
