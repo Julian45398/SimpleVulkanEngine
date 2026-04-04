@@ -25,7 +25,6 @@
 
 namespace SGF {
     namespace Log {
-
         // Generic print helpers (fmt::format_string provides compile-time format checks)
         template<typename... Args>
         inline void Print(fmt::format_string<Args...> fmtStr, Args&&... args) {
@@ -44,7 +43,7 @@ namespace SGF {
 //#endif
         }
 
-        // Log-level functions — use fmt format strings
+        // Log-level functions ï¿½ use fmt format strings
         template<typename... Args>
         inline void Debug(fmt::format_string<Args...> fmtStr, Args&&... args) {
 //#if defined(SGF_LOG_DEBUG)

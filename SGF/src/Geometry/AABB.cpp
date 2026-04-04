@@ -20,8 +20,8 @@ namespace SGF {
 	}
 
 	float AABB::getIntersection(const Ray& ray) const {
-		glm::vec3 tMin = (min - ray.getOrigin()) * ray.getInvDir();
-		glm::vec3 tMax = (max - ray.getOrigin()) * ray.getInvDir();
+		glm::vec3 tMin = (min - ray.GetOrigin()) * ray.GetInvDir();
+		glm::vec3 tMax = (max - ray.GetOrigin()) * ray.GetInvDir();
 		glm::vec3 t1 = glm::min(tMin, tMax);
 		glm::vec3 t2 = glm::max(tMin, tMax);
 		float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);
@@ -33,8 +33,8 @@ namespace SGF {
 	}
 
 	bool AABB::hasIntersection(const Ray& ray) const {
-		glm::vec3 tMin = (min - ray.getOrigin()) * ray.getInvDir();
-		glm::vec3 tMax = (max - ray.getOrigin()) * ray.getInvDir();
+		glm::vec3 tMin = (min - ray.GetOrigin()) * ray.GetInvDir();
+		glm::vec3 tMax = (max - ray.GetOrigin()) * ray.GetInvDir();
 		glm::vec3 t1 = glm::min(tMin, tMax);
 		glm::vec3 t2 = glm::max(tMin, tMax);
 		float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);

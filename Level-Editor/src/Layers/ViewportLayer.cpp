@@ -4,7 +4,7 @@
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
-		uniformBuffer(SGF_FRAMES_IN_FLIGHT) {
+		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel") {
 		auto& device = Device::Get();
 		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
 		signalSemaphore = device.CreateSemaphore();
@@ -91,11 +91,10 @@ namespace SGF {
 	void ViewportLayer::OnAttach() {}
 	void ViewportLayer::OnDetach() {}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
-		SGF::Log::Debug("Doing render event");
 		VkClearValue clearValues[] = {
-			SGF::Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
-			SGF::Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
-			SGF::Vk::CreateDepthClearValue(1.f, 0),
+			Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
+			Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
+			Vk::CreateDepthClearValue(1.f, 0),
 		};
 		VkRect2D renderArea;
 		renderArea.extent = viewport.GetExtent();
@@ -197,6 +196,7 @@ namespace SGF {
 		UpdateViewport(event);
 		UpdateDebugWindow(event);
 		UpdateModelWindow(event);
+		profiler.DisplayResults();
 	}
 
 	void ViewportLayer::DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const {
@@ -219,7 +219,6 @@ namespace SGF {
 	}
 
 	void ViewportLayer::RenderWireframe(RenderEvent& event) {
-
 	}
 	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
 	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
@@ -253,6 +252,7 @@ namespace SGF {
 
 	// Model Selection:
 	void ViewportLayer::RenderModelSelection(RenderEvent& event) {
+		auto s = profiler.ProfileScope("Model Selection");
 		BindPipeline(renderPipeline, pipelineLayout);
 		assert(modelBindOffsets.size() == models.size());
 		assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
@@ -320,6 +320,8 @@ namespace SGF {
         vkCmdSetScissor(c, 0, 1, &scissor);
 	}
 	void ViewportLayer::RenderViewport(RenderEvent& event) {
+		auto s = profiler.ProfileScope("Render Viewport");
+
 		auto& c = commands[imageIndex];
 		if (isOrthographic) {
 			uniformBuffer.SetValueAt(imageIndex, cameraController.GetOrthoViewMatrix(viewSize, viewport.GetAspectRatio()));
@@ -344,7 +346,10 @@ namespace SGF {
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 	}
 
+#include "ModelSelectionCPU.hpp"
+
 	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
+		auto s = profiler.ProfileScope("Update Viewport");
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Viewport", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImVec2 size = ImGui::GetContentRegionAvail();
@@ -365,6 +370,7 @@ namespace SGF {
 			ImVec2 mouse = ImGui::GetIO().MousePos;
 			ImVec2 imageMin = ImGui::GetItemRectMin();
 			relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
+			auto ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
 			hoverValue = modelPickMapped[imageIndex];
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 				if (ImGuizmo::IsOver()) {
@@ -420,7 +426,7 @@ namespace SGF {
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 			//ImGui::IsItemToggledSelection
-			SGF::Log::Debug("Node clicked!");
+			Log::Debug("Node clicked!");
 			//selectedModelIndex = UINT32_MAX;
 		}
 		if (open) {
@@ -432,7 +438,7 @@ namespace SGF {
 				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 				ImGui::TreeNodeEx(&m, mflags, "Mesh %d", m);
 				if (ImGui::IsItemClicked()) {
-					SGF::Log::Debug("Mesh clicked");
+					Log::Debug("Mesh clicked");
 				}
 			}
 			ImGui::TreePop();
@@ -453,7 +459,7 @@ namespace SGF {
 			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
 			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
 			if (ImGui::IsItemClicked()) {
-				SGF::Log::Debug("Model Clicked!");
+				Log::Debug("Model Clicked!");
 			}
 			if (open) {
 				DrawTreeNode(model, model.nodes[0]);
@@ -515,7 +521,7 @@ namespace SGF {
 	}
 	
 	void ViewportLayer::UpdateDebugWindow(const UpdateEvent& event) {
-		ImGui::Begin("Debug Window",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
+		ImGui::Begin("Debug Window", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
 
 		ImGui::Text("Relative Pos: (%.3f, %.3f)", relativeCursor.x, relativeCursor.y);
@@ -546,8 +552,11 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
-		ImGui::Text("Input has Focus %s", (SGF::Input::HasFocus()) ? "True" : "False");
+		debugPanel.AddMessage(std::move(fmt::format("Input has Focus: {}", (Input::HasFocus()) ? "True" : "False")));
+		ImGui::Text("Input has Focus %s", (Input::HasFocus()) ? "True" : "False");
 		ImGui::End();
+
+		debugPanel.Draw();
 	}
 
 	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
