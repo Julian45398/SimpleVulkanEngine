@@ -6,6 +6,7 @@
 #include "Renderer/ModelRenderer.hpp"
 #include "CameraController.hpp"
 #include "Viewport.hpp"
+#include "DebugWindow.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -93,6 +94,7 @@ namespace SGF {
         uint32_t inputMode = 0;
         SelectionMode selectionMode = SelectionMode::MODEL;
 		Profiler profiler;
+        DebugWindow debugPanel;
         Ray ray;
 
     private:

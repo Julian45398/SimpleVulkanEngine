@@ -9,6 +9,8 @@ private:
     glm::vec3 dir;
     glm::vec3 invDir;
 public:
+    inline Ray() : o(0), dir(1.f, 0.f, 0.f), invDir(1.f / dir) {}
+
     inline Ray(const glm::vec3& origin, const glm::vec3 direction) {
         o = origin;
         dir = glm::normalize(direction);

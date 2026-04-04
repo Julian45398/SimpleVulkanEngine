@@ -60,7 +60,7 @@ namespace SGF {
         glm::vec3 edge1 = v1 - v0;
         glm::vec3 edge2 = v2 - v0;
 
-        glm::vec3 pvec = glm::cross(ray.direction, edge2);
+        glm::vec3 pvec = glm::cross(ray.GetDir(), edge2);
         float det = glm::dot(edge1, pvec);
 
         if (fabs(det) < EPSILON)
@@ -68,13 +68,13 @@ namespace SGF {
 
         float invDet = 1.0f / det;
 
-        glm::vec3 tvec = ray.origin - v0;
+        glm::vec3 tvec = ray.GetOrigin() - v0;
         float u = glm::dot(tvec, pvec) * invDet;
         if (u < 0.0f || u > 1.0f)
             return false;
 
         glm::vec3 qvec = glm::cross(tvec, edge1);
-        float v = glm::dot(ray.direction, qvec) * invDet;
+        float v = glm::dot(ray.GetDir(), qvec) * invDet;
         if (v < 0.0f || u + v > 1.0f)
             return false;
 
@@ -89,6 +89,7 @@ namespace SGF {
         return true;
     }
 
+    /*
     bool IntersectIndexedTriangles(
         const Ray& ray,
         const GenericModel& model,
@@ -128,4 +129,5 @@ namespace SGF {
         }
         return hit;
     }
+    */
 }

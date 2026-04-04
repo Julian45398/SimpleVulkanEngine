@@ -4,7 +4,7 @@
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
-		uniformBuffer(SGF_FRAMES_IN_FLIGHT) {
+		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel") {
 		auto& device = Device::Get();
 		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
 		signalSemaphore = device.CreateSemaphore();
@@ -92,9 +92,9 @@ namespace SGF {
 	void ViewportLayer::OnDetach() {}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
 		VkClearValue clearValues[] = {
-			SGF::Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
-			SGF::Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
-			SGF::Vk::CreateDepthClearValue(1.f, 0),
+			Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
+			Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
+			Vk::CreateDepthClearValue(1.f, 0),
 		};
 		VkRect2D renderArea;
 		renderArea.extent = viewport.GetExtent();
@@ -426,7 +426,7 @@ namespace SGF {
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 			//ImGui::IsItemToggledSelection
-			SGF::Log::Debug("Node clicked!");
+			Log::Debug("Node clicked!");
 			//selectedModelIndex = UINT32_MAX;
 		}
 		if (open) {
@@ -438,7 +438,7 @@ namespace SGF {
 				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 				ImGui::TreeNodeEx(&m, mflags, "Mesh %d", m);
 				if (ImGui::IsItemClicked()) {
-					SGF::Log::Debug("Mesh clicked");
+					Log::Debug("Mesh clicked");
 				}
 			}
 			ImGui::TreePop();
@@ -459,7 +459,7 @@ namespace SGF {
 			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
 			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
 			if (ImGui::IsItemClicked()) {
-				SGF::Log::Debug("Model Clicked!");
+				Log::Debug("Model Clicked!");
 			}
 			if (open) {
 				DrawTreeNode(model, model.nodes[0]);
@@ -521,7 +521,7 @@ namespace SGF {
 	}
 	
 	void ViewportLayer::UpdateDebugWindow(const UpdateEvent& event) {
-		ImGui::Begin("Debug Window",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
+		ImGui::Begin("Debug Window", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
 
 		ImGui::Text("Relative Pos: (%.3f, %.3f)", relativeCursor.x, relativeCursor.y);
@@ -552,8 +552,11 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
-		ImGui::Text("Input has Focus %s", (SGF::Input::HasFocus()) ? "True" : "False");
+		debugPanel.AddMessage(std::move(fmt::format("Input has Focus: {}", (Input::HasFocus()) ? "True" : "False")));
+		ImGui::Text("Input has Focus %s", (Input::HasFocus()) ? "True" : "False");
 		ImGui::End();
+
+		debugPanel.Draw();
 	}
 
 	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
