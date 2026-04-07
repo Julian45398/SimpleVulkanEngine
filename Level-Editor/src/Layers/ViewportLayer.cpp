@@ -1,6 +1,7 @@
 #include "ViewportLayer.hpp"
 
 #include "ImGuizmo.h"
+#include "ModelSelectionCPU.hpp"
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
@@ -346,7 +347,6 @@ namespace SGF {
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 	}
 
-#include "ModelSelectionCPU.hpp"
 
 	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
 		auto s = profiler.ProfileScope("Update Viewport");
@@ -367,14 +367,25 @@ namespace SGF {
 		ImGui::Image(imGuiImageID, size);
 		// Get hover value
 		if (ImGui::IsItemHovered()) {
-			ImVec2 mouse = ImGui::GetIO().MousePos;
-			ImVec2 imageMin = ImGui::GetItemRectMin();
-			relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
-			auto ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
-			hoverValue = modelPickMapped[imageIndex];
-			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-				if (ImGuizmo::IsOver()) {
-					// Do nothing, gizmo is being used
+			Ray ray;
+			{
+				profiler.ProfileScope("CPU Model Selection");
+				ImVec2 mouse = ImGui::GetIO().MousePos;
+				ImVec2 imageMin = ImGui::GetItemRectMin();
+				relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
+				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetCamera());
+				SGF::HitInfo hitInfo;
+				for (auto& model : models) {
+					if (SGF::GetModelIntersection(ray, model, hitInfo)) {
+						debugPanel.AddMessage(fmt::format("Hit Model: {}, Triangle Index: {}, Hit Position: [ {}, {}, {} ], Hit Normal: [ {}, {}, {} ]", model.name, hitInfo.triangleIndex, hitInfo.position.x, hitInfo.position.y, hitInfo.position.z, hitInfo.normal.x, hitInfo.normal.y, hitInfo.normal.z));
+					}
+				}
+			}
+			debugPanel.AddMessage(fmt::format("Ray Origin: [ {}, {}, {} ]\nRay Direction: [ {}, {}, {} ]", ray.GetOrigin().x, ray.GetOrigin().y, ray.GetOrigin().z, ray.GetDir().x, ray.GetDir().y, ray.GetDir().z)); 
+			hoverValue = modelPickMapped[imageIndex]; 
+			debugPanel.AddMessage(fmt::format("Hover Value - Model: {}, Node: {}", (uint32_t)hoverValue.model, (uint32_t)hoverValue.node));
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
+				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
 				} else if (hoverValue.IsValid()) {
 					selectedModelIndex = hoverValue.model;
 					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex].GetRoot().index;

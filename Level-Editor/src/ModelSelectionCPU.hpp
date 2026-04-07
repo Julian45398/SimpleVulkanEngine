@@ -17,8 +17,7 @@ namespace SGF {
         uint32_t py,
         uint32_t screenWidth,
         uint32_t screenHeight,
-        const glm::mat4& view,
-        const glm::mat4& projection)
+        const Camera& camera)
     {
         glm::vec4 viewport(0.0f, 0.0f,
             static_cast<float>(screenWidth),
@@ -27,6 +26,8 @@ namespace SGF {
         // Vulkan framebuffer origin is top-left
         float flippedY = static_cast<float>(py);
 
+        const auto& view = camera.GetView();
+        const auto& projection = camera.GetProj(90.f, (float)screenWidth / (float)screenHeight);
         // Near plane (depth = 0 in Vulkan)
         glm::vec3 nearPoint = glm::unProject(
             glm::vec3(static_cast<float>(px), flippedY, 0.0f),
@@ -89,6 +90,79 @@ namespace SGF {
         return true;
     }
 
+    inline bool GetMeshIntersection(
+        const Ray& ray,
+        const GenericModel& model,
+        const GenericModel::Mesh& mesh,
+        const glm::mat4& transform,
+        HitInfo& outHit) {
+        bool hit = false;
+        const auto& vertices = model.GetVertices();
+        const auto& indices = model.GetIndices();
+        for (size_t i = 0; i < mesh.indexCount / 3; ++i) {
+            uint32_t i0 = indices[mesh.indexOffset + i * 3 + 0];
+            uint32_t i1 = indices[mesh.indexOffset + i * 3 + 1];
+            uint32_t i2 = indices[mesh.indexOffset + i * 3 + 2];
+
+            glm::vec3 v0 = vertices[i0].position;
+            glm::vec3 v1 = vertices[i1].position;
+            glm::vec3 v2 = vertices[i2].position;
+
+            v0 = glm::vec3(transform * glm::vec4(v0, 1.f));
+            v1 = glm::vec3(transform * glm::vec4(v1, 1.f));
+            v2 = glm::vec3(transform * glm::vec4(v2, 1.f));
+
+            float t, u, v;
+            if (IntersectTriangle(ray, v0, v1, v2, t, u, v)) {
+                if (!hit || t < outHit.t) {
+                    hit = true;
+                    outHit.t = t;
+                    outHit.position = ray.GetOrigin() + t * ray.GetDir();
+                    outHit.normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+                    outHit.triangleIndex = static_cast<uint32_t>(i);
+                }
+            }
+        }
+        return hit;
+    }
+
+    inline bool GetNodeIntersection(
+        const Ray& ray,
+        const GenericModel& model,
+        const GenericModel::Node& node,
+        HitInfo& outHit) {
+        bool hit = false;
+        for (size_t i = 0; i < node.meshes.size(); ++i) {
+            auto& m = model.GetMesh(node, i);
+            if (GetMeshIntersection(ray, model, m, node.globalTransform, outHit)) {
+                hit = true;
+            }
+        }
+        return hit;
+    }
+
+    inline bool GetNodeIntersectionRecursive(
+        const Ray& ray,
+        const GenericModel& model,
+        const GenericModel::Node& node,
+        HitInfo& outHit) {
+        bool hit = GetNodeIntersection(ray, model, node, outHit);
+        for (size_t i = 0; i < node.children.size(); ++i) {
+            auto& n = model.nodes[node.children[i]];
+            if (GetNodeIntersectionRecursive(ray, model, n, outHit)) {
+                hit = true;
+            }
+        }
+        return hit;
+    }
+
+    inline bool GetModelIntersection(
+        const Ray& ray,
+        const GenericModel& model,
+        HitInfo& outHit) {
+        return GetNodeIntersectionRecursive(ray, model, model.GetRoot(), outHit);
+    }
+
     /*
     bool IntersectIndexedTriangles(
         const Ray& ray,
@@ -98,9 +172,12 @@ namespace SGF {
         bool hit = false;
         float closestT = std::numeric_limits<float>::max();
 
-        const size_t triangleCount = indices.size() / 3;
 		const auto& vertices = model.GetVertices();
 		const auto& indices = model.GetIndices();
+        const size_t triangleCount = indices.size() / 3;
+
+        auto& root = model.GetRoot();
+        auto& child = model.GetChild(root, 0);
 
         for (size_t i = 0; i < triangleCount; ++i)
         {
@@ -121,7 +198,7 @@ namespace SGF {
                     hit = true;
 
                     outHit.t = t;
-                    outHit.position = ray.origin + t * ray.direction;
+                    outHit.position = ray.GetOrigin() + t * ray.GetDir();
                     outHit.normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
                     outHit.triangleIndex = static_cast<uint32_t>(i);
                 }
