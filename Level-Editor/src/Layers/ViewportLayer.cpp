@@ -5,7 +5,7 @@
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
-		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel") {
+		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel"), debugRenderer(viewport.GetRenderPass(), 0) {
 		auto& device = Device::Get();
 		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
 		signalSemaphore = device.CreateSemaphore();
@@ -154,10 +154,30 @@ namespace SGF {
 	}
 	void ViewportLayer::OnEvent(const WindowResizeEvent& event) {}
 	bool ViewportLayer::OnEvent(const KeyPressedEvent& event) {
-		if (inputMode == INPUT_CAPTURED && event.GetKey() == SGF::KEY_ESCAPE) {
-			event.GetWindow().FreeCursor();
-			inputMode = INPUT_SELECTED;
-			return true;
+		if (inputMode == INPUT_CAPTURED) {
+			if (event.GetKey() == SGF::KEY_ESCAPE) {
+				event.GetWindow().FreeCursor();
+				inputMode = INPUT_SELECTED;
+				return true;
+			}
+		}
+		else {
+			if (event.GetKey() == SGF::KEY_T) {
+				auto& camera = cameraController.GetCamera();
+				auto invProj = glm::inverse(cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+				auto invView = glm::inverse(cameraController.GetViewMatrix());
+				debugRenderer.AddFrustum(invProj, invView, SGF::Color::RGBA8::Green());
+				if (hitInfo.meshIndex != UINT32_MAX) {
+					debugRenderer.AddLine(camera.GetPos(), hitInfo.position, SGF::Color::RGBA8::Red());
+				}
+				else {
+					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+					debugRenderer.AddLine(camera.GetPos(), ray.GetOrigin() + ray.GetDirection() * 1000.f, SGF::Color::RGBA8::Blue());
+				}
+			}
+			if (event.GetKey() == SGF::KEY_C) {
+				debugRenderer.Clear();
+			}
 		}
 		return false;
 	}
@@ -345,6 +365,7 @@ namespace SGF {
 			}
 		}
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
+		debugRenderer.Draw(c, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()), viewport.GetWidth(), viewport.GetHeight());
 	}
 
 
@@ -365,25 +386,45 @@ namespace SGF {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
 		ImGui::Image(imGuiImageID, size);
+		hitInfo.meshIndex = UINT32_MAX;
+		hitInfo.nodeIndex = UINT32_MAX;
+		hitInfo.triangleIndex = UINT32_MAX;
+		hitInfo.position = glm::vec3(0.f);
+		hitInfo.t = std::numeric_limits<float>::max();
 		// Get hover value
 		if (ImGui::IsItemHovered()) {
+			hoverValue = modelPickMapped[imageIndex]; 
+
 			Ray ray;
 			{
 				profiler.ProfileScope("CPU Model Selection");
 				ImVec2 mouse = ImGui::GetIO().MousePos;
 				ImVec2 imageMin = ImGui::GetItemRectMin();
 				relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
-				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetCamera());
-				SGF::HitInfo hitInfo;
-				for (auto& model : models) {
-					if (SGF::GetModelIntersection(ray, model, hitInfo)) {
-						debugPanel.AddMessage(fmt::format("Hit Model: {}, Triangle Index: {}, Hit Position: [ {}, {}, {} ], Hit Normal: [ {}, {}, {} ]", model.name, hitInfo.triangleIndex, hitInfo.position.x, hitInfo.position.y, hitInfo.position.z, hitInfo.normal.x, hitInfo.normal.y, hitInfo.normal.z));
+				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+				std::vector<uint32_t> debugCheckedNodes;
+				for (size_t i = 0; i < models.size(); ++i) {
+					auto& model = models[i];
+					if (SGF::GetNodeIntersection(ray, model, model.GetNode(12), hitInfo)) {
+						debugPanel.AddMessage(fmt::format("Hit node: {}, {}", model.GetNode(12).index, model.GetNode(12).name));
+					}
+					if (SGF::GetModelIntersection(ray, model, hitInfo, debugCheckedNodes)) {
+						debugPanel.AddMessage(fmt::format("Hit Model: {}\nTriangle Index: {}\nHit Position: [ {}, {}, {} ]\nHit Normal: [ {}, {}, {} ]\nNode: {}, {}\nMesh: {}", model.name, hitInfo.triangleIndex, hitInfo.position.x, hitInfo.position.y, hitInfo.position.z, hitInfo.normal.x, hitInfo.normal.y, hitInfo.normal.z, hitInfo.nodeIndex, model.GetNode(hitInfo.nodeIndex).name, hitInfo.meshIndex));
+					}
+					else {
+						debugPanel.AddMessage("No CPU Hit");
+					}
+					debugPanel.AddMessage(fmt::format("Checked Nodes for Model {}: [{}]", model.name, fmt::join(debugCheckedNodes, ", ")));
+					if ((uint32_t)hoverValue.model == i) {
+						if (hitInfo.nodeIndex != (uint32_t)hoverValue.node) {
+							debugPanel.AddMessage("Hover value and Cpu-Ray collision do not match!");
+						}
 					}
 				}
 			}
-			debugPanel.AddMessage(fmt::format("Ray Origin: [ {}, {}, {} ]\nRay Direction: [ {}, {}, {} ]", ray.GetOrigin().x, ray.GetOrigin().y, ray.GetOrigin().z, ray.GetDir().x, ray.GetDir().y, ray.GetDir().z)); 
-			hoverValue = modelPickMapped[imageIndex]; 
+			debugPanel.AddMessage(fmt::format("Ray Origin: [ {}, {}, {} ]\nRay Direction: [ {}, {}, {} ]", ray.GetOrigin().x, ray.GetOrigin().y, ray.GetOrigin().z, ray.GetDirection().x, ray.GetDirection().y, ray.GetDirection().z)); 
 			debugPanel.AddMessage(fmt::format("Hover Value - Model: {}, Node: {}", (uint32_t)hoverValue.model, (uint32_t)hoverValue.node));
+			debugPanel.AddMessage(fmt::format("Line Count of Debug Renderer:: {}", debugRenderer.GetLineCount()));
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
 				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
 				} else if (hoverValue.IsValid()) {
@@ -563,7 +604,20 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
+		float cameraPos[3] = { cameraController.GetCamera().GetPos().x, cameraController.GetCamera().GetPos().y, cameraController.GetCamera().GetPos().z };
+		float cameraForward[3] = { cameraController.GetCamera().GetForward().x, cameraController.GetCamera().GetForward().y, cameraController.GetCamera().GetForward().z };
+		if (ImGui::InputFloat3("Camera Position: ", cameraPos, "%.3f")) {
+			cameraController.GetCamera().SetPos(cameraPos[0], cameraPos[1], cameraPos[2]);
+		}
+		if (ImGui::InputFloat3("Camera Forward: ", cameraForward, "%.3f")) {
+			cameraController.GetCamera().SetForward(cameraForward[0], cameraForward[1], cameraForward[2]);
+		}
+		const auto& camera = cameraController.GetCamera();
+		auto forward = camera.GetForward();
+		auto position = camera.GetPos();
 		debugPanel.AddMessage(std::move(fmt::format("Input has Focus: {}", (Input::HasFocus()) ? "True" : "False")));
+		debugPanel.AddMessage(std::move(fmt::format("Camera Position: [{}, {}, {}]", position.x, position.y, position.z)));
+		debugPanel.AddMessage(std::move(fmt::format("Camera Forward: [{}, {}, {}]", forward.x, forward.y, forward.z)));
 		ImGui::Text("Input has Focus %s", (Input::HasFocus()) ? "True" : "False");
 		ImGui::End();
 

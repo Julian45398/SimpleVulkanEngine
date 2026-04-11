@@ -1,6 +1,9 @@
 #pragma once
 
 #include "SGF_Core.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+#include <glm/gtc/epsilon.hpp>
 //#define GLM_ENABLE_EXPERIMENTAL
 //#include <glm/gtc/quaternion.hpp>
 //#include <glm/gtx/quaternion.hpp>
@@ -24,18 +27,21 @@ namespace SGF {
 		//glm::quat rotation = glm::quatLookAt(glm::vec3(0.f, 0.f, 1.f), glm::vec3(0.f, 1.f, 0.f));
 	public:
 		Camera() = default;
-		Camera(const glm::vec3& position, const glm::vec3& target)
+		inline Camera(const glm::vec3& position, const glm::vec3& target)
 		: pos(position), transform(glm::lookAt(position, target, Z_AXIS))
 		{}
-		Camera(const glm::vec3& position, float yaw, float pitch, float roll)
+		inline Camera(const glm::vec3& position, float yaw, float pitch, float roll)
 		: pos(position), yaw(yaw), pitch(pitch), roll(roll)
 		{}
-		Camera(float xpos, float ypos, float zpos, float yaw, float pitch, float roll, float fieldOfView)
+		inline Camera(float xpos, float ypos, float zpos, float yaw, float pitch, float roll, float fieldOfView)
 		: pos(glm::vec3(xpos, ypos, zpos)), yaw(yaw), pitch(pitch), roll(roll)
 		{}
 
 		inline void SetPos(float xpos, float ypos, float zpos) {
 			pos = { xpos, ypos, zpos };
+		}
+		inline void SetPos(const glm::vec3& newpos) {
+			pos = newpos;
 		}
 		inline const glm::vec3& GetPos() const {
 			return pos;
@@ -94,10 +100,50 @@ namespace SGF {
 			this->roll += rollRadians;
 			UpdateRotation();
 		}
-		
+		inline void SetForward(float x, float y, float z) {
+			SetForward(glm::vec3(x, y, z));
+		}
 		inline void SetForward(const glm::vec3& forward) {
-			SGF::Log::Warn("TODO: implement Camera::setForward()");
-			//rotation = glm::quatLookAt(forward, getUp());
+			constexpr float EPS = 1e-6f;
+			// normalize input
+			if (glm::length2(forward) < EPS * EPS) {
+				// ignore zero vector
+				return;
+			}
+			glm::vec3 f = glm::normalize(forward);
+
+			// choose world-up; avoid parallel case
+			glm::vec3 worldUp = Z_AXIS;
+			if (fabs(glm::dot(f, worldUp)) > 0.999f) {
+				worldUp = Y_AXIS;
+			}
+
+			// build orthonormal basis: right, up, forward
+			glm::vec3 right = glm::normalize(glm::cross(worldUp, f));
+			if (glm::length2(right) < EPS * EPS) {
+				// fallback if degeneracy
+				right = glm::normalize(glm::cross(X_AXIS, f));
+			}
+			glm::vec3 up = glm::cross(f, right);
+
+			// store into transform
+			// NOTE: class convention: transform columns => transform[0], transform[1], transform[2]
+			// GetRight() returns -transform[0], so we store -right into column 0 to keep GetRight()==right
+			transform[0] = -right;
+			transform[1] = up;
+			transform[2] = f;
+
+			// derive yaw/pitch from forward (roll set to 0)
+			// yaw: angle in XY plane, pitch: elevation
+			yaw = std::atan2(f.y, f.x);
+			// clamp f.z to [-1,1] for asin
+			float fz = glm::clamp(f.z, -1.0f, 1.0f);
+			pitch = std::asin(fz);
+			//roll = 0.0f;
+			assert(glm::all(glm::epsilonEqual(f, GetForward(), EPS)) && "Forward should be equal!");
+
+
+			//glm::epsilonEqual(f, GetForward(), EPS);
 		}
 		inline glm::mat4 GetView() const {
 			glm::vec3 forward = GetForward();
@@ -108,6 +154,12 @@ namespace SGF {
 			glm::mat4 proj = glm::perspective(fov, aspectRatio, 0.1f, 10000.0f);
 			proj[1][1] *= -1;
 			return proj;
+		}
+		inline glm::mat4 GetInverseView() const {
+			return glm::inverse(GetView());
+		}
+		inline glm::mat4 GetInverseProjection(float fov, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
+			return glm::inverse(GetProj(fov, aspectRatio, nearClip, farClip));
 		}
 		inline glm::mat4 GetOrtho(float viewSize, float aspectRatio, float nearClip = 0.01f, float farClip = 100000.f) const {
 			glm::mat4 ortho = glm::ortho(-viewSize * 0.5f * aspectRatio, viewSize * 0.5f * aspectRatio,  viewSize * 0.5f, -viewSize * 0.5f, nearClip, farClip);

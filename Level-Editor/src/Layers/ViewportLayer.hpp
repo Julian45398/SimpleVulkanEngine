@@ -7,6 +7,7 @@
 #include "CameraController.hpp"
 #include "Viewport.hpp"
 #include "DebugWindow.hpp"
+#include "ModelSelectionCPU.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -95,7 +96,8 @@ namespace SGF {
         SelectionMode selectionMode = SelectionMode::MODEL;
 		Profiler profiler;
         DebugWindow debugPanel;
-        Ray ray;
+		DebugRenderer debugRenderer;
+        HitInfo hitInfo;
 
     private:
         void ResizeFramebuffer(uint32_t width, uint32_t height);

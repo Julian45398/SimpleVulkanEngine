@@ -20,6 +20,7 @@
 
 #include <fmt/format.h>
 #include <fmt/color.h>
+#include <fmt/ranges.h>
 #include <cstdlib>
 #include <utility>
 

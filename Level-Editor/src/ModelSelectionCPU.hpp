@@ -3,21 +3,26 @@
 #include "SGF_Core.hpp"
 #include "Geometry/Ray.hpp"
 #include "Model.hpp"
+#include <limits>
 
 namespace SGF {
     struct HitInfo {
-        float t;
+        float t = std::numeric_limits<float>::max();
         glm::vec3 position;
         glm::vec3 normal;
         uint32_t triangleIndex;
+		uint32_t meshIndex;
+		uint32_t nodeIndex;
 	};
 
-    Ray CreateRayFromPixel(
+    // Create a world-space ray from pixel coordinates.
+    // Uses Vulkan conventions: framebuffer origin top-left, NDC z in [0,1].
+    inline Ray CreateRayFromPixel(
         uint32_t px,
         uint32_t py,
         uint32_t screenWidth,
         uint32_t screenHeight,
-        const Camera& camera)
+        const glm::mat4& view, const glm::mat4& projection)
     {
         glm::vec4 viewport(0.0f, 0.0f,
             static_cast<float>(screenWidth),
@@ -26,8 +31,8 @@ namespace SGF {
         // Vulkan framebuffer origin is top-left
         float flippedY = static_cast<float>(py);
 
-        const auto& view = camera.GetView();
-        const auto& projection = camera.GetProj(90.f, (float)screenWidth / (float)screenHeight);
+        //const auto& view = camera.GetView();
+        //const auto& projection = camera.GetProj(90.f, (float)screenWidth / (float)screenHeight);
         // Near plane (depth = 0 in Vulkan)
         glm::vec3 nearPoint = glm::unProject(
             glm::vec3(static_cast<float>(px), flippedY, 0.0f),
@@ -61,7 +66,7 @@ namespace SGF {
         glm::vec3 edge1 = v1 - v0;
         glm::vec3 edge2 = v2 - v0;
 
-        glm::vec3 pvec = glm::cross(ray.GetDir(), edge2);
+        glm::vec3 pvec = glm::cross(ray.GetDirection(), edge2);
         float det = glm::dot(edge1, pvec);
 
         if (fabs(det) < EPSILON)
@@ -75,7 +80,7 @@ namespace SGF {
             return false;
 
         glm::vec3 qvec = glm::cross(tvec, edge1);
-        float v = glm::dot(ray.GetDir(), qvec) * invDet;
+        float v = glm::dot(ray.GetDirection(), qvec) * invDet;
         if (v < 0.0f || u + v > 1.0f)
             return false;
 
@@ -114,12 +119,14 @@ namespace SGF {
 
             float t, u, v;
             if (IntersectTriangle(ray, v0, v1, v2, t, u, v)) {
-                if (!hit || t < outHit.t) {
+                if (t < outHit.t) {
                     hit = true;
                     outHit.t = t;
-                    outHit.position = ray.GetOrigin() + t * ray.GetDir();
+                    outHit.position = ray.GetOrigin() + t * ray.GetDirection();
                     outHit.normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
                     outHit.triangleIndex = static_cast<uint32_t>(i);
+                    outHit.meshIndex = 0;
+					outHit.nodeIndex = 0;
                 }
             }
         }
@@ -135,6 +142,9 @@ namespace SGF {
         for (size_t i = 0; i < node.meshes.size(); ++i) {
             auto& m = model.GetMesh(node, i);
             if (GetMeshIntersection(ray, model, m, node.globalTransform, outHit)) {
+				// fixed: meshIndex is the mesh id, nodeIndex is the node id
+				outHit.meshIndex = node.meshes[i];
+				outHit.nodeIndex = node.index;
                 hit = true;
             }
         }
@@ -145,11 +155,12 @@ namespace SGF {
         const Ray& ray,
         const GenericModel& model,
         const GenericModel::Node& node,
-        HitInfo& outHit) {
+        HitInfo& outHit, std::vector<uint32_t>& debugCheckedNodes) {
+		debugCheckedNodes.push_back(node.index);
         bool hit = GetNodeIntersection(ray, model, node, outHit);
         for (size_t i = 0; i < node.children.size(); ++i) {
             auto& n = model.nodes[node.children[i]];
-            if (GetNodeIntersectionRecursive(ray, model, n, outHit)) {
+            if (GetNodeIntersectionRecursive(ray, model, n, outHit, debugCheckedNodes)) {
                 hit = true;
             }
         }
@@ -159,8 +170,8 @@ namespace SGF {
     inline bool GetModelIntersection(
         const Ray& ray,
         const GenericModel& model,
-        HitInfo& outHit) {
-        return GetNodeIntersectionRecursive(ray, model, model.GetRoot(), outHit);
+        HitInfo& outHit, std::vector<uint32_t>& debugCheckedNodes) {
+        return GetNodeIntersectionRecursive(ray, model, model.GetRoot(), outHit, debugCheckedNodes);
     }
 
     /*
@@ -198,7 +209,7 @@ namespace SGF {
                     hit = true;
 
                     outHit.t = t;
-                    outHit.position = ray.GetOrigin() + t * ray.GetDir();
+                    outHit.position = ray.GetOrigin() + t * ray.GetDirection();
                     outHit.normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
                     outHit.triangleIndex = static_cast<uint32_t>(i);
                 }
