@@ -2,6 +2,7 @@
 
 #include "ImGuizmo.h"
 #include "ModelSelectionCPU.hpp"
+#include <glm/gtx/matrix_decompose.hpp>
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
@@ -477,9 +478,8 @@ namespace SGF {
 		}
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-			//ImGui::IsItemToggledSelection
 			Log::Debug("Node clicked!");
-			//selectedModelIndex = UINT32_MAX;
+			selectedModelIndex = UINT32_MAX;
 		}
 		if (open) {
 			// Draw Subnodes:
@@ -548,25 +548,37 @@ namespace SGF {
 			ImGui::Text("Selected Node: %s", node.name.c_str());
 			ImGui::Text("Mesh Count: %ld", node.meshes.size());
 			ImGui::Text("Children Count: %ld", node.children.size());
+
+
+			// Decompose global transform:
+			glm::vec3 translation = glm::vec3(node.globalTransform[3]);
+
+			glm::vec3 scale = glm::vec3(
+				glm::length(glm::vec3(node.globalTransform[0])),
+				glm::length(glm::vec3(node.globalTransform[1])),
+				glm::length(glm::vec3(node.globalTransform[2]))
+			);
+
+			glm::mat3 rotationMat = glm::mat3(
+				glm::normalize(glm::vec3(node.globalTransform[0])),
+				glm::normalize(glm::vec3(node.globalTransform[1])),
+				glm::normalize(glm::vec3(node.globalTransform[2]))
+			);
+			glm::quat rotation = glm::quat_cast(rotationMat);
+
+			glm::vec3 eulerAngles = glm::eulerAngles(rotation);  // in Radians
+			glm::vec3 eulerDegrees = glm::degrees(eulerAngles);  // in Degrees
 			{
-				auto& t = node.globalTransform[0];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("0", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+				float floats[3] = { translation.x, translation.y, translation.z };
+				ImGui::InputFloat3("Translation", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[1];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("1", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+				float floats[3] = { eulerDegrees.x, eulerDegrees.y, eulerDegrees.z };
+				ImGui::InputFloat3("Rotation", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[2];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("2", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
-			} {
-				auto& t = node.globalTransform[3];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("3", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+				float floats[3] = { scale.x, scale.y, scale.z };
+				ImGui::InputFloat3("Scale", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			}
 		}
-		
 		
 		ImGui::Separator();
 		ImGui::End();

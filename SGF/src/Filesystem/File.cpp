@@ -10,7 +10,7 @@ namespace SGF {
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 		std::vector<char> buffer;
 		if (!file.is_open()) {
-			SGF::Log::Error("Failed to open file: {}", filename);
+			SGF::Log::Warn("Failed to open file: {}", filename);
 			return buffer;
 		}
 

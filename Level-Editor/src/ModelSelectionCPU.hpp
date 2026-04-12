@@ -173,49 +173,4 @@ namespace SGF {
         HitInfo& outHit, std::vector<uint32_t>& debugCheckedNodes) {
         return GetNodeIntersectionRecursive(ray, model, model.GetRoot(), outHit, debugCheckedNodes);
     }
-
-    /*
-    bool IntersectIndexedTriangles(
-        const Ray& ray,
-        const GenericModel& model,
-        HitInfo& outHit)
-    {
-        bool hit = false;
-        float closestT = std::numeric_limits<float>::max();
-
-		const auto& vertices = model.GetVertices();
-		const auto& indices = model.GetIndices();
-        const size_t triangleCount = indices.size() / 3;
-
-        auto& root = model.GetRoot();
-        auto& child = model.GetChild(root, 0);
-
-        for (size_t i = 0; i < triangleCount; ++i)
-        {
-            uint32_t i0 = indices[i * 3 + 0];
-            uint32_t i1 = indices[i * 3 + 1];
-            uint32_t i2 = indices[i * 3 + 2];
-
-            const glm::vec3& v0 = vertices[i0].position;
-            const glm::vec3& v1 = vertices[i1].position;
-            const glm::vec3& v2 = vertices[i2].position;
-
-            float t, u, v;
-            if (IntersectTriangle(ray, v0, v1, v2, t, u, v))
-            {
-                if (t < closestT)
-                {
-                    closestT = t;
-                    hit = true;
-
-                    outHit.t = t;
-                    outHit.position = ray.GetOrigin() + t * ray.GetDirection();
-                    outHit.normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
-                    outHit.triangleIndex = static_cast<uint32_t>(i);
-                }
-            }
-        }
-        return hit;
-    }
-    */
 }
