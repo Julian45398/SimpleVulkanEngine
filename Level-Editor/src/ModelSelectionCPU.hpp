@@ -52,6 +52,47 @@ namespace SGF {
         return Ray{ nearPoint, direction };
     }
 
+
+    // Source - https://stackoverflow.com/a/69185265
+	// Posted by paulytools, modified by community. See post 'Timeline' for change history
+	// Retrieved 2026-04-13, License - CC BY-SA 4.0
+
+	// must normalize direction of ray
+    inline bool intersectRayTri(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, glm::vec3 o, glm::vec3 n) {
+        glm::vec3 e1, e2, pvec, qvec, tvec;
+
+        e1 = v2 - v1;
+        e2 = v3 - v1;
+        pvec = glm::cross(n, e2);
+
+        n = glm::normalize(n);
+        //NORMALIZE(pvec);
+        float det = glm::dot(pvec, e1);
+
+        if (det != 0)
+        {
+            float invDet = 1.0f / det;
+            tvec = o - v1;
+            // NORMALIZE(tvec);
+            float u = invDet * glm::dot(tvec, pvec);
+            if (u < 0.0f || u > 1.0f)
+            {
+
+                return false;
+            }
+            qvec = glm::cross(tvec, e1);
+            // NORMALIZE(qvec);
+            float v = invDet * glm::dot(qvec, n);
+            if (v < 0.0f || u + v > 1.0f)
+            {
+
+                return false;
+            }
+        }
+        else return false;
+        return true; // det != 0 and all tests for false intersection fail
+    }
+
     inline bool IntersectTriangle(
         const Ray& ray,
         const glm::vec3& v0,
@@ -109,17 +150,20 @@ namespace SGF {
             uint32_t i1 = indices[mesh.indexOffset + i * 3 + 1];
             uint32_t i2 = indices[mesh.indexOffset + i * 3 + 2];
 
-            glm::vec3 v0 = vertices[i0].position;
-            glm::vec3 v1 = vertices[i1].position;
-            glm::vec3 v2 = vertices[i2].position;
+            glm::vec3 v0 = vertices[mesh.vertexOffset + i0].position;
+            glm::vec3 v1 = vertices[mesh.vertexOffset + i1].position;
+            glm::vec3 v2 = vertices[mesh.vertexOffset + i2].position;
 
             v0 = glm::vec3(transform * glm::vec4(v0, 1.f));
             v1 = glm::vec3(transform * glm::vec4(v1, 1.f));
             v2 = glm::vec3(transform * glm::vec4(v2, 1.f));
 
             float t, u, v;
+            if (IntersectTriangle(ray, v0, v1, v2, t, u, v) != intersectRayTri(v0, v1, v2, ray.GetOrigin(), ray.GetDirection())) {
+                SGF::Log::Warn("IntersectTriangle and intersectRayTri returned different results for triangle %zu!", i);
+			}
             if (IntersectTriangle(ray, v0, v1, v2, t, u, v)) {
-                if (t < outHit.t) {
+                if (t <= outHit.t) {
                     hit = true;
                     outHit.t = t;
                     outHit.position = ray.GetOrigin() + t * ray.GetDirection();
@@ -171,6 +215,15 @@ namespace SGF {
         const Ray& ray,
         const GenericModel& model,
         HitInfo& outHit, std::vector<uint32_t>& debugCheckedNodes) {
-        return GetNodeIntersectionRecursive(ray, model, model.GetRoot(), outHit, debugCheckedNodes);
+        bool hit = false;
+		size_t nodeCount = model.GetNodeCount();
+        for (size_t i = 0; i < nodeCount; ++i) {
+            auto& node = model.GetNode(i);
+            if (GetNodeIntersection(ray, model, node, outHit)) {
+				hit = true;
+            }
+			debugCheckedNodes.push_back(node.index);
+        }
+        return hit;
     }
 }

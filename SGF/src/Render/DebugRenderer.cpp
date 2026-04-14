@@ -244,4 +244,36 @@ namespace SGF {
 	void DebugRenderer::Clear() {
 		lineVertices.clear();
 	}
+
+	void DebugRenderer::AddTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, SGF::Color::RGBA8 color) {
+		lineVertices.push_back({ v0, color });
+		lineVertices.push_back({ v1, color });
+		lineVertices.push_back({ v1, color });
+		lineVertices.push_back({ v2, color });
+		lineVertices.push_back({ v2, color });
+		lineVertices.push_back({ v0, color });
+	}
+
+	void DebugRenderer::AddMesh(const std::vector<glm::vec3>& vertices, const std::vector<uint32_t>& indices, const glm::mat4& transform, SGF::Color::RGBA8 color) {
+		if (vertices.empty() || indices.empty() || indices.size() % 3 != 0) {
+			SGF::Log::Warn("DebugRenderer::AddMesh: invalid vertex or index data!");
+			return;
+		}
+
+		for (size_t i = 0; i < indices.size(); i += 3) {
+			uint32_t i0 = indices[i];
+			uint32_t i1 = indices[i + 1];
+			uint32_t i2 = indices[i + 2];
+
+			if (i0 >= vertices.size() || i1 >= vertices.size() || i2 >= vertices.size()) {
+				continue;
+			}
+
+			glm::vec3 v0 = glm::vec3(transform * glm::vec4(vertices[i0], 1.0f));
+			glm::vec3 v1 = glm::vec3(transform * glm::vec4(vertices[i1], 1.0f));
+			glm::vec3 v2 = glm::vec3(transform * glm::vec4(vertices[i2], 1.0f));
+
+			AddTriangle(v0, v1, v2, color);
+		}
+	}
 }
