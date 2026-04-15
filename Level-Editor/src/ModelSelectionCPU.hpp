@@ -199,12 +199,11 @@ namespace SGF {
         const Ray& ray,
         const GenericModel& model,
         const GenericModel::Node& node,
-        HitInfo& outHit, std::vector<uint32_t>& debugCheckedNodes) {
-		debugCheckedNodes.push_back(node.index);
+        HitInfo& outHit) {
         bool hit = GetNodeIntersection(ray, model, node, outHit);
         for (size_t i = 0; i < node.children.size(); ++i) {
             auto& n = model.nodes[node.children[i]];
-            if (GetNodeIntersectionRecursive(ray, model, n, outHit, debugCheckedNodes)) {
+            if (GetNodeIntersectionRecursive(ray, model, n, outHit)) {
                 hit = true;
             }
         }
@@ -214,7 +213,7 @@ namespace SGF {
     inline bool GetModelIntersection(
         const Ray& ray,
         const GenericModel& model,
-        HitInfo& outHit, std::vector<uint32_t>& debugCheckedNodes) {
+        HitInfo& outHit) {
         bool hit = false;
 		size_t nodeCount = model.GetNodeCount();
         for (size_t i = 0; i < nodeCount; ++i) {
