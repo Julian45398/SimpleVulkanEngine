@@ -113,7 +113,7 @@ namespace SGF {
 		lineVertices.push_back({ end, color });
 	}
 
-	void DebugRenderer::AddBox(const glm::vec3& center, const glm::vec3& extents, SGF::Color::RGBA8 color) {
+	void DebugRenderer::AddAABB(const glm::vec3& center, const glm::vec3& extents, SGF::Color::RGBA8 color) {
 		glm::vec3 h = extents * 0.5f;
 		glm::vec3 corners[8] = {
 			center + glm::vec3(-h.x, -h.y, -h.z),

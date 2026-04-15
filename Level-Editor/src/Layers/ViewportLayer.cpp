@@ -407,11 +407,7 @@ namespace SGF {
 		}
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
 		debugRenderer.Draw(c, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()), viewport.GetWidth(), viewport.GetHeight());
-		if (hoverValue.IsValid() && hoverValue.node == 12) {
-			debugRenderer.Clear();
-		}
 	}
-
 
 	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
 		auto s = profiler.ProfileScope("Update Viewport");
@@ -438,41 +434,35 @@ namespace SGF {
 		// Get hover value
 		if (ImGui::IsItemHovered()) {
 			hoverValue = modelPickMapped[imageIndex]; 
-			TestSelectionAlgorithms();
+			//TestSelectionAlgorithms();
+			profiler.ProfileScope("CPU Model Selection");
 			Ray ray;
 			{
-				profiler.ProfileScope("CPU Model Selection");
 				ImVec2 mouse = ImGui::GetIO().MousePos;
 				ImVec2 imageMin = ImGui::GetItemRectMin();
 				relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
 				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
-				std::vector<uint32_t> debugCheckedNodes;
 				for (size_t i = 0; i < models.size(); ++i) {
 					auto& model = models[i];
-					if (SGF::GetNodeIntersection(ray, model, model.GetNode(12), hitInfo)) {
-						debugPanel.AddMessage(fmt::format("Hit node: {}, {}", model.GetNode(12).index, model.GetNode(12).name));
-					}
-					else {
-						debugPanel.AddMessage("No CPU Hit on Node 12");
-					}
-					debugPanel.AddMessage(fmt::format("Transformation determinant: {}", glm::determinant(model.GetNode(12).globalTransform)));
-					if (SGF::GetModelIntersection(ray, model, hitInfo, debugCheckedNodes)) {
-						debugPanel.AddMessage(fmt::format("Hit Model: {}\nTriangle Index: {}\nHit Position: [ {}, {}, {} ]\nHit Normal: [ {}, {}, {} ]\nNode: {}, {}\nMesh: {}", model.name, hitInfo.triangleIndex, hitInfo.position.x, hitInfo.position.y, hitInfo.position.z, hitInfo.normal.x, hitInfo.normal.y, hitInfo.normal.z, hitInfo.nodeIndex, model.GetNode(hitInfo.nodeIndex).name, hitInfo.meshIndex));
-					}
-					else {
-						debugPanel.AddMessage("No CPU Hit");
-					}
-					debugPanel.AddMessage(fmt::format("Checked Nodes for Model {}: [{}]", model.name, fmt::join(debugCheckedNodes, ", ")));
-					if ((uint32_t)hoverValue.model == i) {
-						if (hitInfo.nodeIndex != (uint32_t)hoverValue.node) {
-							debugPanel.AddMessage("Hover value and Cpu-Ray collision do not match!");
-						}
+					if (SGF::GetModelIntersection(ray, model, hitInfo)) {
+
 					}
 				}
+				if (hoverValue.IsValid()) {
+					if (hitInfo.nodeIndex == (uint32_t)hoverValue.node) {
+						debugPanel.AddMessage("CPU is the same as GPU hover value");
+					}
+					else {
+						debugPanel.AddMessage(fmt::format("CPU and GPU hover value dont match! CPU: {} - GPU: {}", hitInfo.nodeIndex, (uint32_t)hoverValue.node));
+					}
+				}
+				else if (hitInfo.t < std::numeric_limits<float>::max()) {
+					debugPanel.AddMessage("CPU Hit detected, where no hit should be!");
+				}
+				else {
+					debugPanel.AddMessage("No hit with both methods");
+				}
 			}
-			debugPanel.AddMessage(fmt::format("Ray Origin: [ {}, {}, {} ]\nRay Direction: [ {}, {}, {} ]", ray.GetOrigin().x, ray.GetOrigin().y, ray.GetOrigin().z, ray.GetDirection().x, ray.GetDirection().y, ray.GetDirection().z)); 
-			debugPanel.AddMessage(fmt::format("Hover Value - Model: {}, Node: {}", (uint32_t)hoverValue.model, (uint32_t)hoverValue.node));
-			debugPanel.AddMessage(fmt::format("Line Count of Debug Renderer:: {}", debugRenderer.GetLineCount()));
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
 				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
 				} else if (hoverValue.IsValid()) {
@@ -582,9 +572,9 @@ namespace SGF {
 					uint32_t i1 = indices[mesh.indexOffset + i * 3 + 1];
 					uint32_t i2 = indices[mesh.indexOffset + i * 3 + 2];
 
-					glm::vec3 v0 = vertices[mesh.vertexOffset + i0].position;
-					glm::vec3 v1 = vertices[mesh.vertexOffset + i1].position;
-					glm::vec3 v2 = vertices[mesh.vertexOffset + i2].position;
+					glm::vec3 v0 = vertices[mesh.vertexOffset].position;
+					glm::vec3 v1 = vertices[mesh.vertexOffset].position;
+					glm::vec3 v2 = vertices[mesh.vertexOffset].position;
 
 					v0 = glm::vec3(transform * glm::vec4(v0, 1.f));
 					v1 = glm::vec3(transform * glm::vec4(v1, 1.f));
