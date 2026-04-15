@@ -1,10 +1,12 @@
 #include "ViewportLayer.hpp"
 
 #include "ImGuizmo.h"
+#include "ModelSelectionCPU.hpp"
+#include <glm/gtx/matrix_decompose.hpp>
 
 namespace SGF {
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
-		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel") {
+		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel"), debugRenderer(viewport.GetRenderPass(), 0) {
 		auto& device = Device::Get();
 		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
 		signalSemaphore = device.CreateSemaphore();
@@ -153,10 +155,69 @@ namespace SGF {
 	}
 	void ViewportLayer::OnEvent(const WindowResizeEvent& event) {}
 	bool ViewportLayer::OnEvent(const KeyPressedEvent& event) {
-		if (inputMode == INPUT_CAPTURED && event.GetKey() == SGF::KEY_ESCAPE) {
-			event.GetWindow().FreeCursor();
-			inputMode = INPUT_SELECTED;
-			return true;
+		if (inputMode == INPUT_CAPTURED) {
+			if (event.GetKey() == SGF::KEY_ESCAPE) {
+				event.GetWindow().FreeCursor();
+				inputMode = INPUT_SELECTED;
+				return true;
+			}
+		}
+		else {
+			if (event.GetKey() == SGF::KEY_T) {
+				auto& camera = cameraController.GetCamera();
+				auto invProj = glm::inverse(cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+				auto invView = glm::inverse(cameraController.GetViewMatrix());
+				debugRenderer.AddFrustum(invProj, invView, SGF::Color::RGBA8::Green());
+				if (hitInfo.meshIndex != UINT32_MAX) {
+					debugRenderer.AddLine(camera.GetPos(), hitInfo.position, SGF::Color::RGBA8::Red());
+				}
+				else {
+					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+					debugRenderer.AddLine(camera.GetPos(), ray.GetOrigin() + ray.GetDirection() * 1000.f, SGF::Color::RGBA8::Blue());
+				}
+			}
+			if (event.GetKey() == SGF::KEY_B) {
+				std::vector<glm::vec3> vertices;
+				std::vector<uint32_t> indices;
+				for (size_t l = 0; l < models.size(); ++l) {
+					auto& model = models[l];
+					size_t startNode = 0;
+					size_t endNode = 0;
+					if (selectedModelIndex == UINT32_MAX) {
+						startNode = 0;
+						endNode = model.nodes.size();
+					} else if (selectedModelIndex != l) {
+						continue;
+					} else if (selectedNodeIndex == model.GetRoot().index) {
+						startNode = 0;
+						endNode = model.nodes.size();
+					} else if (selectedNodeIndex != UINT32_MAX) {
+						startNode = selectedNodeIndex;
+						endNode = startNode + 1;
+					}
+
+					for (size_t k = startNode; k < endNode; ++k) {
+						auto& node = model.GetNode(k);
+						for (size_t i = 0; i < node.meshes.size(); ++i) {
+							auto& mesh = model.meshes[node.meshes[i]];
+							for (size_t j = 0; j < mesh.indexCount; ++j) {
+								auto& index = model.indices[mesh.indexOffset + j];
+								indices.push_back(index);
+							}
+							for (size_t j = 0; j < mesh.vertexCount; ++j) {
+								auto& vertex = model.vertices[mesh.vertexOffset + j];
+								vertices.push_back(vertex.position);
+							}
+						}
+						debugRenderer.AddMesh(vertices, indices, node.globalTransform, SGF::Color::RGBA8(.5f, .5f, .2f));
+						vertices.clear();
+						indices.clear();
+					}
+				}
+			}
+			if (event.GetKey() == SGF::KEY_C) {
+				debugRenderer.Clear();
+			}
 		}
 		return false;
 	}
@@ -252,14 +313,19 @@ namespace SGF {
 
 	// Model Selection:
 	void ViewportLayer::RenderModelSelection(RenderEvent& event) {
-		auto s = profiler.ProfileScope("Model Selection");
-		BindPipeline(renderPipeline, pipelineLayout);
-		assert(modelBindOffsets.size() == models.size());
-		assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
-		
-		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
-			RenderModel(event, i);
+		if (selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index) {
+			auto s = profiler.ProfileScope("Model Selection");
+			BindPipeline(renderPipeline, pipelineLayout);
+			assert(modelBindOffsets.size() == models.size());
+			//assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
+			
+			for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
+				RenderModel(event, i);
+			}
 		}
+		else {
+			RenderNodeSelection(event);
+		};
 	}
 	
 	void ViewportLayer::RenderNodeSelection(RenderEvent& event) {
@@ -328,25 +394,20 @@ namespace SGF {
 		} else {
 			uniformBuffer.SetValueAt(imageIndex, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()));
 		}
-		if (selectionMode == SelectionMode::MODEL) {
-			RenderModelSelection(event);
-		} else {
-			RenderNodeSelection(event);
-		}
+		RenderModelSelection(event);
 
 		if (selectedModelIndex != UINT32_MAX) {
 			BindPipeline(outlinePipeline, pipelineLayout);
 			modelRenderer.BindBuffersToModel(c, modelBindOffsets[selectedModelIndex]);
-			if (selectionMode == SelectionMode::MODEL) {
+			if (selectedNodeIndex == models[selectedModelIndex].GetRoot().index) {
 				modelRenderer.DrawModel(c, models[selectedModelIndex]);
 			} else {
 				modelRenderer.DrawNode(c, models[selectedModelIndex], models[selectedModelIndex].nodes[selectedNodeIndex]);
 			}
 		}
 		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
+		debugRenderer.Draw(c, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()), viewport.GetWidth(), viewport.GetHeight());
 	}
-
-#include "ModelSelectionCPU.hpp"
 
 	void ViewportLayer::UpdateViewport(const UpdateEvent& event) {
 		auto s = profiler.ProfileScope("Update Viewport");
@@ -365,16 +426,45 @@ namespace SGF {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
 		ImGui::Image(imGuiImageID, size);
+		hitInfo.meshIndex = UINT32_MAX;
+		hitInfo.nodeIndex = UINT32_MAX;
+		hitInfo.triangleIndex = UINT32_MAX;
+		hitInfo.position = glm::vec3(0.f);
+		hitInfo.t = std::numeric_limits<float>::max();
 		// Get hover value
 		if (ImGui::IsItemHovered()) {
-			ImVec2 mouse = ImGui::GetIO().MousePos;
-			ImVec2 imageMin = ImGui::GetItemRectMin();
-			relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
-			auto ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
-			hoverValue = modelPickMapped[imageIndex];
-			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-				if (ImGuizmo::IsOver()) {
-					// Do nothing, gizmo is being used
+			hoverValue = modelPickMapped[imageIndex]; 
+			//TestSelectionAlgorithms();
+			profiler.ProfileScope("CPU Model Selection");
+			Ray ray;
+			{
+				ImVec2 mouse = ImGui::GetIO().MousePos;
+				ImVec2 imageMin = ImGui::GetItemRectMin();
+				relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
+				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+				for (size_t i = 0; i < models.size(); ++i) {
+					auto& model = models[i];
+					if (SGF::GetModelIntersection(ray, model, hitInfo)) {
+
+					}
+				}
+				if (hoverValue.IsValid()) {
+					if (hitInfo.nodeIndex == (uint32_t)hoverValue.node) {
+						debugPanel.AddMessage("CPU is the same as GPU hover value");
+					}
+					else {
+						debugPanel.AddMessage(fmt::format("CPU and GPU hover value dont match! CPU: {} - GPU: {}", hitInfo.nodeIndex, (uint32_t)hoverValue.node));
+					}
+				}
+				else if (hitInfo.t < std::numeric_limits<float>::max()) {
+					debugPanel.AddMessage("CPU Hit detected, where no hit should be!");
+				}
+				else {
+					debugPanel.AddMessage("No hit with both methods");
+				}
+			}
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
+				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
 				} else if (hoverValue.IsValid()) {
 					selectedModelIndex = hoverValue.model;
 					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex].GetRoot().index;
@@ -418,21 +508,28 @@ namespace SGF {
 		ImGui::PopStyleVar();
 	}
 
-	void ViewportLayer::DrawTreeNode(const GenericModel& model, const GenericModel::Node& node) {
+	void ViewportLayer::DrawTreeNode(uint32_t modelIndex, const GenericModel::Node& node) {
+		const auto& model = models[modelIndex];
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DrawLinesToNodes | ImGuiTreeNodeFlags_OpenOnArrow;
 		if (node.children.size() == 0 && node.meshes.size() == 0) {
 			flags |= ImGuiTreeNodeFlags_Leaf;
 		}
+		if (node.index == selectedNodeIndex) {
+			flags |= ImGuiTreeNodeFlags_Selected;
+		}
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
-		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-			//ImGui::IsItemToggledSelection
-			Log::Debug("Node clicked!");
-			//selectedModelIndex = UINT32_MAX;
+		if (ImGui::IsItemClicked()) {
+			if (flags & ImGuiTreeNodeFlags_Selected) {
+				ClearSelection();
+			} else {
+				selectedModelIndex = modelIndex;
+				selectedNodeIndex = node.index;
+			}
 		}
 		if (open) {
 			// Draw Subnodes:
 			for (uint32_t child : node.children)
-				DrawTreeNode(model, model.nodes[child]);
+				DrawTreeNode(modelIndex, model.nodes[child]);
 			// Draw Meshes:
 			for (auto& m : node.meshes) {
 				ImGuiTreeNodeFlags mflags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
@@ -450,6 +547,59 @@ namespace SGF {
 		selectedNodeIndex = UINT32_MAX;
 	}
 
+	void ViewportLayer::TestSelectionAlgorithms()
+	{
+		if (hoverValue.IsValid() && hoverValue.node == 12) {
+			debugPanel.AddMessage("Testing selection algorithms on node 12");
+			auto& model = models[hoverValue.model];
+			auto& node12 = model.GetNode(12);
+			Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+			HitInfo cpuHitInfo;
+			std::vector<uint32_t> debugCheckedNodes;
+			bool cpuHit = SGF::GetNodeIntersection(ray, models[hoverValue.model], models[hoverValue.model].GetNode(12), cpuHitInfo);
+			const auto& vertices = model.GetVertices();
+			const auto& indices = model.GetIndices();
+			const auto& transform = model.GetNode(12).globalTransform;
+
+			std::vector<uint32_t> meshIndices;
+			std::vector<glm::vec3> meshVertices;
+			for (size_t j = 0; j < node12.meshes.size(); ++j) {
+				auto& mesh = model.GetMesh(node12, j);
+				meshIndices.reserve(mesh.indexCount);
+				meshVertices.reserve(mesh.vertexCount);
+				for (size_t i = 0; i < mesh.indexCount / 3; ++i) {
+					uint32_t i0 = indices[mesh.indexOffset + i * 3 + 0];
+					uint32_t i1 = indices[mesh.indexOffset + i * 3 + 1];
+					uint32_t i2 = indices[mesh.indexOffset + i * 3 + 2];
+
+					glm::vec3 v0 = vertices[mesh.vertexOffset].position;
+					glm::vec3 v1 = vertices[mesh.vertexOffset].position;
+					glm::vec3 v2 = vertices[mesh.vertexOffset].position;
+
+					v0 = glm::vec3(transform * glm::vec4(v0, 1.f));
+					v1 = glm::vec3(transform * glm::vec4(v1, 1.f));
+					v2 = glm::vec3(transform * glm::vec4(v2, 1.f));
+					meshIndices.push_back(i0);
+					meshIndices.push_back(i1);
+					meshIndices.push_back(i2);
+					meshVertices.push_back(v0);
+					meshVertices.push_back(v1);
+					meshVertices.push_back(v2);
+					debugRenderer.AddMesh(meshVertices, meshIndices, transform, SGF::Color::RGBA8::Red());
+					meshIndices.clear();
+					meshVertices.clear();
+				}
+			}
+
+			if (cpuHit) {
+				debugPanel.AddMessage(fmt::format("CPU Hit on Node 12! Hit Position: [ {}, {}, {} ]\nHit Normal: [ {}, {}, {} ]", cpuHitInfo.position.x, cpuHitInfo.position.y, cpuHitInfo.position.z, cpuHitInfo.normal.x, cpuHitInfo.normal.y, cpuHitInfo.normal.z));
+			}
+			else {
+				debugPanel.AddMessage("No CPU Hit on Node 12");
+			}
+		}
+	}
+
 	void ViewportLayer::UpdateModelWindow(const UpdateEvent& event) {
 		ImGui::Begin("Models",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		if (models.size() == 0) ImGui::Text("No Models Loaded!");
@@ -462,7 +612,7 @@ namespace SGF {
 				Log::Debug("Model Clicked!");
 			}
 			if (open) {
-				DrawTreeNode(model, model.nodes[0]);
+				DrawTreeNode(i, model.nodes[0]);
 				ImGui::TreePop();
 			}
 		}
@@ -496,25 +646,37 @@ namespace SGF {
 			ImGui::Text("Selected Node: %s", node.name.c_str());
 			ImGui::Text("Mesh Count: %ld", node.meshes.size());
 			ImGui::Text("Children Count: %ld", node.children.size());
+
+
+			// Decompose global transform:
+			glm::vec3 translation = glm::vec3(node.globalTransform[3]);
+
+			glm::vec3 scale = glm::vec3(
+				glm::length(glm::vec3(node.globalTransform[0])),
+				glm::length(glm::vec3(node.globalTransform[1])),
+				glm::length(glm::vec3(node.globalTransform[2]))
+			);
+
+			glm::mat3 rotationMat = glm::mat3(
+				glm::normalize(glm::vec3(node.globalTransform[0])),
+				glm::normalize(glm::vec3(node.globalTransform[1])),
+				glm::normalize(glm::vec3(node.globalTransform[2]))
+			);
+			glm::quat rotation = glm::quat_cast(rotationMat);
+
+			glm::vec3 eulerAngles = glm::eulerAngles(rotation);  // in Radians
+			glm::vec3 eulerDegrees = glm::degrees(eulerAngles);  // in Degrees
 			{
-				auto& t = node.globalTransform[0];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("0", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+				float floats[3] = { translation.x, translation.y, translation.z };
+				ImGui::InputFloat3("Translation", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[1];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("1", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+				float floats[3] = { eulerDegrees.x, eulerDegrees.y, eulerDegrees.z };
+				ImGui::InputFloat3("Rotation", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			} {
-				auto& t = node.globalTransform[2];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("2", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
-			} {
-				auto& t = node.globalTransform[3];
-				float floats[4] = { t[0], t[1], t[2], t[3] };
-				ImGui::InputFloat4("3", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+				float floats[3] = { scale.x, scale.y, scale.z };
+				ImGui::InputFloat3("Scale", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
 			}
 		}
-		
 		
 		ImGui::Separator();
 		ImGui::End();
@@ -552,7 +714,20 @@ namespace SGF {
 				cameraController.SetZoom(cameraZoom);
 			}
 		}
+		float cameraPos[3] = { cameraController.GetCamera().GetPos().x, cameraController.GetCamera().GetPos().y, cameraController.GetCamera().GetPos().z };
+		float cameraForward[3] = { cameraController.GetCamera().GetForward().x, cameraController.GetCamera().GetForward().y, cameraController.GetCamera().GetForward().z };
+		if (ImGui::InputFloat3("Camera Position: ", cameraPos, "%.3f")) {
+			cameraController.GetCamera().SetPos(cameraPos[0], cameraPos[1], cameraPos[2]);
+		}
+		if (ImGui::InputFloat3("Camera Forward: ", cameraForward, "%.3f")) {
+			cameraController.GetCamera().SetForward(cameraForward[0], cameraForward[1], cameraForward[2]);
+		}
+		const auto& camera = cameraController.GetCamera();
+		auto forward = camera.GetForward();
+		auto position = camera.GetPos();
 		debugPanel.AddMessage(std::move(fmt::format("Input has Focus: {}", (Input::HasFocus()) ? "True" : "False")));
+		debugPanel.AddMessage(std::move(fmt::format("Camera Position: [{}, {}, {}]", position.x, position.y, position.z)));
+		debugPanel.AddMessage(std::move(fmt::format("Camera Forward: [{}, {}, {}]", forward.x, forward.y, forward.z)));
 		ImGui::Text("Input has Focus %s", (Input::HasFocus()) ? "True" : "False");
 		ImGui::End();
 

@@ -51,9 +51,3 @@ target_include_directories(${PROJECT_NAME} PUBLIC "src/")
 target_link_libraries(Level-Editor PRIVATE SGF)
 
 include("cmake/compile_shaders.cmake")
-
-# setze das Arbeitsverzeichnis für den VS-Debugger (nur für Visual Studio Generator)
-set_target_properties(Level-Editor PROPERTIES
-  VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/Level-Editor/resources"
-)
-

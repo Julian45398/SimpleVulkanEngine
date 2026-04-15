@@ -11,3 +11,5 @@
 #include "Render/StagingBuffer.hpp"
 #include "Render/Texture.hpp"
 #include "Render/Image.hpp"
+#include "Render/HostCoherentRingBuffer.hpp"
+#include "Render/DebugRenderer.hpp"

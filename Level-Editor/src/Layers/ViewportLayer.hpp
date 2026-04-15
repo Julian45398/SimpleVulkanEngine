@@ -7,6 +7,7 @@
 #include "CameraController.hpp"
 #include "Viewport.hpp"
 #include "DebugWindow.hpp"
+#include "ModelSelectionCPU.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -95,12 +96,13 @@ namespace SGF {
         SelectionMode selectionMode = SelectionMode::MODEL;
 		Profiler profiler;
         DebugWindow debugPanel;
-        Ray ray;
+		DebugRenderer debugRenderer;
+        HitInfo hitInfo;
 
     private:
         void ResizeFramebuffer(uint32_t width, uint32_t height);
 	    void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
-	    void DrawTreeNode(const GenericModel& model, const GenericModel::Node& node);
+	    void DrawTreeNode(uint32_t modelIndex, const GenericModel::Node& node);
 	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
 	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
         void RenderWireframe(RenderEvent& event);
@@ -109,5 +111,6 @@ namespace SGF {
         void RenderNodeSelection(RenderEvent& event);
         void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
         void ClearSelection();
+        void TestSelectionAlgorithms();
 	};
 }

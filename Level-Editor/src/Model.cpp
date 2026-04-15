@@ -386,13 +386,14 @@ namespace SGF {
 		//Clear();
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
+		if (scene == nullptr) {
+			SGF::Log::Error("No Scene available!");
+			return nullptr;
+		}
 		name = scene->mName.C_Str();
 
 		const GenericModel::Node* pAttachmentNode = nullptr;
-		if (scene == nullptr) {
-			SGF::Log::Warn("No Scene available!");
-			return nullptr;
-		}
+		
 		auto* pRoot = scene->mRootNode;
 		if (nodes.size() == 0) {
 			// Get root from model:
