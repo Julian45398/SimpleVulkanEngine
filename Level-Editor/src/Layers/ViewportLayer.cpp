@@ -1,4 +1,5 @@
 #include "ViewportLayer.hpp"
+#include <glm/gtc/quaternion.hpp>
 
 #include "ImGuizmo.h"
 #include "ModelSelectionCPU.hpp"
@@ -470,7 +471,7 @@ namespace SGF {
 					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex].GetRoot().index;
 				} else {
 					selectedModelIndex = UINT32_MAX;
-					selectedModelIndex = UINT32_MAX;
+					selectedNodeIndex = UINT32_MAX;
 				}
 			}
 		} else {
@@ -480,9 +481,7 @@ namespace SGF {
 			ImGuizmo::SetOrthographic(false);
 			ImGuizmo::SetDrawlist();
 			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, viewport.GetWidth(), viewport.GetHeight());
-			//ImGuizmo::DecomposeMatrixToComponents()
 			auto view = cameraController.GetViewMatrix();
-			// Create a scaling matrix that flips the Y axis
 			glm::mat4 flipY = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
 			// Apply the flip
 			view = flipY * view;
@@ -503,7 +502,6 @@ namespace SGF {
 				modelRenderer.UpdateInstanceTransforms(modelBindOffsets[selectedModelIndex], model);
 			}
 		}
-
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}
@@ -514,11 +512,10 @@ namespace SGF {
 		if (node.children.size() == 0 && node.meshes.size() == 0) {
 			flags |= ImGuiTreeNodeFlags_Leaf;
 		}
-		if (node.index == selectedNodeIndex) {
-			flags |= ImGuiTreeNodeFlags_Selected;
-		}
+		if (modelIndex == selectedModelIndex && node.index == selectedNodeIndex) flags |= ImGuiTreeNodeFlags_Selected;
 		bool open = ImGui::TreeNodeEx(&node, flags, "%s", node.name.c_str());
-		if (ImGui::IsItemClicked()) {
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+			//ImGui::IsItemToggledSelection
 			if (flags & ImGuiTreeNodeFlags_Selected) {
 				ClearSelection();
 			} else {
@@ -602,22 +599,10 @@ namespace SGF {
 
 	void ViewportLayer::UpdateModelWindow(const UpdateEvent& event) {
 		ImGui::Begin("Models",nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
-		if (models.size() == 0) ImGui::Text("No Models Loaded!");
-		for (size_t i = 0; i < models.size(); ++i) {
-			auto& model = models[i];
-			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
-			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
-			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
-			if (ImGui::IsItemClicked()) {
-				Log::Debug("Model Clicked!");
-			}
-			if (open) {
-				DrawTreeNode(i, model.nodes[0]);
-				ImGui::TreePop();
-			}
-		}
+		ShowModelHierarchy();
 		ImGui::Separator();
 		if (ImGui::Button("Import Model")) {
+			Log::Debug("Import Model Button Clicked");
 			WindowHandle handle(ImGui::GetWindowViewport());
 			auto filename = handle.OpenFileDialog("Model files", "gltf,glb,fbx,obj,usdz");
 			if (!filename.empty()) {
@@ -638,50 +623,99 @@ namespace SGF {
 			}
 		}
 		ImGui::Separator();
-		if (selectedModelIndex != UINT32_MAX) {
-			auto& selectedModel = models[selectedModelIndex];
-			ImGui::Text("Model: %s", selectedModel.GetName().c_str());
-			auto& node = selectedModel.GetNodes()[selectedNodeIndex];
-			ImGui::Separator();
-			ImGui::Text("Selected Node: %s", node.name.c_str());
-			ImGui::Text("Mesh Count: %ld", node.meshes.size());
-			ImGui::Text("Children Count: %ld", node.children.size());
-
-
-			// Decompose global transform:
-			glm::vec3 translation = glm::vec3(node.globalTransform[3]);
-
-			glm::vec3 scale = glm::vec3(
-				glm::length(glm::vec3(node.globalTransform[0])),
-				glm::length(glm::vec3(node.globalTransform[1])),
-				glm::length(glm::vec3(node.globalTransform[2]))
-			);
-
-			glm::mat3 rotationMat = glm::mat3(
-				glm::normalize(glm::vec3(node.globalTransform[0])),
-				glm::normalize(glm::vec3(node.globalTransform[1])),
-				glm::normalize(glm::vec3(node.globalTransform[2]))
-			);
-			glm::quat rotation = glm::quat_cast(rotationMat);
-
-			glm::vec3 eulerAngles = glm::eulerAngles(rotation);  // in Radians
-			glm::vec3 eulerDegrees = glm::degrees(eulerAngles);  // in Degrees
-			{
-				float floats[3] = { translation.x, translation.y, translation.z };
-				ImGui::InputFloat3("Translation", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
-			} {
-				float floats[3] = { eulerDegrees.x, eulerDegrees.y, eulerDegrees.z };
-				ImGui::InputFloat3("Rotation", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
-			} {
-				float floats[3] = { scale.x, scale.y, scale.z };
-				ImGui::InputFloat3("Scale", floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
-			}
-		}
-		
-		ImGui::Separator();
+		ShowSelectionInformation();
 		ImGui::End();
 	}
-	
+
+	void ViewportLayer::ShowModelHierarchy() {
+		if (models.size() == 0) ImGui::Text("No Models Loaded!");
+		for (size_t i = 0; i < models.size(); ++i) {
+			auto& model = models[i];
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
+			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
+			bool open = ImGui::TreeNodeEx(&models[i], flags, "Model: %s", models[i].name.c_str());
+			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+				if ((flags & ImGuiTreeNodeFlags_Selected) && (selectedNodeIndex == model.GetRoot().index)) {
+					ClearSelection();
+				}
+				else {
+					selectedNodeIndex = model.GetRoot().index;
+					selectedModelIndex = i;
+				}
+				Log::Debug("Model Clicked!");
+			}
+			if (open) {
+				DrawTreeNode(i, model.nodes[0]);
+				ImGui::TreePop();
+			}
+		}
+	}
+
+	void DecomposeTransformationMatrix(const glm::mat4& matrix, glm::vec3* pTranslation, glm::quat* pRotation, glm::vec3* pScale) {
+		if (pTranslation) {
+			*pTranslation = glm::vec3(matrix[3]);
+		}
+		if (pRotation || pScale) {
+			glm::vec3 col0 = glm::vec3(matrix[0]);
+			glm::vec3 col1 = glm::vec3(matrix[1]);
+			glm::vec3 col2 = glm::vec3(matrix[2]);
+
+			glm::vec3 scale = glm::vec3(glm::length(col0), glm::length(col1), glm::length(col2));
+			if (pScale) {
+				*pScale = scale;
+			}
+			if (pRotation) {
+				glm::mat3 rotMat(
+					col0 / (scale).x,
+					col1 / (scale).y,
+					col2 / (scale).z
+				);
+				*pRotation = glm::quat_cast(rotMat);
+			}
+		}
+	}
+
+	void ViewportLayer::ShowSelectionInformation() {
+		if (selectedModelIndex == UINT32_MAX) {
+			return;
+		}
+		// Model Information:
+		auto& selectedModel = models[selectedModelIndex];
+		ImGui::Text("Model: %s", selectedModel.GetName().c_str());
+		auto& node = selectedModel.GetNodes()[selectedNodeIndex];
+		ImGui::Separator();
+		ImGui::Text("Selected Node: %s", node.name.c_str());
+		ImGui::Text("Mesh Count: %ld", node.meshes.size());
+		ImGui::Text("Children Count: %ld", node.children.size());
+		ImGui::Text("Has Animation: %s", selectedModel.HasAnimations() ? "True" : "False");
+		// Node Information:
+		// Decompose Matrix
+		glm::vec3 translation;
+		glm::quat rotation;
+		glm::vec3 scale;
+		DecomposeTransformationMatrix(node.globalTransform, &translation, &rotation, &scale);
+		glm::vec3 eulerDegrees = glm::degrees(glm::eulerAngles(rotation));
+
+		ImGui::Text("Translation:");
+		float transValues[3] = { translation.x, translation.y, translation.z };
+		ImGui::InputFloat3("Position##trans", transValues, "%.3f", ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::Text("Rotation (Degrees):");
+		float rotValues[3] = { eulerDegrees.x, eulerDegrees.y, eulerDegrees.z };
+		ImGui::InputFloat3("Rotation##euler", rotValues, "%.3f", ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::Text("Scale:");
+		float scaleValues[3] = { scale.x, scale.y, scale.z };
+		ImGui::InputFloat3("Scale##comp", scaleValues, "%.3f", ImGuiInputTextFlags_ReadOnly);
+		ImGui::Separator();
+		//ImGui::Text("Raw Matrix:");
+		//for (int row = 0; row < 4; ++row) {
+			//auto& t = node.globalTransform[row];
+			//float floats[4] = { t[0], t[1], t[2], t[3] };
+			//ImGui::InputFloat4(fmt::format("Row {}", row).c_str(), floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
+		//}
+	}
+
 	void ViewportLayer::UpdateDebugWindow(const UpdateEvent& event) {
 		ImGui::Begin("Debug Window", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());

@@ -243,6 +243,203 @@ namespace SGF {
 
 	void BuildNode(GenericModel* pModel, aiNode* pNode, GenericModel::Node& node);
 
+
+
+	void LoadSkeletalAnimations(GenericModel* pModel, const aiScene* pScene) {
+		if (pScene->mNumAnimations == 0) {
+			Log::Info("Model has no animations!");
+			return;
+		}
+
+		pModel->animations.reserve(pScene->mNumAnimations);
+
+		for (uint32_t animIndex = 0; animIndex < pScene->mNumAnimations; ++animIndex) {
+			const aiAnimation* pAnim = pScene->mAnimations[animIndex];
+			GenericModel::Animation animation;
+			animation.name = pAnim->mName.C_Str();
+			animation.duration = static_cast<float>(pAnim->mDuration);
+			animation.ticksPerSecond = pAnim->mTicksPerSecond != 0.0 ? static_cast<float>(pAnim->mTicksPerSecond) : 25.0f;
+
+			animation.channels.reserve(pAnim->mNumChannels);
+
+			for (uint32_t channelIndex = 0; channelIndex < pAnim->mNumChannels; ++channelIndex) {
+				const aiNodeAnim* pNodeAnim = pAnim->mChannels[channelIndex];
+
+				// Find bone index by name
+				uint32_t boneIndex = UINT32_MAX;
+				for (uint32_t i = 0; i < pModel->bones.size(); ++i) {
+					if (pModel->bones[i].name == pNodeAnim->mNodeName.C_Str()) {
+						boneIndex = i;
+						break;
+					}
+				}
+
+				if (boneIndex == UINT32_MAX) {
+					Log::Warn("Animation channel '{}' references unknown bone '{}'", pAnim->mName.C_Str(), pNodeAnim->mNodeName.C_Str());
+					continue;
+				}
+
+				GenericModel::AnimationChannel channel;
+				channel.boneIndex = boneIndex;
+
+				// Load position keys
+				channel.positionKeys.reserve(pNodeAnim->mNumPositionKeys);
+				for (uint32_t i = 0; i < pNodeAnim->mNumPositionKeys; ++i) {
+					const aiVectorKey& key = pNodeAnim->mPositionKeys[i];
+					channel.positionKeys.emplace_back();
+					channel.positionKeys.back().time = static_cast<float>(key.mTime);
+					channel.positionKeys.back().value = glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z);
+				}
+
+				// Load rotation keys (stored as quaternions)
+				channel.rotationKeys.reserve(pNodeAnim->mNumRotationKeys);
+				for (uint32_t i = 0; i < pNodeAnim->mNumRotationKeys; ++i) {
+					const aiQuatKey& key = pNodeAnim->mRotationKeys[i];
+					channel.rotationKeys.emplace_back();
+					channel.rotationKeys.back().time = static_cast<float>(key.mTime);
+					// Store quaternion as vec3 (temporary, should be quat)
+					channel.rotationKeys.back().value = glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z);
+				}
+
+				// Load scale keys
+				channel.scaleKeys.reserve(pNodeAnim->mNumScalingKeys);
+				for (uint32_t i = 0; i < pNodeAnim->mNumScalingKeys; ++i) {
+					const aiVectorKey& key = pNodeAnim->mScalingKeys[i];
+					channel.scaleKeys.emplace_back();
+					channel.scaleKeys.back().time = static_cast<float>(key.mTime);
+					channel.scaleKeys.back().value = glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z);
+				}
+
+				animation.channels.push_back(channel);
+			}
+
+			pModel->animations.push_back(animation);
+			Log::Info("Loaded animation '{}' with {} channels, duration: {:.2f}s",
+				animation.name, animation.channels.size(), animation.duration);
+		}
+	}
+
+	void LoadSkeletalBones(GenericModel* pModel, const aiScene* pScene) {
+		if (pScene->mNumMeshes == 0) {
+			Log::Info("Model has no meshes!");
+			return;
+		}
+
+		// Map bone names to indices for quick lookup
+		std::unordered_map<std::string, uint32_t> boneNameToIndex;
+
+		// First pass: collect all bones from all meshes
+		for (uint32_t meshIndex = 0; meshIndex < pScene->mNumMeshes; ++meshIndex) {
+			const aiMesh* pMesh = pScene->mMeshes[meshIndex];
+
+			for (uint32_t boneIndex = 0; boneIndex < pMesh->mNumBones; ++boneIndex) {
+				const aiBone* pBone = pMesh->mBones[boneIndex];
+				std::string boneName = pBone->mName.C_Str();
+
+				// Check if bone already added
+				if (boneNameToIndex.find(boneName) == boneNameToIndex.end()) {
+					uint32_t newBoneIndex = static_cast<uint32_t>(pModel->bones.size());
+					boneNameToIndex[boneName] = newBoneIndex;
+
+					GenericModel::Bone bone;
+					bone.name = boneName;
+					bone.index = newBoneIndex;
+					bone.parent = UINT32_MAX;  // Will be set later
+					bone.currentTransform = glm::mat4(1.0f);
+
+					// Store offset matrix (mesh-space to bone-space)
+					for (uint32_t j = 0; j < 4; ++j) {
+						for (uint32_t k = 0; k < 4; ++k) {
+							bone.offsetMatrix[k][j] = pBone->mOffsetMatrix[j][k];
+						}
+					}
+
+					pModel->bones.push_back(bone);
+				}
+			}
+		}
+
+		if (pModel->bones.empty()) {
+			Log::Warn("Model has no bones!");
+			return;
+		}
+
+		// Second pass: setup bone hierarchy from skeleton
+		for (uint32_t boneIndex = 0; boneIndex < pModel->bones.size(); ++boneIndex) {
+			const auto& boneName = pModel->bones[boneIndex].name;
+
+			// Find bone node in armature
+			std::function<aiNode* (aiNode*, const std::string&)> findBoneNode =
+				[&](aiNode* node, const std::string& name) -> aiNode* {
+				if (strncmp(node->mName.C_Str(), name.c_str(), name.size()) == 0) {
+					return node;
+				}
+				for (uint32_t i = 0; i < node->mNumChildren; ++i) {
+					auto* result = findBoneNode(node->mChildren[i], name);
+					if (result) return result;
+				}
+				return nullptr;
+				};
+
+			aiNode* boneNode = findBoneNode(pScene->mRootNode, boneName);
+			if (boneNode && boneNode->mParent) {
+				const std::string parentName = boneNode->mParent->mName.C_Str();
+				if (boneNameToIndex.find(parentName) != boneNameToIndex.end()) {
+					pModel->bones[boneIndex].parent = boneNameToIndex[parentName];
+				}
+			}
+		}
+
+		// Third pass: load vertex weights
+		pModel->vertexWeights.resize(pModel->vertices.size());
+
+		// Initialize weights to zero
+		for (auto& weight : pModel->vertexWeights) {
+			for (int i = 0; i < 4; ++i) {
+				weight.boneIndices[i] = 0;
+				weight.boneWeights[i] = 0.0f;
+			}
+		}
+
+		// Load weights from meshes
+		for (uint32_t meshIndex = 0; meshIndex < pScene->mNumMeshes; ++meshIndex) {
+			const aiMesh* pMesh = pScene->mMeshes[meshIndex];
+			const auto& meshData = pModel->meshes[meshIndex];
+
+			for (uint32_t boneIndex = 0; boneIndex < pMesh->mNumBones; ++boneIndex) {
+				const aiBone* pBone = pMesh->mBones[boneIndex];
+				uint32_t globalBoneIndex = boneNameToIndex[pBone->mName.C_Str()];
+
+				for (uint32_t weightIndex = 0; weightIndex < pBone->mNumWeights; ++weightIndex) {
+					const aiVertexWeight& vWeight = pBone->mWeights[weightIndex];
+					uint32_t vertexIndex = meshData.vertexOffset + vWeight.mVertexId;
+
+					// Find first empty slot
+					for (int i = 0; i < 4; ++i) {
+						if (pModel->vertexWeights[vertexIndex].boneWeights[i] == 0.0f) {
+							pModel->vertexWeights[vertexIndex].boneIndices[i] = globalBoneIndex;
+							pModel->vertexWeights[vertexIndex].boneWeights[i] = vWeight.mWeight;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		// Normalize weights
+		for (auto& weight : pModel->vertexWeights) {
+			float totalWeight = weight.boneWeights[0] + weight.boneWeights[1] +
+				weight.boneWeights[2] + weight.boneWeights[3];
+			if (totalWeight > 0.0f) {
+				for (int i = 0; i < 4; ++i) {
+					weight.boneWeights[i] /= totalWeight;
+				}
+			}
+		}
+
+		Log::Info("Loaded {} bones with vertex weights", pModel->bones.size());
+	}
+
 	Texture TextureFromBaseColor(aiColor4D& baseColor) {
 		uint8_t texel[4];
 		texel[0] = static_cast<uint8_t>(glm::clamp(baseColor.r, 0.0f, 1.0f) * 255.0f);
@@ -461,6 +658,8 @@ namespace SGF {
 				textures.shrink_to_fit();
 			}
 		}
+		LoadSkeletalBones(this, scene);
+		LoadSkeletalAnimations(this, scene);
 		return pAttachmentNode;
 	}
 	void BuildNode(GenericModel* pModel, aiNode* pNode, GenericModel::Node& node) {

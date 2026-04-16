@@ -101,10 +101,11 @@ namespace SGF {
 
     private:
         void ResizeFramebuffer(uint32_t width, uint32_t height);
-	    void BuildNodeTree(const GenericModel& model, const GenericModel::Node& node);
-	    void DrawTreeNode(uint32_t modelIndex, const GenericModel::Node& node);
+	    void DrawTreeNode(uint32_t model, const GenericModel::Node& node);
 	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
 	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
+        void ShowSelectionInformation();
+        void ShowModelHierarchy();
         void RenderWireframe(RenderEvent& event);
 	    void RenderModel(RenderEvent& event, uint32_t modelIndex);
         void RenderModelSelection(RenderEvent& event);

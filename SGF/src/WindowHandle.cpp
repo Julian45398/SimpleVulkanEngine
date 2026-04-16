@@ -298,7 +298,6 @@ namespace SGF {
 
 		std::string filepath;
         if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow)) {
-            //NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow);
 #ifdef SGF_OS_WINDOWS 
             args.parentWindow.handle = (void*)glfwGetWin32Window((GLFWwindow*)nativeHandle);
             args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_WINDOWS;

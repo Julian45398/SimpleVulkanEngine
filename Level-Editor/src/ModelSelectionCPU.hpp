@@ -221,7 +221,6 @@ namespace SGF {
             if (GetNodeIntersection(ray, model, node, outHit)) {
 				hit = true;
             }
-			debugCheckedNodes.push_back(node.index);
         }
         return hit;
     }
