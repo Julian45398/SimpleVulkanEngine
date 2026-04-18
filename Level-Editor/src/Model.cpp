@@ -328,7 +328,7 @@ namespace SGF {
 		// Map bone names to indices for quick lookup
 		std::unordered_map<std::string, uint32_t> boneNameToIndex;
 
-		// First pass: collect all bones from all meshes
+		// Collect all bones from all meshes
 		for (uint32_t meshIndex = 0; meshIndex < pScene->mNumMeshes; ++meshIndex) {
 			const aiMesh* pMesh = pScene->mMeshes[meshIndex];
 
@@ -338,13 +338,13 @@ namespace SGF {
 
 				// Check if bone already added
 				if (boneNameToIndex.find(boneName) == boneNameToIndex.end()) {
-					uint32_t newBoneIndex = static_cast<uint32_t>(pModel->bones.size());
+					uint32_t newBoneIndex = (uint32_t)(pModel->bones.size());
 					boneNameToIndex[boneName] = newBoneIndex;
 
 					GenericModel::Bone bone;
 					bone.name = boneName;
 					bone.index = newBoneIndex;
-					bone.parent = UINT32_MAX;  // Will be set later
+					bone.parent = UINT32_MAX;
 					bone.currentTransform = glm::mat4(1.0f);
 
 					// Store offset matrix (mesh-space to bone-space)
@@ -364,7 +364,7 @@ namespace SGF {
 			return;
 		}
 
-		// Second pass: setup bone hierarchy from skeleton
+		// Setup bone hierarchy from skeleton
 		for (uint32_t boneIndex = 0; boneIndex < pModel->bones.size(); ++boneIndex) {
 			const auto& boneName = pModel->bones[boneIndex].name;
 
@@ -390,7 +390,68 @@ namespace SGF {
 			}
 		}
 
-		// Third pass: load vertex weights
+		{
+			std::vector<GenericModel::Bone> sortedBones;
+			sortedBones.reserve(pModel->bones.size());
+			std::unordered_map<uint32_t, uint32_t> oldToNewIndex;
+
+			std::function<void(uint32_t)> addBoneRecursive = [&](uint32_t boneIdx) {
+				if (oldToNewIndex.find(boneIdx) != oldToNewIndex.end()) {
+					return; // Already added
+				}
+
+				// Add all ancestors first
+				if (pModel->bones[boneIdx].parent != UINT32_MAX) {
+					addBoneRecursive(pModel->bones[boneIdx].parent);
+				}
+
+				// Now add this bone
+				oldToNewIndex[boneIdx] = (uint32_t)(sortedBones.size());
+				sortedBones.push_back(pModel->bones[boneIdx]);
+				sortedBones.back().index = (uint32_t)(sortedBones.size() - 1);
+				};
+
+			// Process all bones
+			for (uint32_t i = 0; i < pModel->bones.size(); ++i) {
+				addBoneRecursive(i);
+			}
+
+			// Update parent indices to reference the new ordering
+			for (auto& bone : sortedBones) {
+				if (bone.parent != UINT32_MAX) {
+					bone.parent = oldToNewIndex[bone.parent];
+				}
+			}
+
+			// Update animation channels to reference new bone indices
+			for (auto& animation : pModel->animations) {
+				for (auto& channel : animation.channels) {
+					channel.boneIndex = oldToNewIndex[channel.boneIndex];
+				}
+			}
+
+			// Update vertex weights to reference new bone indices
+			for (auto& weight : pModel->vertexWeights) {
+				for (int i = 0; i < 4; ++i) {
+					if (weight.boneWeights[i] > 0.0f) {
+						weight.boneIndices[i] = oldToNewIndex[weight.boneIndices[i]];
+					}
+				}
+			}
+
+			assert(sortedBones[0].parent == UINT32_MAX);
+			for (size_t i = 1; i < pModel->bones.size(); ++i) {
+				Log::Info("Bone {}: '{}', parent: {}",
+					i, pModel->bones[i].name, pModel->bones[i].parent);
+				assert(sortedBones[i].parent < i); // Ensure parents come before children
+			}
+
+			pModel->bones = std::move(sortedBones);
+
+
+		}
+
+		// Load vertex weights
 		pModel->vertexWeights.resize(pModel->vertices.size());
 
 		// Initialize weights to zero

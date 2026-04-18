@@ -4,24 +4,30 @@
 #include <algorithm>
 
 namespace SGF {
-    AnimationController::AnimationController(GenericModel& model) : model(model) {}
+    AnimationController::AnimationController(GenericModel* model) : pModel(model) {
+		assert(pModel);
+    }
 
     void AnimationController::PlayAnimation(const std::string& animationName, bool loop) {
+        assert(pModel);
+		auto& model = *pModel;
         for (size_t i = 0; i < model.animations.size(); ++i) {
             if (model.animations[i].name == animationName) {
                 currentAnimationIndex = static_cast<uint32_t>(i);
                 currentTime = 0.0f;
                 isLooping = loop;
+                isPlaying = true;
                 return;
             }
         }
         Log::Warn("Animation '{}' not found!", animationName);
+		currentAnimationIndex = UINT32_MAX;
     }
 
     void AnimationController::Update(float deltaTime) {
-        if (currentAnimationIndex == UINT32_MAX) return;
+        if (currentAnimationIndex == UINT32_MAX || !isPlaying) return;
 
-        const auto& animation = model.animations[currentAnimationIndex];
+        const auto& animation = pModel->animations[currentAnimationIndex];
         currentTime += deltaTime * animation.ticksPerSecond;
 
         if (currentTime > animation.duration) {
@@ -38,6 +44,8 @@ namespace SGF {
     }
 
     void AnimationController::UpdateBoneTransforms(const GenericModel::Animation& animation, float animationTime) {
+		assert(currentAnimationIndex != UINT32_MAX);
+		auto& model = *pModel;
         // Reset all bones to identity
         for (auto& bone : model.bones) {
             bone.currentTransform = glm::mat4(1.0f);
@@ -73,6 +81,8 @@ namespace SGF {
         for (size_t i = 1; i < model.bones.size(); ++i) {
             auto& bone = model.bones[i];
             if (bone.parent != UINT32_MAX) {
+				assert(bone.parent < model.bones.size());
+				assert(bone.parent < i);
                 bone.currentTransform = model.bones[bone.parent].currentTransform * bone.currentTransform;
             }
         }
@@ -91,25 +101,31 @@ namespace SGF {
         return keys.back().value;
     }
 
-    glm::quat AnimationController::InterpolateRotation(const std::vector<GenericModel::KeyFrame>& keys, float time) const {
+    glm::quat AnimationController::InterpolateRotation(const std::vector<GenericModel::RotationKeyFrame>& keys, float time) const {
         if (keys.empty()) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
         if (keys.size() == 1) return glm::quat_cast(glm::mat4(1.0f)); // Placeholder
 
         for (size_t i = 0; i < keys.size() - 1; ++i) {
             if (time >= keys[i].time && time <= keys[i + 1].time) {
                 float t = (time - keys[i].time) / (keys[i + 1].time - keys[i].time);
-                // Hier würde echte Quaternion-Interpolation stattfinden
-                return glm::slerp(glm::quat(1.0f, 0.0f, 0.0f, 0.0f), glm::quat(1.0f, 0.0f, 0.0f, 0.0f), t);
+
+                return glm::slerp(keys[i].value, keys[i + 1].value, t);
             }
         }
         return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     }
 
     void AnimationController::GetBonePalette(std::vector<glm::mat4>& outPalette) const {
+		auto& model = *pModel;
         outPalette.clear();
         outPalette.reserve(model.bones.size());
         for (const auto& bone : model.bones) {
             outPalette.push_back(bone.currentTransform * bone.offsetMatrix);
         }
+    }
+    void AnimationController::SetCurrentTime(float time) {
+		currentTime = time;
+        if (currentAnimationIndex == UINT32_MAX);
+		UpdateBoneTransforms(pModel->animations[currentAnimationIndex], currentTime);
     }
 }

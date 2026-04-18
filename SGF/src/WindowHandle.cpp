@@ -315,6 +315,7 @@ namespace SGF {
 		args.filterList = (const nfdu8filteritem_t*)(pFilters);
 		args.filterCount = filterCount;
 		nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
+		SGF::Log::Debug("File dialog opened with result: {}", (uint32_t)result);
 
 		if (result == NFD_OKAY) {
 			filepath = outPath;
@@ -326,6 +327,7 @@ namespace SGF {
 		}
 		else {
 			SGF::Log::Error("File dialog error: {}", NFD_GetError());
+			SGF::Log::Debug("File dialog error: {}", NFD_GetError());
 		}
 		NFD_Quit();
 

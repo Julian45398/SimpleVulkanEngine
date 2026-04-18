@@ -8,6 +8,7 @@
 #include "Viewport.hpp"
 #include "DebugWindow.hpp"
 #include "ModelSelectionCPU.hpp"
+#include "AnimationController.hpp"
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -67,8 +68,9 @@ namespace SGF {
         VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
         UniformArray<glm::mat4> uniformBuffer;
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
-        std::vector<GenericModel> models;
+        std::vector<GenericModel*> models;
         std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
+        std::vector<AnimationController> animationControllers;
         //std::set<uint32_t> selectionIndices;
         uint32_t selectedModelIndex = UINT32_MAX; 
         uint32_t selectedNodeIndex = UINT32_MAX;
@@ -100,12 +102,14 @@ namespace SGF {
         HitInfo hitInfo;
 
     private:
+		void ImportModel(const char* filename);
         void ResizeFramebuffer(uint32_t width, uint32_t height);
 	    void DrawTreeNode(uint32_t model, const GenericModel::Node& node);
 	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
 	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
         void ShowSelectionInformation();
         void ShowModelHierarchy();
+        void UpdateAnimations(const UpdateEvent& event);
         void RenderWireframe(RenderEvent& event);
 	    void RenderModel(RenderEvent& event, uint32_t modelIndex);
         void RenderModelSelection(RenderEvent& event);

@@ -4,6 +4,8 @@
 #include "Geometry/AABB.hpp"
 #include "Render/Texture.hpp"
 
+#include <glm/gtc/quaternion.hpp>
+
 namespace SGF {
 	class Level;
 	class LevelRenderer {
@@ -38,11 +40,16 @@ namespace SGF {
 			float time;
 			glm::vec3 value;
 		};
+		
+		struct RotationKeyFrame {
+			float time;
+			glm::quat value;
+		};
 
 		struct AnimationChannel {
 			uint32_t boneIndex;
 			std::vector<KeyFrame> positionKeys;
-			std::vector<KeyFrame> rotationKeys;
+			std::vector<RotationKeyFrame> rotationKeys;
 			std::vector<KeyFrame> scaleKeys;
 		};
 
@@ -117,7 +124,8 @@ namespace SGF {
 		inline size_t GetMeshCount() const { return meshes.size(); }
 		inline size_t GetTotalInstanceCount() const { size_t c = 0; for (size_t i = 0; i < nodes.size(); ++i) { c += nodes[i].meshes.size(); } return c; }
 
-		bool HasAnimations() const { return !animations.empty(); }
+		inline bool HasAnimations() const { return !animations.empty(); }
+		inline bool HasSkeletalAnimation() const { return !bones.empty() && !animations.empty(); }
 
 		const Node* ImportModel(const char* filename);
 		void RemoveModel(const char* name);
