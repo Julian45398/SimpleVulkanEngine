@@ -9,18 +9,18 @@ namespace SGF {
         Viewport(VkFormat colorFormat, VkFormat depthFormat);
         ~Viewport();
         void Resize(uint32_t width, uint32_t height);
-        inline VkRenderPass GetRenderPass() { return renderPass; }
-        inline VkImage GetColorImage() { return colorImage; }
-        inline VkImage GetDepthImage() { return depthImage; }
-        inline VkImage GetPickImage() { return pickImage; }
-        inline VkImageView GetColorView() { return colorImageView; }
-        inline VkImageView GetPickView() { return pickImageView; }
-        inline VkImageView GetDepthView() { return depthImageView; }
-        inline VkFramebuffer GetFramebuffer() { return framebuffer; }
+        inline VkRenderPass GetRenderPass() const { return renderPass; }
+        inline VkImage GetColorImage() const { return colorImage; }
+        inline VkImage GetDepthImage() const { return depthImage; }
+        inline VkImage GetPickImage() const { return pickImage; }
+        inline VkImageView GetColorView() const { return colorImageView; }
+        inline VkImageView GetPickView() const { return pickImageView; }
+        inline VkImageView GetDepthView() const { return depthImageView; }
+        inline VkFramebuffer GetFramebuffer() const { return framebuffer; }
         inline VkExtent2D GetExtent() const { return extent; }
         inline uint32_t GetWidth() const { return extent.width; }
         inline uint32_t GetHeight() const { return extent.height; }
-		inline float GetAspectRatio() { return (float)extent.width/(float)extent.height; };
+		inline float GetAspectRatio() const { return (float)extent.width/(float)extent.height; };
     private:
         VkRenderPass renderPass = VK_NULL_HANDLE;
         VkImage colorImage = VK_NULL_HANDLE;

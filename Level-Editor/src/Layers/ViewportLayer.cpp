@@ -6,153 +6,69 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 namespace SGF {
-	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), viewport(colorFormat, VK_FORMAT_D16_UNORM), 
-		uniformBuffer(SGF_FRAMES_IN_FLIGHT), debugPanel("Debug Panel"), debugRenderer(viewport.GetRenderPass(), 0) {
-		auto& device = Device::Get();
-		sampler = device.CreateImageSampler(VK_FILTER_NEAREST);
-		signalSemaphore = device.CreateSemaphore();
+	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
+	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
+	const glm::vec4 SELECTED_HOVERED_COLOR(.7f, .2f, .4f, .7f);
+	const glm::vec4 HOVER_COLOR(.7f, .4f, .2f, .8f);
+	const float MESH_TRANSPARENCY = .6f;
+	const float NO_TRANSPARENCY = 1.f;
 
-		VkDescriptorPoolSize poolSizes[] = {
-			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SGF_FRAMES_IN_FLIGHT),
-			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, SGF_FRAMES_IN_FLIGHT * 128),
-			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, SGF_FRAMES_IN_FLIGHT),
-			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)
-		};
-		descriptorPool = device.CreateDescriptorPool(20, poolSizes);
-		VkDescriptorSetLayoutBinding layoutBindings[] = {
-			Vk::CreateDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
-		};
-		uniformLayout = device.CreateDescriptorSetLayout(layoutBindings);
-
-		VkDescriptorSetLayout layouts[SGF_FRAMES_IN_FLIGHT];
-		for (uint32_t i = 0; i <  SGF_FRAMES_IN_FLIGHT; ++i) {
-			commands[i].Init(QUEUE_FAMILY_GRAPHICS, 0, VK_COMMAND_BUFFER_LEVEL_PRIMARY, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-			layouts[i] = uniformLayout;
-		}
-		device.AllocateDescriptorSets(descriptorPool, layouts, uniformDescriptors);
-		// Writing Descriptor Sets:
+	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), editorRenderer(colorFormat), debugPanel("Debug Panel"),
+			debugRenderer(editorRenderer.GetRenderPass(), editorRenderer.GetSubpass()) {
 		VkDescriptorBufferInfo uniform_info = {VK_NULL_HANDLE, 0, VK_WHOLE_SIZE};
-		for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
-			uniform_info.buffer = uniformBuffer.GetBuffer(i);
-			VkWriteDescriptorSet writes[] = {
-				Vk::CreateDescriptorWrite(uniformDescriptors[i], 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &uniform_info, 1)
-			};
-			device.UpdateDescriptors(writes);
-		}
-		modelRenderer.Initialize(viewport.GetRenderPass(), 0, descriptorPool, uniformLayout);
-
-		modelPickBuffer = device.CreateBuffer(sizeof(uint32_t) * SGF_FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		modelPickMemory = device.AllocateMemory(modelPickBuffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		modelPickMapped = (CursorHover*)device.MapMemory(modelPickMemory);
-
-		gridRenderer.Init(viewport.GetRenderPass(), 0, uniformLayout);
-		VkDescriptorSetLayout descriptorLayouts[] = {
-			uniformLayout, modelRenderer.GetDescriptorSetLayout()
-		};
 		// Pipeline:
-        {
-            // Layout:
-            VkDescriptorSetLayout descriptor_layouts[] = {
-                uniformLayout,
-				modelRenderer.GetDescriptorSetLayout()
-            };
-            VkPushConstantRange colorOverlayRange;
-            colorOverlayRange.offset = 0;
-            colorOverlayRange.size = sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float); // color overlay (vec4), node index (uint32), transparency (f32)
-            colorOverlayRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            //VkPushConstantRange nodeIndexRange;
-            //nodeIndexRange.offset = sizeof(glm::vec4);
-            //nodeIndexRange.size = sizeof(uint32_t);
-            //nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            //VkPushConstantRange transparency;
-            //transparency.offset = sizeof(glm::vec4) + sizeof(uint32_t);
-            //transparency.size = sizeof(float);
-            //transparency.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            VkPushConstantRange push_constant_ranges[] = {
-               colorOverlayRange//, nodeIndexRange, transparency 
-            };
-            pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
-			outlineLayout = device.CreatePipelineLayout(descriptor_layouts);
-        }
-		renderPipeline = device.CreateGraphicsPipeline(pipelineLayout, viewport.GetRenderPass(), 0)
-            .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
-            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
-		outlinePipeline = device.CreateGraphicsPipeline(outlineLayout, viewport.GetRenderPass(), 0)
-            .FragmentShader("shaders/outline.frag").VertexShader("shaders/outline.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
-            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).AddColorBlendAttachment(false, 0)
-			.FrontFace(VK_FRONT_FACE_CLOCKWISE).Build();
-
-
 		ImportModel("assets/models/Low-Poly-Car.gltf");
 	}
-
-	ViewportLayer::~ViewportLayer() {
-		auto& device = Device::Get();
-		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout);
-	}
+	ViewportLayer::~ViewportLayer() {}
 	void ViewportLayer::OnAttach() {}
 	void ViewportLayer::OnDetach() {}
 	void ViewportLayer::OnEvent(RenderEvent& event) {
-		VkClearValue clearValues[] = {
-			Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
-			Vk::CreateColorClearValue(UINT32_MAX, 0U, 0U, 0U),
-			Vk::CreateDepthClearValue(1.f, 0),
-		};
-		VkRect2D renderArea;
-		renderArea.extent = viewport.GetExtent();
-		renderArea.offset.x = 0;
-		renderArea.offset.y = 0;
-		auto& c = commands[imageIndex];
-		c.Begin();
-		c.BeginRenderPass(viewport.GetRenderPass(), viewport.GetFramebuffer(), renderArea, clearValues, ARRAY_SIZE(clearValues), VK_SUBPASS_CONTENTS_INLINE);
-		modelRenderer.PrepareDrawing(imageIndex);
-
-		RenderViewport(event);
-
-		c.EndRenderPass();
-
-		// Transition pick image from COLOR_ATTACHMENT_OPTIMAL -> TRANSFER_SRC_OPTIMAL
-		{
-			VkImageMemoryBarrier barrier{};
-			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-			barrier.pNext = nullptr;
-			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-			barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.image = viewport.GetPickImage();
-			barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
-			vkCmdPipelineBarrier(
-				c,
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				0,
-				0, nullptr,
-				0, nullptr,
-				1, &barrier
-			);
+		auto s = profiler.ProfileScope("Render Viewport");
+		glm::mat4 viewProj;
+		if (isOrthographic) {
+			viewProj = cameraController.GetOrthoViewMatrix(viewSize, editorRenderer.GetViewport().GetAspectRatio());
+		} else {
+			viewProj = cameraController.GetViewProjMatrix(editorRenderer.GetViewport().GetAspectRatio());
 		}
+		editorRenderer.BeginFrame(event, viewProj);
 
-		// Increment image index before buffer copy
-		VkBufferImageCopy region;
-		region.bufferImageHeight = 0;
-		region.bufferRowLength = 0;
-		region.bufferOffset = sizeof(uint32_t) * imageIndex;
-		region.imageExtent = { 1, 1, 1 }; 
-		region.imageOffset = { glm::clamp((int32_t)relativeCursor.x, 0, (int32_t)viewport.GetWidth() - 1), glm::clamp((int32_t)relativeCursor.y, 0, (int32_t)viewport.GetHeight() - 1), 0 };
-		region.imageSubresource.baseArrayLayer = 0;
-		region.imageSubresource.layerCount = 1;
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.mipLevel = 0;
-		vkCmdCopyImageToBuffer(c, viewport.GetPickImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, modelPickBuffer, 1, &region);
-		c.End();
-		c.Submit(nullptr, FLAG_NONE, signalSemaphore);
-		event.AddWait(signalSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-		imageIndex = (imageIndex + 1) % SGF_FRAMES_IN_FLIGHT;
+		// Draw all static Models
+		editorRenderer.BindRenderPipeline();
+		for (size_t i = 0; i < models.size(); ++i) {
+			auto& model = *models[i];
+			if (!ImGuizmo::IsUsing() && (editorRenderer.IsCursorHoveringItem() && editorRenderer.GetHoveredModelIndex() == i && selectionMode != SelectionMode::NO_SELECTION)) {
+				if (selectionMode == SelectionMode::NODE) {
+					editorRenderer.SetModifiers(NO_COLOR_MODIFIER, 1.f);
+					editorRenderer.DrawModelExcludeNode(model, i, model.GetNode(editorRenderer.GetHoveredNodeIndex()));
+					editorRenderer.SetModifiers(HOVER_COLOR, 1.f);
+					editorRenderer.DrawModelNodeRecursive(model, i, model.GetNode(editorRenderer.GetHoveredNodeIndex()));
+				}
+				else {
+					editorRenderer.SetModifiers(HOVER_COLOR, 1.f);
+					editorRenderer.DrawModel(model, i);
+				}
+			}
+			else {
+				editorRenderer.SetModifiers(NO_COLOR_MODIFIER, 1.f);
+				editorRenderer.DrawModel(model, i);
+			}
+		}
+		// Selection Outline
+		if (selectedModelIndex != UINT32_MAX) {
+			assert(selectedModelIndex < models.size());
+			editorRenderer.BindOutlinePipeline();
+			auto& model = *models[selectedModelIndex];
+			editorRenderer.DrawNodeOutline(model, model.GetNode(selectedNodeIndex));
+		}
+		editorRenderer.DrawGrid();
+		debugRenderer.Draw(editorRenderer.GetCurrentCommandBuffer(), cameraController.GetViewProjMatrix(editorRenderer.GetAspectRatio()), editorRenderer.GetWidth(), editorRenderer.GetHeight());
+		if (animationControllers.size() > 0) {
+			debugRenderer.Clear();
+			debugPanel.AddMessage("Animations active");
+		}
+		editorRenderer.EndFrame(event, glm::uvec2(relativeCursor.x, relativeCursor.y));
 	}
+
 	void ViewportLayer::OnEvent(const WindowResizeEvent& event) {}
 	bool ViewportLayer::OnEvent(const KeyPressedEvent& event) {
 		if (inputMode == INPUT_CAPTURED) {
@@ -165,14 +81,14 @@ namespace SGF {
 		else {
 			if (event.GetKey() == SGF::KEY_T) {
 				auto& camera = cameraController.GetCamera();
-				auto invProj = glm::inverse(cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+				auto invProj = glm::inverse(cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
 				auto invView = glm::inverse(cameraController.GetViewMatrix());
 				debugRenderer.AddFrustum(invProj, invView, SGF::Color::RGBA8::Green());
 				if (hitInfo.meshIndex != UINT32_MAX) {
 					debugRenderer.AddLine(camera.GetPos(), hitInfo.position, SGF::Color::RGBA8::Red());
 				}
 				else {
-					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
 					debugRenderer.AddLine(camera.GetPos(), ray.GetOrigin() + ray.GetDirection() * 1000.f, SGF::Color::RGBA8::Blue());
 				}
 			}
@@ -261,161 +177,6 @@ namespace SGF {
 		profiler.DisplayResults();
 	}
 
-	void ViewportLayer::DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const {
-		auto& c = commands[imageIndex];
-		if (&model == models[selectedModelIndex] && selectedNodeIndex == node.index) return;
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
-		modelRenderer.DrawNode(c, model, node);
-		for (auto& n : node.children) {
-			DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
-		}
-	}
-	void ViewportLayer::DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const {
-		auto& c = commands[imageIndex];
-		if (&model == models[selectedModelIndex] && selectedNodeIndex == node.index) return;
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &node.index);
-		modelRenderer.DrawNode(c, model, node);
-		for (auto& n : node.children) {
-			DrawModelNodeExcludeSelectedHierarchy(model, model.nodes[n]);
-		}
-	}
-
-	void ViewportLayer::RenderWireframe(RenderEvent& event) {
-	}
-	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
-	const glm::vec4 SELECTED_COLOR(.7f, .4f, .2f, .6f);
-	const glm::vec4 SELECTED_HOVERED_COLOR(.7f, .2f, .4f, .7f);
-	const glm::vec4 HOVER_COLOR(.7f, .4f, .2f, .8f);
-	const float MESH_TRANSPARENCY = .6f;
-	const float NO_TRANSPARENCY = 1.f;
-
-	void ViewportLayer::RenderModel(RenderEvent& event, uint32_t modelIndex) {
-		CursorHover currentID(modelIndex, 0);
-		const glm::vec4* selectionColor;
-		float transparency = 1.f;
-		if (selectedModelIndex == UINT32_MAX) {
-			selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
-		} else if (modelIndex == selectedModelIndex) {
-			selectionColor = &NO_COLOR_MODIFIER;
-		} else {
-			selectionColor = (modelIndex == hoverValue.model) ? &HOVER_COLOR : &NO_COLOR_MODIFIER;
-			transparency = (modelIndex == hoverValue.model) ? 1.f : MESH_TRANSPARENCY;
-		}
-		auto& c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, modelBindOffsets[modelIndex]);
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
-		auto& model = *models[modelIndex];
-		for (size_t j = 0; j < model.nodes.size(); ++j) {
-			currentID.node = j;
-			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
-			modelRenderer.DrawNode(c, model, model.nodes[j]);
-		}
-	}
-
-	// Model Selection:
-	void ViewportLayer::RenderModelSelection(RenderEvent& event) {
-		if (selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex]->GetRoot().index) {
-			auto s = profiler.ProfileScope("Model Selection");
-			BindPipeline(renderPipeline, pipelineLayout);
-			assert(modelBindOffsets.size() == models.size());
-			//assert(selectedModelIndex == UINT32_MAX || selectedNodeIndex == models[selectedModelIndex].GetRoot().index);
-			
-			for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
-				RenderModel(event, i);
-			}
-		}
-		else {
-			RenderNodeSelection(event);
-		};
-	}
-	
-	void ViewportLayer::RenderNodeSelection(RenderEvent& event) {
-		auto& c = commands[imageIndex];
-		BindPipeline(renderPipeline, pipelineLayout);
-		assert(modelBindOffsets.size() == models.size());
-		CursorHover currentID(0, 0);
-		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
-			currentID.model = i;
-			const glm::vec4* selectionColor = &NO_COLOR_MODIFIER;
-			float transparency = 1.f;
-			if (selectedModelIndex != UINT32_MAX) {
-				transparency = MESH_TRANSPARENCY;
-			}
-			modelRenderer.BindBuffersToModel(c, modelBindOffsets[i]);
-			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
-			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
-			auto& model = *models[i];
-			for (size_t j = 0; j < model.nodes.size(); ++j) {
-				currentID.node = j;
-				if (currentID == hoverValue) continue;
-				if (selectedModelIndex == i && selectedNodeIndex == j) {
-					uint8_t tempArray[sizeof(currentID) + sizeof(transparency)];
-					memcpy(tempArray, &currentID, sizeof(currentID));
-					memcpy(tempArray + sizeof(currentID), &NO_TRANSPARENCY, sizeof(transparency));
-					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(tempArray), tempArray);
-					modelRenderer.DrawNode(c, model, model.nodes[j]);
-					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(transparency), &transparency);
-				} else {
-					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
-					modelRenderer.DrawNode(c, model, model.nodes[j]);
-				}
-			}
-			if (hoverValue.IsValid()) {
-				selectionColor = (selectedModelIndex == hoverValue.model && selectedNodeIndex == hoverValue.node) ? &NO_COLOR_MODIFIER : &HOVER_COLOR;
-				uint8_t tempArray[sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float)];
-				memcpy(tempArray, selectionColor, sizeof(glm::vec4));
-				memcpy(tempArray + sizeof(glm::vec4), &hoverValue, sizeof(uint32_t));
-				memcpy(tempArray + sizeof(glm::vec4) + sizeof(uint32_t), &NO_TRANSPARENCY, sizeof(float));
-				vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(tempArray), tempArray);
-				modelRenderer.DrawNode(c, model, model.nodes[hoverValue.node]);
-			}
-		}
-	}
-	void ViewportLayer::BindPipeline(VkPipeline pipeline, VkPipelineLayout layout) {
-		auto& c = commands[imageIndex];
-		VkDescriptorSet sets[] = {
-			uniformDescriptors[imageIndex],
-			modelRenderer.GetDescriptorSet(imageIndex),
-		};
-		vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-		vkCmdBindDescriptorSets(c, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
-		glm::uvec2 viewportSize;
-		viewportSize.x = viewport.GetWidth();
-		viewportSize.y = viewport.GetHeight();
-        VkViewport view = { (float)0.0f, (float)0.0f, (float)viewport.GetWidth(), (float)viewport.GetHeight(), 0.0f, 1.0f };
-        VkRect2D scissor = { {0, 0}, viewport.GetExtent() };
-        vkCmdSetViewport(c, 0, 1, &view);
-        vkCmdSetScissor(c, 0, 1, &scissor);
-	}
-	void ViewportLayer::RenderViewport(RenderEvent& event) {
-		auto s = profiler.ProfileScope("Render Viewport");
-
-		auto& c = commands[imageIndex];
-		if (isOrthographic) {
-			uniformBuffer.SetValueAt(imageIndex, cameraController.GetOrthoViewMatrix(viewSize, viewport.GetAspectRatio()));
-		} else {
-			uniformBuffer.SetValueAt(imageIndex, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()));
-		}
-		RenderModelSelection(event);
-
-		if (selectedModelIndex != UINT32_MAX) {
-			auto& model = *models[selectedModelIndex];
-			BindPipeline(outlinePipeline, pipelineLayout);
-			modelRenderer.BindBuffersToModel(c, modelBindOffsets[selectedModelIndex]);
-			if (selectedNodeIndex == model.GetRoot().index) {
-				modelRenderer.DrawModel(c, model);
-			} else {
-				modelRenderer.DrawNode(c, model, model.nodes[selectedNodeIndex]);
-			}
-		}
-		gridRenderer.Draw(c, uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
-		debugRenderer.Draw(c, cameraController.GetViewProjMatrix(viewport.GetAspectRatio()), viewport.GetWidth(), viewport.GetHeight());
-		if (animationControllers.size() > 0) {
-			debugRenderer.Clear();
-			debugPanel.AddMessage("Animations active");
-		}
-	}
 
 	void ViewportLayer::UpdateAnimations(const UpdateEvent& event) {
 		for (size_t i = 0; i < animationControllers.size(); ++i) {
@@ -443,8 +204,8 @@ namespace SGF {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Viewport", nullptr, (inputMode & INPUT_CAPTURED) ? (ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMouseInputs) : ImGuiWindowFlags_None);
 		ImVec2 size = ImGui::GetContentRegionAvail();
-		if ((uint32_t)size.x != viewport.GetWidth() || (uint32_t)size.y != viewport.GetHeight()) {
-			ResizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
+		if ((uint32_t)size.x != editorRenderer.GetWidth() || (uint32_t)size.y != editorRenderer.GetHeight()) {
+			editorRenderer.ResizeFramebuffer((uint32_t)size.x, (uint32_t)size.y);
 		}
 		if (ImGui::IsWindowHovered()) {
 			SET_FLAG(inputMode, INPUT_HOVERED);
@@ -454,7 +215,7 @@ namespace SGF {
 		if (HAS_FLAG(inputMode, INPUT_CAPTURED)) {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
-		ImGui::Image(imGuiImageID, size);
+		ImGui::Image(editorRenderer.GetImGuiTextureID(), size);
 		hitInfo.meshIndex = UINT32_MAX;
 		hitInfo.nodeIndex = UINT32_MAX;
 		hitInfo.triangleIndex = UINT32_MAX;
@@ -463,26 +224,28 @@ namespace SGF {
 		// Get hover value
 		if (ImGui::IsItemHovered()) {
 			auto hv = profiler.ProfileScope("CPU Model Selection");
-			hoverValue = modelPickMapped[imageIndex]; 
 			//TestSelectionAlgorithms();
+			uint32_t modelHover = editorRenderer.GetHoveredModelIndex();
+			uint32_t nodeHover = editorRenderer.GetHoveredNodeIndex();
+			debugPanel.AddMessage(fmt::format("GPU Hover - Model: {} Node: {}", modelHover, nodeHover));
 			Ray ray;
 			{
 				ImVec2 mouse = ImGui::GetIO().MousePos;
 				ImVec2 imageMin = ImGui::GetItemRectMin();
 				relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
-				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
 				for (size_t i = 0; i < models.size(); ++i) {
 					auto& model = *models[i];
 					if (SGF::GetModelIntersection(ray, model, hitInfo)) {
 
 					}
 				}
-				if (hoverValue.IsValid()) {
-					if (hitInfo.nodeIndex == (uint32_t)hoverValue.node) {
+				if (editorRenderer.IsCursorHoveringItem()) {
+					if (hitInfo.nodeIndex == nodeHover) {
 						debugPanel.AddMessage("CPU is the same as GPU hover value");
 					}
 					else {
-						debugPanel.AddMessage(fmt::format("CPU and GPU hover value dont match! CPU: {} - GPU: {}", hitInfo.nodeIndex, (uint32_t)hoverValue.node));
+						debugPanel.AddMessage(fmt::format("CPU and GPU hover value dont match! CPU: {} - GPU: {}", hitInfo.nodeIndex, nodeHover));
 					}
 				}
 				else if (hitInfo.t < std::numeric_limits<float>::max()) {
@@ -494,21 +257,20 @@ namespace SGF {
 			}
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
 				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
-				} else if (hoverValue.IsValid()) {
-					selectedModelIndex = hoverValue.model;
-					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? hoverValue.node : models[selectedModelIndex]->GetRoot().index;
+				} else if (editorRenderer.IsCursorHoveringItem()) {
+					selectedModelIndex = modelHover;
+					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? nodeHover : models[selectedModelIndex]->GetRoot().index;
 				} else {
 					selectedModelIndex = UINT32_MAX;
 					selectedNodeIndex = UINT32_MAX;
 				}
 			}
 		} else {
-			hoverValue = CursorHover(UINT32_MAX);
 		}
 		if (selectedModelIndex != UINT32_MAX) {
-			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::SetOrthographic(isOrthographic);
 			ImGuizmo::SetDrawlist();
-			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, viewport.GetWidth(), viewport.GetHeight());
+			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, editorRenderer.GetWidth(), editorRenderer.GetHeight());
 			auto view = cameraController.GetViewMatrix();
 			glm::mat4 flipY = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
 			// Apply the flip
@@ -516,7 +278,7 @@ namespace SGF {
 
 			auto& model = *models[selectedModelIndex];
 			auto& node = model.GetNode(selectedNodeIndex);
-			auto proj = cameraController.GetProjMatrix(viewport.GetAspectRatio());
+			auto proj = cameraController.GetProjMatrix(editorRenderer.GetAspectRatio());
 			auto globalTransform = model.GetNode(selectedNodeIndex).globalTransform;
 			glm::mat4 delta(1.f);
 			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
@@ -527,7 +289,7 @@ namespace SGF {
 				} else if (selectionMode == SelectionMode::NODE) {
 					model.TransformNode(node, delta);
 				}
-				modelRenderer.UpdateInstanceTransforms(modelBindOffsets[selectedModelIndex], model);
+				editorRenderer.UpdateInstanceTransforms(model);
 			}
 		}
 		ImGui::End();
@@ -573,13 +335,14 @@ namespace SGF {
 		selectedNodeIndex = UINT32_MAX;
 	}
 
-	void ViewportLayer::TestSelectionAlgorithms()
-	{
-		if (hoverValue.IsValid() && hoverValue.node == 12) {
+	void ViewportLayer::TestSelectionAlgorithms() {
+		if (editorRenderer.IsCursorHoveringItem() && editorRenderer.GetHoveredNodeIndex() == 12) {
 			debugPanel.AddMessage("Testing selection algorithms on node 12");
-			auto& model = *models[hoverValue.model];
+			uint32_t hoveredModelIndex = editorRenderer.GetHoveredModelIndex();
+			uint32_t hoveredNodeIndex = editorRenderer.GetHoveredNodeIndex();
+			auto& model = *models[hoveredModelIndex];
 			auto& node12 = model.GetNode(12);
-			Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, viewport.GetWidth(), viewport.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(viewport.GetAspectRatio()));
+			Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
 			HitInfo cpuHitInfo;
 			std::vector<uint32_t> debugCheckedNodes;
 			bool cpuHit = SGF::GetNodeIntersection(ray, model, node12, cpuHitInfo);
@@ -628,7 +391,8 @@ namespace SGF {
 
 	void ViewportLayer::ImportModel(const char* filename) {
 		models.emplace_back(new GenericModel(filename));
-		modelBindOffsets.push_back(modelRenderer.UploadModel(*models.back()));
+		editorRenderer.AddModel(*models.back());
+		//modelBindOffsets.push_back(modelRenderer.UploadModel(*models.back()));
 		if (models.back()->HasAnimations()) {
 			Log::Debug("Model has animations!");
 			//animationControllers.emplace_back(models.back());
@@ -696,7 +460,7 @@ namespace SGF {
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DrawLinesFull;
 			if (i == selectedModelIndex) flags |= ImGuiTreeNodeFlags_Selected;
 
-			bool open = ImGui::TreeNodeEx(models[i], flags, "Model: %s", model.GetName().c_str());
+			bool open = ImGui::TreeNodeEx(models[i].get(), flags, "Model: %s", model.GetName().c_str());
 			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
 				if ((flags & ImGuiTreeNodeFlags_Selected) && (selectedNodeIndex == model.GetRoot().index)) {
 					ClearSelection();
@@ -876,12 +640,6 @@ namespace SGF {
 		float scaleValues[3] = { scale.x, scale.y, scale.z };
 		ImGui::InputFloat3("Scale##comp", scaleValues, "%.3f", ImGuiInputTextFlags_ReadOnly);
 		ImGui::Separator();
-		//ImGui::Text("Raw Matrix:");
-		//for (int row = 0; row < 4; ++row) {
-			//auto& t = node.globalTransform[row];
-			//float floats[4] = { t[0], t[1], t[2], t[3] };
-			//ImGui::InputFloat4(fmt::format("Row {}", row).c_str(), floats, "%.4f", ImGuiInputTextFlags_ReadOnly);
-		//}
 	}
 
 	void ViewportLayer::UpdateDebugWindow(const UpdateEvent& event) {
@@ -889,11 +647,11 @@ namespace SGF {
 		ImGui::Text("Application average %.3f ms/frame", event.GetDeltaTime());
 
 		ImGui::Text("Relative Pos: (%.3f, %.3f)", relativeCursor.x, relativeCursor.y);
-		ImGui::Text("Model: %d, Node: %d", hoverValue.model, hoverValue.node);
+		ImGui::Text("Model: %d, Node: %d", editorRenderer.GetHoveredModelIndex(), editorRenderer.GetHoveredNodeIndex());
 
-		ImGui::Text("Total Indices: %d,\nTotal Vertices: %d,\nTotal Textures: %ld\nMemory Used: %ld,\nMemory Allocated: %ld",
-			modelRenderer.GetTotalIndexCount(), modelRenderer.GetTotalVertexCount(),
-			modelRenderer.GetTextureCount(), modelRenderer.GetTotalDeviceMemoryUsed(), modelRenderer.GetTotalDeviceMemoryAllocated());
+		//ImGui::Text("Total Indices: %d,\nTotal Vertices: %d,\nTotal Textures: %ld\nMemory Used: %ld,\nMemory Allocated: %ld",
+			//editorRenderer.GetTotalIndexCount(), editorRenderer.GetTotalVertexCount(),
+			//editorRenderer.GetTextureCount(), editorRenderer.GetTotalDeviceMemoryUsed(), editorRenderer.GetTotalDeviceMemoryAllocated());
 
 		ImGui::Text("Selected ModelIndex: %d", selectedModelIndex);
 		ImGui::Separator();
@@ -934,17 +692,5 @@ namespace SGF {
 		ImGui::End();
 
 		debugPanel.Draw();
-	}
-
-	void ViewportLayer::ResizeFramebuffer(uint32_t w, uint32_t h) {
-		auto& device = Device::Get();
-		device.WaitIdle();
-		viewport.Resize(w, h);
-		if (imGuiImageID != 0) {
-			ImGuiLayer::UpdateVulkanTexture(imGuiImageID, sampler, viewport.GetColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		}
-		else {
-			imGuiImageID = ImGuiLayer::AddVulkanTexture(descriptorPool, sampler, viewport.GetColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		}
 	}
 }

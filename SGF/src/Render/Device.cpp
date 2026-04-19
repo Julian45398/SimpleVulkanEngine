@@ -1814,6 +1814,7 @@ namespace SGF {
     void Device::Destroy(VkDeviceMemory memory) const {
         assert(memory != VK_NULL_HANDLE);
         vkFreeMemory(logical, memory, SGF::g_VulkanAllocator);
+		SGF::Log::Info("Freed device memory");
         TRACK_DEVICE_MEMORY(-1);
     }
     void Device::Destroy(VkCommandPool commandPool) const {

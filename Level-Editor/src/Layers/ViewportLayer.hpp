@@ -4,6 +4,7 @@
 #include "Model.hpp"
 #include "Renderer/GridRenderer.hpp"
 #include "Renderer/ModelRenderer.hpp"
+#include "Renderer/EditorRenderer.hpp"
 #include "CameraController.hpp"
 #include "Viewport.hpp"
 #include "DebugWindow.hpp"
@@ -26,7 +27,6 @@ namespace SGF {
 	    void UpdateDebugWindow(const UpdateEvent& event);
 	    void UpdateModelWindow(const UpdateEvent& event);
 
-        inline VkRenderPass GetRenderPass() { return viewport.GetRenderPass(); }
 
         virtual bool OnEvent(const KeyPressedEvent& event) override;
         //virtual bool onKeyRepeat(const KeyRepeatEvent& event) override;
@@ -48,49 +48,16 @@ namespace SGF {
             MODEL,
             NO_SELECTION
         };
-        struct CursorHover {
-            inline CursorHover(uint32_t integer) { memcpy(this, &integer, sizeof(uint32_t)); }
-            inline CursorHover(uint32_t modelIndex, uint32_t nodeIndex) : model(modelIndex), node(nodeIndex) {}
-            inline bool operator==(CursorHover other) { return node == other.node && model == other.model; }
-            inline bool IsValid() const { return UINT32_MAX != ToInt(); }
-            inline uint32_t ToInt() const { return *(uint32_t*)this; }
-            uint32_t node : 20;
-            uint32_t model : 12;
-        };
-        static_assert(sizeof(CursorHover) == sizeof(uint32_t));
-
-        CommandList commands[SGF_FRAMES_IN_FLIGHT];
-        Viewport viewport;
-        VkSampler sampler = VK_NULL_HANDLE;
-        ImTextureID imGuiImageID = 0;
-        VkSemaphore signalSemaphore = VK_NULL_HANDLE;
-        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-        VkDescriptorSetLayout uniformLayout = VK_NULL_HANDLE;
-        UniformArray<glm::mat4> uniformBuffer;
-        VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
-        std::vector<GenericModel*> models;
-        std::vector<ModelRenderer::ModelHandle> modelBindOffsets;
         std::vector<AnimationController> animationControllers;
+        std::vector<std::unique_ptr<GenericModel>> models;
         //std::set<uint32_t> selectionIndices;
         uint32_t selectedModelIndex = UINT32_MAX; 
         uint32_t selectedNodeIndex = UINT32_MAX;
         glm::dvec2 cursorPos;
         glm::dvec2 cursorMove;
         ImVec2 relativeCursor;
-        //uint32_t cursorValue = 3320;
-        CursorHover hoverValue = CursorHover(UINT32_MAX);
-        uint32_t imageIndex = 0;
         CameraController cameraController;
-        VkPipeline renderPipeline;
-        VkPipelineLayout pipelineLayout;
-        VkPipeline outlinePipeline;
-        VkPipelineLayout outlineLayout;
-        //Cursor cursor;
-        VkBuffer modelPickBuffer;
-        VkDeviceMemory modelPickMemory;
-        CursorHover* modelPickMapped;
-        ModelRenderer modelRenderer;
-        GridRenderer gridRenderer;
+        
         float viewSize = 0.0f;
         float cameraZoom = 0.0f;
         bool isOrthographic = false;
@@ -98,22 +65,18 @@ namespace SGF {
         SelectionMode selectionMode = SelectionMode::MODEL;
 		Profiler profiler;
         DebugWindow debugPanel;
+        EditorRenderer editorRenderer;
 		DebugRenderer debugRenderer;
         HitInfo hitInfo;
 
     private:
 		void ImportModel(const char* filename);
-        void ResizeFramebuffer(uint32_t width, uint32_t height);
 	    void DrawTreeNode(uint32_t model, const GenericModel::Node& node);
 	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
 	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
         void ShowSelectionInformation();
         void ShowModelHierarchy();
         void UpdateAnimations(const UpdateEvent& event);
-        void RenderWireframe(RenderEvent& event);
-	    void RenderModel(RenderEvent& event, uint32_t modelIndex);
-        void RenderModelSelection(RenderEvent& event);
-        void RenderNodeSelection(RenderEvent& event);
         void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
         void ClearSelection();
         void TestSelectionAlgorithms();

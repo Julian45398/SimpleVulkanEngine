@@ -236,7 +236,11 @@ namespace SGF {
         return offset;
     }
 
-    ModelRenderer::ModelHandle ModelRenderer::UploadModel(const GenericModel& model) {
+    void ModelRenderer::UploadModel(const GenericModel& model) {
+        if (model.GetVertexCount() == 0 || model.GetIndexCount() == 0) {
+            SGF::Log::Warn("Attempted to upload empty or null model!");
+            return;
+		}
         size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
 
         auto& device = Device::Get();
@@ -271,13 +275,18 @@ namespace SGF {
         totalIndexCount += model.indices.size();
         totalVertexCount += model.vertices.size();
         totalInstanceCount += model.nodes.size();
-        modelDrawData.push_back(drawData);
-        return modelDrawData.size()-1;
+        modelDrawData.insert({&model, drawData});
+        return;
     }
 
     // New: update already-uploaded instance transforms for a model handle
-    void ModelRenderer::UpdateInstanceTransforms(ModelHandle handle, const GenericModel& model) {
-        if (handle >= modelDrawData.size()) return;
+    void ModelRenderer::UpdateInstanceTransforms(const GenericModel& model) {
+		auto it = modelDrawData.find(&model);
+        if (it == modelDrawData.end()) {
+            SGF::Log::Warn("Attempted to update instance transforms for a model that hasn't been uploaded!");
+            return;
+		}
+		auto& drawData = it->second;
 
         auto& device = Device::Get();
         const size_t transformCount = model.nodes.size();
@@ -308,7 +317,7 @@ namespace SGF {
         // Prepare buffer copy from staging -> device-local instance region
         VkBufferCopy region{};
         region.srcOffset = 0;
-        region.dstOffset = INSTANCE_BYTE_OFFSET + modelDrawData[handle].instanceOffset * sizeof(glm::mat4);
+        region.dstOffset = INSTANCE_BYTE_OFFSET + drawData.instanceOffset * sizeof(glm::mat4);
         region.size = uploadSize;
 
         vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, 1, &region);
@@ -351,16 +360,22 @@ namespace SGF {
         return PAGE_SIZE + textureAllocator.GetAllocatedSize();
     }
         
-    void ModelRenderer::BindBuffersToModel(VkCommandBuffer commands, ModelRenderer::ModelHandle handle) const {
+    void ModelRenderer::BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const {
+		auto it = modelDrawData.find(&model);
+        if (it == modelDrawData.end()) {
+            SGF::Log::Warn("Attempted to bind buffers for a model that hasn't been uploaded!");
+			return;
+        }
+		auto drawData = it->second;
         VkDeviceSize offsets[] = {
-            modelDrawData[handle].vertexOffset * sizeof(ModelRenderer::Vertex) + VERTEX_BYTE_OFFSET,
-            modelDrawData[handle].instanceOffset * sizeof(glm::mat4) + INSTANCE_BYTE_OFFSET,
+            drawData.vertexOffset * sizeof(ModelRenderer::Vertex) + VERTEX_BYTE_OFFSET,
+            drawData.instanceOffset * sizeof(glm::mat4) + INSTANCE_BYTE_OFFSET,
         };
         VkBuffer buffers[] = {
             vertexBuffer, vertexBuffer
         };
         vkCmdBindVertexBuffers(commands, 0, ARRAY_SIZE(buffers), buffers, offsets);
-        vkCmdBindIndexBuffer(commands, vertexBuffer, INDEX_BUFFER_BYTE_OFFSET + modelDrawData[handle].indexOffset * sizeof(uint32_t), VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commands, vertexBuffer, INDEX_BUFFER_BYTE_OFFSET + drawData.indexOffset * sizeof(uint32_t), VK_INDEX_TYPE_UINT32);
     }
     void ModelRenderer::DrawModel(VkCommandBuffer commands, const GenericModel& model) const {
         DrawNodeRecursive(commands, model, model.GetRoot());
@@ -375,7 +390,7 @@ namespace SGF {
     void ModelRenderer::DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const {
         DrawNode(commands, model, node);
         for (size_t i = 0; i < node.children.size(); ++i) {
-            auto& n = model.nodes[node.children[i]];
+            auto& n = model.GetChild(node, i);
             DrawNodeRecursive(commands, model, n);
         }
     }

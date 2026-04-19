@@ -14,7 +14,6 @@ namespace SGF {
             glm::vec<4, uint8_t> color;
             uint32_t textureIndex;
         };
-        typedef size_t ModelHandle;
         struct ModelDrawData {
             uint32_t indexOffset;
             uint32_t vertexOffset;
@@ -27,11 +26,11 @@ namespace SGF {
         inline ModelRenderer() {}
         ~ModelRenderer();
 
-        ModelHandle UploadModel(const GenericModel& model);
-        void UpdateInstanceTransforms(ModelHandle handle, const GenericModel& model);
+        void UploadModel(const GenericModel& model);
+        void UpdateInstanceTransforms(const GenericModel& model);
 
         void PrepareDrawing(uint32_t frameIndex);
-        void BindBuffersToModel(VkCommandBuffer commands, ModelRenderer::ModelHandle handle) const;
+        void BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const;
 
         void DrawModel(VkCommandBuffer commands, const GenericModel& model) const;
         void DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
@@ -81,7 +80,8 @@ namespace SGF {
 
         // Images:
         std::vector<TextureImage> textures;
-        std::vector<ModelDrawData> modelDrawData;
+        //std::vector<ModelDrawData> modelDrawData;
+		std::unordered_map<const GenericModel*, ModelDrawData> modelDrawData;
         // Vertex buffers:
         VkBuffer vertexBuffer = VK_NULL_HANDLE;
         VkDeviceMemory vertexDeviceMemory = VK_NULL_HANDLE;
