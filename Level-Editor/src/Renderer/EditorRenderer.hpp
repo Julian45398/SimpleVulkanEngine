@@ -37,7 +37,7 @@ namespace SGF {
         inline void BindStaticRenderPipeline() { BindStaticPipeline(staticRenderPipeline, staticRenderPipelineLayout); };
         inline void BindOutlinePipeline() { BindStaticPipeline(outlinePipeline, outlineLayout); }
         inline void BindSkeletalRenderPipeline() { BindSkeletalPipeline(skeletalRenderPipeline, skeletalRenderPipelineLayout); }
-        //inline void BindSkeletalOutlinePipeline() { BindSkeletalPipeline(outlinePipeline, outlineLayout); }
+        inline void BindSkeletalOutlinePipeline() { BindSkeletalPipeline(skeletalOutlinePipeline, skeletalOutlinePipelineLayout); }
         void SetColorModifier(const glm::vec4& colorModifier) const;
         void SetModelTransparency(float transparency) const;
         void SetModifiers(const glm::vec4& colorModifer, float transparency) const;
@@ -83,6 +83,8 @@ namespace SGF {
         VkPipelineLayout skeletalRenderPipelineLayout;
         VkPipeline outlinePipeline;
         VkPipelineLayout outlineLayout;
+		VkPipeline skeletalOutlinePipeline;
+        VkPipelineLayout skeletalOutlinePipelineLayout;
         //Cursor cursor;
         VkBuffer modelPickBuffer;
         VkDeviceMemory modelPickMemory;

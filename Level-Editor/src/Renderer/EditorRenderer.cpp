@@ -65,6 +65,7 @@ namespace SGF {
             staticRenderPipelineLayout = device.CreatePipelineLayout(staticDescriptorLayouts, pushConstantRanges);
 			outlineLayout = device.CreatePipelineLayout(staticDescriptorLayouts);
 			skeletalRenderPipelineLayout = device.CreatePipelineLayout(skeletalDescriptorLayouts, pushConstantRanges);
+			skeletalOutlinePipelineLayout = device.CreatePipelineLayout(skeletalDescriptorLayouts);
         }
 		staticRenderPipeline = device.CreateGraphicsPipeline(staticRenderPipelineLayout, viewport.GetRenderPass(), 0)
             .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetStaticModelVertexInput())
@@ -76,6 +77,11 @@ namespace SGF {
 		skeletalRenderPipeline = device.CreateGraphicsPipeline(skeletalRenderPipelineLayout, viewport.GetRenderPass(), 0)
 			.FragmentShader("shaders/model.frag").VertexShader("shaders/model_skeletal.vert").VertexInput(modelRenderer.GetSkeletalModelVertexInput())
 			.DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
+		skeletalOutlinePipeline = device.CreateGraphicsPipeline(skeletalOutlinePipelineLayout, viewport.GetRenderPass(), 0)
+            .FragmentShader("shaders/outline.frag").VertexShader("shaders/outline_skeletal.vert").VertexInput(modelRenderer.GetSkeletalModelVertexInput())
+            .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).AddColorBlendAttachment(false, 0)
+			.FrontFace(VK_FRONT_FACE_CLOCKWISE).Build();
+		
 	}
 	EditorRenderer::~EditorRenderer() {
 		auto& device = Device::Get();

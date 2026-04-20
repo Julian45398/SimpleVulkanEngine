@@ -14,11 +14,7 @@ namespace SGF {
 	const float NO_TRANSPARENCY = 1.f;
 
 	ViewportLayer::ViewportLayer(VkFormat colorFormat) : Layer("Viewport"), editorRenderer(colorFormat), debugPanel("Debug Panel"),
-			debugRenderer(editorRenderer.GetRenderPass(), editorRenderer.GetSubpass()) {
-		VkDescriptorBufferInfo uniform_info = {VK_NULL_HANDLE, 0, VK_WHOLE_SIZE};
-		// Pipeline:
-		ImportModel("assets/models/Low-Poly-Car.gltf");
-	}
+			debugRenderer(editorRenderer.GetRenderPass(), editorRenderer.GetSubpass()) {}
 	ViewportLayer::~ViewportLayer() {}
 	void ViewportLayer::OnAttach() {}
 	void ViewportLayer::OnDetach() {}
@@ -65,7 +61,6 @@ namespace SGF {
 				animationControllers[i].GetBonePalette(boneTransforms);
 				auto& model = *animationControllers[i].GetModel();
 				editorRenderer.UpdateBoneTransforms(model, boneTransforms);
-				SGF::Log::Debug("Drawing Animated model: {}", model.name);
 			}
 			editorRenderer.BindSkeletalRenderPipeline();
 			for (size_t i = 0; i < models.size(); ++i) {
@@ -86,7 +81,6 @@ namespace SGF {
 				else {
 					editorRenderer.SetModifiers(NO_COLOR_MODIFIER, 1.f);
 					editorRenderer.DrawModel(model, i);
-					SGF::Log::Debug("Drawing Animated model without modifiers: {}", model.name);
 				}
 			}
 		}
@@ -96,6 +90,8 @@ namespace SGF {
 			assert(selectedModelIndex < models.size());
 			auto& model = *models[selectedModelIndex];
 			if (model.HasSkeletalAnimation()) {
+				editorRenderer.BindSkeletalOutlinePipeline();
+				editorRenderer.DrawNodeOutline(model, model.GetNode(selectedNodeIndex));
 			}
 			else {
 				editorRenderer.BindOutlinePipeline();
@@ -104,10 +100,6 @@ namespace SGF {
 		}
 		editorRenderer.DrawGrid();
 		debugRenderer.Draw(editorRenderer.GetCurrentCommandBuffer(), cameraController.GetViewProjMatrix(editorRenderer.GetAspectRatio()), editorRenderer.GetWidth(), editorRenderer.GetHeight());
-		if (animationControllers.size() > 0) {
-			debugRenderer.Clear();
-			debugPanel.AddMessage("Animations active");
-		}
 		editorRenderer.EndFrame(event, glm::uvec2(relativeCursor.x, relativeCursor.y));
 	}
 

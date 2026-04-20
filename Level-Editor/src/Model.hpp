@@ -7,20 +7,6 @@
 #include <glm/gtc/quaternion.hpp>
 
 namespace SGF {
-	class Level;
-	class LevelRenderer {
-		struct Vertex {
-			glm::vec3 position;
-			uint32_t normal;
-			glm::vec2 uv;
-			glm::vec<4,uint8_t> vertexColor;
-			uint32_t textureIndex;
-		};
-
-		void LoadLevel(const Level& level);
-		void UnloadCurrent();
-		void AddIndices();
-	};
 	class GenericModel {
 	public:
 		struct Bone {
@@ -71,7 +57,6 @@ namespace SGF {
 		};
 
 		struct Node {
-			//glm::mat4 localTransform;
 			glm::mat4 globalTransform;
 			uint32_t parent;
 			uint32_t index;
