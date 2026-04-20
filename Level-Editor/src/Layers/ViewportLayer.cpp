@@ -4,6 +4,7 @@
 #include "ImGuizmo.h"
 #include "ModelSelectionCPU.hpp"
 #include <glm/gtx/matrix_decompose.hpp>
+#include <future>
 
 namespace SGF {
 	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
@@ -216,14 +217,6 @@ namespace SGF {
 		for (size_t i = 0; i < animationControllers.size(); ++i) {
 			auto& controller = animationControllers[i];
 			controller.Update(event.GetDeltaTime()/1000.f);
-			std::vector<glm::mat4> boneMatrices;
-			controller.GetBonePalette(boneMatrices);
-			for (size_t j = 0; j < boneMatrices.size(); ++j) {
-				glm::vec3 start, end;
-				start = glm::vec3(boneMatrices[j] * glm::vec4(0, 0, 0, 1));
-				end = glm::vec3(boneMatrices[j] * glm::vec4(0, 1, 0, 1));
-				debugRenderer.AddLine(start, end, SGF::Color::RGBA8::Red());
-			}
 		}
 	}
 
@@ -453,21 +446,6 @@ namespace SGF {
 		}
 		if (selectedModelIndex != UINT32_MAX) {
 			auto& model = *models[selectedModelIndex];
-			if (model.HasSkeletalAnimation()) {
-				if (ImGui::Button("Show Bones")) {
-					for (size_t i = 0; i < model.bones.size(); ++i) {
-						auto& bone = model.bones[i];
-						ImGui::Text("Bone %d: %s", i, bone.name.c_str());
-					}
-					auto& bones = model.bones;
-					for (size_t i = 0; i < bones.size(); ++i) {
-						auto& bone = bones[i];
-						glm::vec3 p1 = glm::vec3(bone.offsetMatrix * glm::vec4(0.f,0.f,0.f,1.f));
-						glm::vec3 p2 = glm::vec3(bone.offsetMatrix * glm::vec4(1.f,0.f,0.f,1.f));
-						debugRenderer.AddLine(p1, p2, SGF::Color::RGBA8::Green())	;
-					}
-				}
-			}
 
 			if (ImGui::Button("Clear Selection")) {
 				ClearSelection();

@@ -479,11 +479,10 @@ namespace SGF {
     void ModelRenderer::UpdateBoneTransforms(const GenericModel& model, const glm::mat4* pBoneTransforms, size_t count) {
         assert(pBoneTransforms != nullptr);
         if (!model.HasSkeletalAnimation()) {
-            SGF::Log::Warn("Trying to update bones wihtout having skeletal animations");
+            SGF::Log::Warn("Trying to update bones without having skeletal animations");
             return;
         }
         size_t indexOffset = GetBoneTransformsOffset(model);
-        SGF::Log::Debug("Updating bone Transforms with byte offset: {}", indexOffset * sizeof(pBoneTransforms[0]));
         boneTransformsRingBuffer.Write(pBoneTransforms, sizeof(pBoneTransforms[0]) * count, indexOffset * sizeof(pBoneTransforms[0]));
     }
 
