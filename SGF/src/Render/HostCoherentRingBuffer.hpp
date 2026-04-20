@@ -11,9 +11,11 @@ namespace SGF {
 		void* mappedMemory;
 		size_t pageSize;
 		size_t currentIndex;
+		VkBufferUsageFlags usageFlags;
 	public:
 		inline HostCoherentRingBuffer(size_t size, VkBufferUsageFlags usage) {
-			buffer = Device::Get().CreateBuffer(size * PAGE_COUNT, usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+			usageFlags = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+			buffer = Device::Get().CreateBuffer(size * PAGE_COUNT, usageFlags);
 			memory = Device::Get().AllocateMemory(buffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			mappedMemory = Device::Get().MapMemory(memory);
 			pageSize = size;
@@ -22,16 +24,15 @@ namespace SGF {
 		inline ~HostCoherentRingBuffer() {
 			Device::Get().Destroy(buffer, memory);
 		}
-		inline void Write(const void* data, size_t dataSize = pageSize, size_t offset = 0) {
+		inline void Write(const void* data, size_t dataSize, size_t offset = 0) {
 			assert(dataSize <= pageSize);
 			offset = offset + currentIndex * pageSize;
 			memcpy((char*)mappedMemory + offset, data, dataSize);
 		}
-		//inline void Write(const void* data) { Write(data, pageSize, 0); }
 		inline void SetPageIndex(size_t index) { currentIndex = index % PAGE_COUNT; }
-		inline void Resize(size_t allocSize, size_t alignment, VkBufferUsageFlags usage) {
+		inline void Resize(size_t allocSize) {
 			Device::Get().Destroy(buffer, memory);
-			buffer = Device::Get().CreateBuffer(allocSize * PAGE_COUNT, usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+			buffer = Device::Get().CreateBuffer(allocSize * PAGE_COUNT, usageFlags);
 			memory = Device::Get().AllocateMemory(buffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			mappedMemory = Device::Get().MapMemory(memory);
 			pageSize = allocSize;
@@ -46,7 +47,8 @@ namespace SGF {
 		inline void* GetMappedMemory() const { return mappedMemory; }
 		inline VkDeviceMemory GetMemory() const { return memory; }
 		inline VkBuffer GetBuffer() const { return buffer; }
-		inline size_t GetCurrentBufferOffset() const { return currentIndex * pageSize; }
+		inline size_t GetBufferOffset(uint32_t pageIndex) const { return pageIndex * pageSize; }
+		inline size_t GetCurrentBufferOffset() const { return GetBufferOffset(currentIndex); }
 		inline size_t GetCurrentPageIndex() const { return currentIndex; }
 		inline size_t GetPageSize() const { return pageSize; }
 		inline void NextPage() { currentIndex = (currentIndex + 1) % PAGE_COUNT; }

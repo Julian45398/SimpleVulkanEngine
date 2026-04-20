@@ -10,6 +10,8 @@
 #include "Layers/ImGuiLayer.hpp"
 #include "Layers/LayerEvents.hpp"
 #include "Filesystem/File.hpp"
+#include "Memory/MemorySizes.hpp"
+#include "Geometry/Math.hpp"
 
 #include "Geometry/Ray.hpp"
 

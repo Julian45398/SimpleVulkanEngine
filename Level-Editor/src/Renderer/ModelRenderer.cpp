@@ -21,7 +21,63 @@ namespace SGF {
         INSTANCE_BYTE_OFFSET,
     };
 
-    inline uint32_t PackNormalA2B10G10R10(const glm::vec3& n) {
+    constexpr VkVertexInputBindingDescription MODEL_VERTEX_BINDINGS[] = {
+		{0, sizeof(ModelRenderer::Vertex), VK_VERTEX_INPUT_RATE_VERTEX},
+		{1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE},
+	};
+    constexpr VkVertexInputBindingDescription SKELETAL_VERTEX_BINDINGS[] = {
+        {0, sizeof(ModelRenderer::Vertex), VK_VERTEX_INPUT_RATE_VERTEX},
+        {1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE},
+		{2, sizeof(GenericModel::VertexWeight), VK_VERTEX_INPUT_RATE_VERTEX}
+    };
+	constexpr VkVertexInputAttributeDescription MODEL_VERTEX_ATTRIBUTES[] = {
+		{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ModelRenderer::Vertex, position) }, // Position
+		{1, 0, VK_FORMAT_A2B10G10R10_UNORM_PACK32, offsetof(ModelRenderer::Vertex, normal) }, // Normal
+		{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ModelRenderer::Vertex, uv) }, // UV
+		{3, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(ModelRenderer::Vertex, color) }, // Vertex Color (UNORM statt sRGB)
+		{4, 0, VK_FORMAT_R32_UINT, offsetof(ModelRenderer::Vertex, textureIndex) }, // Texture Index
+		{5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // Transformation
+		{6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
+		{7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
+		{8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3},
+	};
+    constexpr VkVertexInputAttributeDescription SKELETAL_VERTEX_ATTRIBUTES[] = {
+		{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ModelRenderer::Vertex, position) }, // Position
+		{1, 0, VK_FORMAT_A2B10G10R10_UNORM_PACK32, offsetof(ModelRenderer::Vertex, normal) }, // Normal
+		{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ModelRenderer::Vertex, uv) }, // UV
+		{3, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(ModelRenderer::Vertex, color) }, // Vertex Color (UNORM statt sRGB)
+		{4, 0, VK_FORMAT_R32_UINT, offsetof(ModelRenderer::Vertex, textureIndex) }, // Texture Index
+        {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // Transformation
+		{6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)},
+		{7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
+		{8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3},
+
+		{9, 2, VK_FORMAT_R32G32B32A32_UINT, 0}, // Bone Indices
+		{10, 2, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::uvec4)}, // Bone Weights 
+	};
+
+
+
+	constexpr VkPipelineVertexInputStateCreateInfo MODEL_VERTEX_INPUT_INFO = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = FLAG_NONE,
+		.vertexBindingDescriptionCount = ARRAY_SIZE(MODEL_VERTEX_BINDINGS),
+		.pVertexBindingDescriptions = MODEL_VERTEX_BINDINGS,
+		.vertexAttributeDescriptionCount = ARRAY_SIZE(MODEL_VERTEX_ATTRIBUTES),
+		.pVertexAttributeDescriptions = MODEL_VERTEX_ATTRIBUTES,
+	};
+    constexpr VkPipelineVertexInputStateCreateInfo SKELETAL_VERTEX_INPUT_INFO = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = FLAG_NONE,
+        .vertexBindingDescriptionCount = ARRAY_SIZE(SKELETAL_VERTEX_BINDINGS),
+        .pVertexBindingDescriptions = SKELETAL_VERTEX_BINDINGS,
+        .vertexAttributeDescriptionCount = ARRAY_SIZE(SKELETAL_VERTEX_ATTRIBUTES),
+        .pVertexAttributeDescriptions = SKELETAL_VERTEX_ATTRIBUTES,
+    };
+    
+    uint32_t PackNormalA2B10G10R10(const glm::vec3& n) {
         glm::vec3 v = glm::clamp(n * 0.5f + 0.5f, 0.0f, 1.0f);
         uint32_t x = static_cast<uint32_t>(v.x * 1023.0f) & 0x3FF;
         uint32_t y = static_cast<uint32_t>(v.y * 1023.0f) & 0x3FF;
@@ -29,12 +85,39 @@ namespace SGF {
         return (z << 20) | (y << 10) | x;
     }
 
-    inline uint32_t PackColorRGBA8(const glm::vec4& c) {
+    uint32_t PackColorRGBA8(const glm::vec4& c) {
         uint32_t r = static_cast<uint32_t>(glm::clamp(c.r, 0.0f, 1.0f) * 255.0f) & 0xFF;
         uint32_t g = static_cast<uint32_t>(glm::clamp(c.g, 0.0f, 1.0f) * 255.0f) & 0xFF;
         uint32_t b = static_cast<uint32_t>(glm::clamp(c.b, 0.0f, 1.0f) * 255.0f) & 0xFF;
         uint32_t a = static_cast<uint32_t>(glm::clamp(c.a, 0.0f, 1.0f) * 255.0f) & 0xFF;
         return (a << 24) | (b << 16) | (g << 8) | r;
+    }
+
+    size_t GetRequiredBonesMemorySize(const GenericModel& model) {
+        return model.bones.size() * sizeof(model.bones[0]);
+    }
+    size_t GetRequiredIndexMemorySize(const GenericModel& model) {
+        return model.indices.size() * sizeof(model.indices[0]);
+    }
+    size_t GetRequiredInstanceMemorySize(const GenericModel& model) {
+        return model.nodes.size() * sizeof(model.nodes[0].globalTransform);
+    }
+    size_t GetRequiredVertexMemorySize(const GenericModel& model) {
+        return model.vertices.size() * sizeof(ModelRenderer::Vertex);
+    }
+    size_t GetRequiredTextureMemorySize(const GenericModel& model, ModelRenderer& modelRenderer) {
+        if (model.textures.size() == 0 && modelRenderer.GetTextureCount() == 0) return 4; // the size of the buffer texture
+        size_t size = 0;
+        for (const auto& texture : model.textures) {
+            size += texture.GetMemorySize();
+        }
+        return size;
+    }
+    size_t GetRequiredVertexWeightsMemorySize(const GenericModel& model) {
+        return model.vertexWeights.size() * sizeof(model.vertexWeights[0]);
+    }
+	size_t GetTotalRequiredMemorySize(const GenericModel& model, ModelRenderer& modelRenderer) { 
+        return GetRequiredIndexMemorySize(model) + GetRequiredVertexMemorySize(model) + GetRequiredInstanceMemorySize(model) + GetRequiredTextureMemorySize(model, modelRenderer) + GetRequiredVertexWeightsMemorySize(model); 
     }
 
     ModelRenderer::Vertex::Vertex(const glm::vec3& p, const glm::vec3& n, const glm::vec2& u, const glm::vec4& c, uint32_t i) : position(p), uv(u), textureIndex(i) {
@@ -65,30 +148,59 @@ namespace SGF {
         // Sampler:
         sampler = device.CreateImageSampler(VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 0.f, VK_FALSE, 0.f, 0, VK_COMPARE_OP_ALWAYS, 0.f, 0.f, VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE);
 
-        // Descriptor Set Layout:
+        // Descriptor Set Layouts:
         {
             VkDescriptorSetLayoutBinding uniform_bindings[] = {
                 {0, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
                 {1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_TEXTURE_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
             };
-            descriptorLayout = device.CreateDescriptorSetLayout(uniform_bindings);
+            textureDescriptorLayout = device.CreateDescriptorSetLayout(uniform_bindings);
+
+            VkDescriptorSetLayoutBinding layoutBindings[] = {
+			    Vk::CreateDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
+		    };
+		    boneDescriptorLayout = device.CreateDescriptorSetLayout(layoutBindings);
         }
 
         // DescriptorSets:
         {
             // Allocating Descriptor Sets:
-            VkDescriptorSetLayout layouts[] = {descriptorLayout, descriptorLayout};
+            VkDescriptorSetLayout layouts[SGF_FRAMES_IN_FLIGHT];
+			for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
+				layouts[i] = textureDescriptorLayout;
+				descriptorInvalidated[i] = false;
+			}
             device.AllocateDescriptorSets(descriptorPool, layouts, descriptorSets);
-            descriptorInvalidated[0] = false;
-            descriptorInvalidated[1] = false;
-
             // Writing Descriptor Sets:
             VkDescriptorImageInfo sampler_info = { sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED };
-            VkWriteDescriptorSet writes[] = {
-                Vk::CreateDescriptorWrite(descriptorSets[0], 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1),
-                Vk::CreateDescriptorWrite(descriptorSets[1], 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1)
+            VkWriteDescriptorSet writes[SGF_FRAMES_IN_FLIGHT];
+            for (size_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
+                writes[i] = Vk::CreateDescriptorWrite(descriptorSets[i], 0, 0, VK_DESCRIPTOR_TYPE_SAMPLER, &sampler_info, 1);
             };
             device.UpdateDescriptors(writes);
+
+
+			for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
+				layouts[i] = boneDescriptorLayout;
+			}
+			device.AllocateDescriptorSets(descriptorPool, layouts, SGF_FRAMES_IN_FLIGHT, boneTransformsDescriptors);
+			// Update Descriptor Sets with Bone Buffer info
+			for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
+                VkDescriptorBufferInfo bufferInfo = {
+                    boneTransformsRingBuffer.GetBuffer(),
+                    boneTransformsRingBuffer.GetBufferOffset(i),
+                    boneTransformsRingBuffer.GetPageSize()
+				};
+				VkWriteDescriptorSet write = Vk::CreateDescriptorWrite(
+					boneTransformsDescriptors[i],
+					0,
+					0,
+					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					&bufferInfo,
+					1
+				);
+				device.UpdateDescriptors(&write, 1);
+			}
         }
 
         // Transfer Objects:
@@ -102,7 +214,7 @@ namespace SGF {
         if (stagingBuffer.GetSize() != 0) {
             device.WaitFence(fence);
         }
-        device.Destroy(fence, commandPool, descriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
+        device.Destroy(fence, commandPool, textureDescriptorLayout, boneDescriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
     }
 
     size_t ModelRenderer::UploadTexture(const TextureImage& image, const Texture& texture, size_t offset) {
@@ -157,26 +269,9 @@ namespace SGF {
         return offset;
     }
 
-    size_t ModelRenderer::GetRequiredIndexMemorySize(const GenericModel& model) const {
-        return model.indices.size() * sizeof(model.indices[0]);
-    }
-    size_t ModelRenderer::GetRequiredInstanceMemorySize(const GenericModel& model) const {
-        return model.nodes.size() * sizeof(model.nodes[0].globalTransform);
-    }
-    size_t ModelRenderer::GetRequiredVertexMemorySize(const GenericModel& model) const {
-        return model.vertices.size() * sizeof(ModelRenderer::Vertex);
-    }
-    size_t ModelRenderer::GetRequiredTextureMemorySize(const GenericModel& model) const {
-        if (model.textures.size() == 0 && textures.size() == 0) return 4; // the size of the buffer texture
-        size_t size = 0;
-        for (const auto& texture : model.textures) {
-            size += texture.GetMemorySize();
-        }
-        return size;
-    }
 
     void ModelRenderer::BeginTransfer(const GenericModel& model) {
-        size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
+        size_t uploadMemorySize = GetTotalRequiredMemorySize(model, *this);
         auto& device = Device::Get();
 
         if (stagingBuffer.IsInitialized()) {
@@ -202,6 +297,25 @@ namespace SGF {
         indexRegion.srcOffset = startOffset;
         indexRegion.dstOffset = INDEX_BUFFER_BYTE_OFFSET + totalIndexCount * sizeof(uint32_t);
         return stagingBuffer.CopyData(model.indices.data(), indexRegion);
+    }
+
+    size_t ModelRenderer::UploadVertexWeights(const GenericModel& model, size_t startOffset) {
+        if (model.vertexWeights.size() == 0) return startOffset;
+        VkBufferCopy weightRegion;
+        weightRegion.size = model.vertexWeights.size() * sizeof(model.vertexWeights[0]);
+        weightRegion.srcOffset = startOffset;
+        weightRegion.dstOffset = totalWeightCount * sizeof(GenericModel::VertexWeight);
+        for (size_t i = 0; i < model.vertexWeights.size(); ++i) {
+            auto weight = model.vertexWeights[i];
+            // Increase indices by start positions of the bones in the Uniform Buffer
+            for (size_t j = 0; j < ARRAY_SIZE(weight.boneIndices); ++j) {
+                weight.boneIndices[j] += totalBoneCount;
+            }
+            startOffset = stagingBuffer.CopyData(&weight, sizeof(weight), startOffset);
+        }
+
+        vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexWeightsBuffer, 1, &weightRegion);
+        return startOffset;
     }
 
     size_t ModelRenderer::PrepareVertexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion) {
@@ -241,7 +355,7 @@ namespace SGF {
             SGF::Log::Warn("Attempted to upload empty or null model!");
             return;
 		}
-        size_t uploadMemorySize = GetTotalRequiredMemorySize(model);
+        size_t uploadMemorySize = GetTotalRequiredMemorySize(model, *this);
 
         auto& device = Device::Get();
         BeginTransfer(model);
@@ -262,6 +376,19 @@ namespace SGF {
 
         vkCmdCopyBuffer(commandBuffer, stagingBuffer, vertexBuffer, ARRAY_SIZE(regions), regions);
 
+        if (model.HasSkeletalAnimation()) {
+            // Allocate Device Memory if first model with skeletal animations
+            if (vertexWeightsBuffer == VK_NULL_HANDLE) {
+                assert(vertexWeightsMemory == VK_NULL_HANDLE);
+                auto& device = Device::Get();
+                size_t requiredSize = GetRequiredVertexWeightsMemorySize(model);
+                allocatedVertexWeightsSize = MemorySize::MB_64 * (1 + (requiredSize/MemorySize::MB_64)); // Allocate enough memory
+                vertexWeightsBuffer = device.CreateBuffer(allocatedVertexWeightsSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+                vertexWeightsMemory = device.AllocateMemory(vertexWeightsBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            }
+            offset = UploadVertexWeights(model, offset);
+        }
+
         offset = UploadTextures(model, offset);
         assert(offset == uploadMemorySize);
 
@@ -272,14 +399,17 @@ namespace SGF {
         drawData.indexOffset = totalIndexCount;
         drawData.vertexOffset = totalVertexCount;
         drawData.instanceOffset = totalInstanceCount;
+        drawData.boneTransformsOffset = totalBoneCount;
+        drawData.vertexWeightOffset = totalWeightCount;
         totalIndexCount += model.indices.size();
         totalVertexCount += model.vertices.size();
         totalInstanceCount += model.nodes.size();
+        totalBoneCount += model.bones.size();
+        totalWeightCount += model.vertexWeights.size();
         modelDrawData.insert({&model, drawData});
         return;
     }
 
-    // New: update already-uploaded instance transforms for a model handle
     void ModelRenderer::UpdateInstanceTransforms(const GenericModel& model) {
 		auto it = modelDrawData.find(&model);
         if (it == modelDrawData.end()) {
@@ -346,10 +476,21 @@ namespace SGF {
         FinalizeTransfer();
     }
 
+    void ModelRenderer::UpdateBoneTransforms(const GenericModel& model, const glm::mat4* pBoneTransforms, size_t count) {
+        assert(pBoneTransforms != nullptr);
+        if (!model.HasSkeletalAnimation()) {
+            SGF::Log::Warn("Trying to update bones wihtout having skeletal animations");
+            return;
+        }
+        size_t indexOffset = GetBoneTransformsOffset(model);
+        SGF::Log::Debug("Updating bone Transforms with byte offset: {}", indexOffset * sizeof(pBoneTransforms[0]));
+        boneTransformsRingBuffer.Write(pBoneTransforms, sizeof(pBoneTransforms[0]) * count, indexOffset * sizeof(pBoneTransforms[0]));
+    }
+
     void ModelRenderer::PrepareDrawing(uint32_t frameIndex) {
         CheckTransferStatus();
         UpdateTextureDescriptors(frameIndex);
-
+        boneTransformsRingBuffer.NextPage();
     }
 
     size_t ModelRenderer::GetTotalDeviceMemoryUsed() const {
@@ -358,6 +499,44 @@ namespace SGF {
 
     size_t ModelRenderer::GetTotalDeviceMemoryAllocated() const {
         return PAGE_SIZE + textureAllocator.GetAllocatedSize();
+    }
+
+    size_t ModelRenderer::GetBoneTransformsOffset(const GenericModel& model) const {
+        auto it = modelDrawData.find(&model);
+        if (it == modelDrawData.end()) {
+            SGF::Log::Warn("Trying to find bone transform offset, with model not uploaded yet!");
+            return SIZE_MAX;
+        }
+		auto drawData = it->second;
+        return drawData.boneTransformsOffset;
+    }
+
+    size_t ModelRenderer::GetBoneVertexWeightsOffset(const GenericModel& model) const {
+        auto it = modelDrawData.find(&model);
+        if (it == modelDrawData.end()) {
+            SGF::Log::Warn("Trying to find bone transform offset, with model not uploaded yet!");
+            return SIZE_MAX;
+        }
+		auto drawData = it->second;
+        return drawData.vertexWeightOffset;
+    }
+    const ModelRenderer::ModelDrawData& ModelRenderer::GetDrawData(const GenericModel& model) const {
+        auto it = modelDrawData.find(&model);
+        if (it == modelDrawData.end()) {
+            SGF::Log::Warn("Trying to find bone transform offset, with model not uploaded yet!");
+            return modelDrawData.begin()->second;
+        }
+		return it->second;
+    }
+    const VkPipelineVertexInputStateCreateInfo ModelRenderer::GetStaticModelVertexInput() {
+        return MODEL_VERTEX_INPUT_INFO;
+    }
+    const VkPipelineVertexInputStateCreateInfo ModelRenderer::GetSkeletalModelVertexInput() {
+        return SKELETAL_VERTEX_INPUT_INFO;
+	}
+
+    void ModelRenderer::BindPipeline(VkCommandBuffer commands, VkPipeline pipeline) const {
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }
         
     void ModelRenderer::BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const {
@@ -370,11 +549,13 @@ namespace SGF {
         VkDeviceSize offsets[] = {
             drawData.vertexOffset * sizeof(ModelRenderer::Vertex) + VERTEX_BYTE_OFFSET,
             drawData.instanceOffset * sizeof(glm::mat4) + INSTANCE_BYTE_OFFSET,
+            drawData.vertexWeightOffset * sizeof(GenericModel::VertexWeight)
         };
         VkBuffer buffers[] = {
-            vertexBuffer, vertexBuffer
+            vertexBuffer, vertexBuffer, vertexWeightsBuffer
         };
-        vkCmdBindVertexBuffers(commands, 0, ARRAY_SIZE(buffers), buffers, offsets);
+        uint32_t bindCount = model.HasSkeletalAnimation() ? ARRAY_SIZE(buffers) : (ARRAY_SIZE(buffers) - 1);
+        vkCmdBindVertexBuffers(commands, 0, bindCount, buffers, offsets);
         vkCmdBindIndexBuffer(commands, vertexBuffer, INDEX_BUFFER_BYTE_OFFSET + drawData.indexOffset * sizeof(uint32_t), VK_INDEX_TYPE_UINT32);
     }
     void ModelRenderer::DrawModel(VkCommandBuffer commands, const GenericModel& model) const {

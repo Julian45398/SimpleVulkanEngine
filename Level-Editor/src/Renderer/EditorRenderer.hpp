@@ -31,10 +31,13 @@ namespace SGF {
 
 		inline void AddModel(const GenericModel& model) { modelRenderer.UploadModel(model); }
 		inline void UpdateInstanceTransforms(const GenericModel& model) { modelRenderer.UpdateInstanceTransforms(model); }
+	    inline void UpdateBoneTransforms(const GenericModel& model, const std::vector<glm::mat4>& boneTransforms) { modelRenderer.UpdateBoneTransforms(model, boneTransforms); }
         void BeginFrame(RenderEvent& event, const glm::mat4& viewProj);
 		void EndFrame(RenderEvent& event, glm::uvec2 pixelPos);
-        inline void BindRenderPipeline() { BindPipeline(staticRenderPipeline, pipelineLayout); };
-        inline void BindOutlinePipeline() { BindPipeline(outlinePipeline, outlineLayout); }
+        inline void BindStaticRenderPipeline() { BindStaticPipeline(staticRenderPipeline, staticRenderPipelineLayout); };
+        inline void BindOutlinePipeline() { BindStaticPipeline(outlinePipeline, outlineLayout); }
+        inline void BindSkeletalRenderPipeline() { BindSkeletalPipeline(skeletalRenderPipeline, skeletalRenderPipelineLayout); }
+        //inline void BindSkeletalOutlinePipeline() { BindSkeletalPipeline(outlinePipeline, outlineLayout); }
         void SetColorModifier(const glm::vec4& colorModifier) const;
         void SetModelTransparency(float transparency) const;
         void SetModifiers(const glm::vec4& colorModifer, float transparency) const;
@@ -62,7 +65,8 @@ namespace SGF {
 
         void DrawNodeRecursiveExcludeNodePrivate(const GenericModel& model, uint32_t modelIndex, const GenericModel::Node& currentNode, const GenericModel::Node& excludedNode) const;
         void SetCurrentID(CursorHover currentID) const;
-		void BindPipeline(VkPipeline pipeline, VkPipelineLayout pipelineLayout);
+		void BindStaticPipeline(VkPipeline pipeline, VkPipelineLayout pipelineLayout);
+        void BindSkeletalPipeline(VkPipeline pipeline, VkPipelineLayout layout);
         CommandList commands[SGF_FRAMES_IN_FLIGHT];
         Viewport viewport;
         VkSampler sampler = VK_NULL_HANDLE;
@@ -74,7 +78,9 @@ namespace SGF {
         VkDescriptorSet uniformDescriptors[SGF_FRAMES_IN_FLIGHT];
 
         VkPipeline staticRenderPipeline;
-        VkPipelineLayout pipelineLayout;
+        VkPipelineLayout staticRenderPipelineLayout;
+		VkPipeline skeletalRenderPipeline;
+        VkPipelineLayout skeletalRenderPipelineLayout;
         VkPipeline outlinePipeline;
         VkPipelineLayout outlineLayout;
         //Cursor cursor;

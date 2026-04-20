@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(Level-Editor VERSION 0.0.1)
 
-
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
 
 add_executable(Level-Editor ${SRC_FILES})

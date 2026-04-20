@@ -26,6 +26,8 @@ namespace SGF {
 		struct Bone {
 			glm::mat4 offsetMatrix;
 			glm::mat4 currentTransform;
+			glm::mat4 nodeTransform;
+			glm::mat4 globalTransform;
 			uint32_t parent;
 			uint32_t index;
 			std::string name;

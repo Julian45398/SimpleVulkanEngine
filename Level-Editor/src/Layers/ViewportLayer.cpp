@@ -32,10 +32,15 @@ namespace SGF {
 		}
 		editorRenderer.BeginFrame(event, viewProj);
 
+		bool skeletalAnimationsPresent = false;
 		// Draw all static Models
-		editorRenderer.BindRenderPipeline();
+		editorRenderer.BindStaticRenderPipeline();
 		for (size_t i = 0; i < models.size(); ++i) {
 			auto& model = *models[i];
+			if (model.HasSkeletalAnimation()) {
+				skeletalAnimationsPresent = true;
+				continue;
+			}
 			if (!ImGuizmo::IsUsing() && (editorRenderer.IsCursorHoveringItem() && editorRenderer.GetHoveredModelIndex() == i && selectionMode != SelectionMode::NO_SELECTION)) {
 				if (selectionMode == SelectionMode::NODE) {
 					editorRenderer.SetModifiers(NO_COLOR_MODIFIER, 1.f);
@@ -53,12 +58,49 @@ namespace SGF {
 				editorRenderer.DrawModel(model, i);
 			}
 		}
+		if (skeletalAnimationsPresent) {
+			std::vector<glm::mat4> boneTransforms;
+			boneTransforms.reserve(128);
+			for (size_t i = 0; i < animationControllers.size(); ++i) {
+				animationControllers[i].GetBonePalette(boneTransforms);
+				auto& model = *animationControllers[i].GetModel();
+				editorRenderer.UpdateBoneTransforms(model, boneTransforms);
+				SGF::Log::Debug("Drawing Animated model: {}", model.name);
+			}
+			editorRenderer.BindSkeletalRenderPipeline();
+			for (size_t i = 0; i < models.size(); ++i) {
+				auto& model = *models[i];
+				if (!model.HasSkeletalAnimation()) continue;
+				if (!ImGuizmo::IsUsing() && (editorRenderer.IsCursorHoveringItem() && editorRenderer.GetHoveredModelIndex() == i && selectionMode != SelectionMode::NO_SELECTION)) {
+					if (selectionMode == SelectionMode::NODE) {
+						editorRenderer.SetModifiers(NO_COLOR_MODIFIER, 1.f);
+						editorRenderer.DrawModelExcludeNode(model, i, model.GetNode(editorRenderer.GetHoveredNodeIndex()));
+						editorRenderer.SetModifiers(HOVER_COLOR, 1.f);
+						editorRenderer.DrawModelNodeRecursive(model, i, model.GetNode(editorRenderer.GetHoveredNodeIndex()));
+					}
+					else {
+						editorRenderer.SetModifiers(HOVER_COLOR, 1.f);
+						editorRenderer.DrawModel(model, i);
+					}
+				}
+				else {
+					editorRenderer.SetModifiers(NO_COLOR_MODIFIER, 1.f);
+					editorRenderer.DrawModel(model, i);
+					SGF::Log::Debug("Drawing Animated model without modifiers: {}", model.name);
+				}
+			}
+		}
+		
 		// Selection Outline
 		if (selectedModelIndex != UINT32_MAX) {
 			assert(selectedModelIndex < models.size());
-			editorRenderer.BindOutlinePipeline();
 			auto& model = *models[selectedModelIndex];
-			editorRenderer.DrawNodeOutline(model, model.GetNode(selectedNodeIndex));
+			if (model.HasSkeletalAnimation()) {
+			}
+			else {
+				editorRenderer.BindOutlinePipeline();
+				editorRenderer.DrawNodeOutline(model, model.GetNode(selectedNodeIndex));
+			}
 		}
 		editorRenderer.DrawGrid();
 		debugRenderer.Draw(editorRenderer.GetCurrentCommandBuffer(), cameraController.GetViewProjMatrix(editorRenderer.GetAspectRatio()), editorRenderer.GetWidth(), editorRenderer.GetHeight());
@@ -189,12 +231,6 @@ namespace SGF {
 				start = glm::vec3(boneMatrices[j] * glm::vec4(0, 0, 0, 1));
 				end = glm::vec3(boneMatrices[j] * glm::vec4(0, 1, 0, 1));
 				debugRenderer.AddLine(start, end, SGF::Color::RGBA8::Red());
-			}
-		}
-		// 
-		if (!animationControllers.empty()) {
-			for (size_t i = 0; i < models.size(); ++i) {
-				//modelRenderer.UpdateInstanceTransforms(modelBindOffsets[i], *models[i]);
 			}
 		}
 	}
@@ -392,10 +428,9 @@ namespace SGF {
 	void ViewportLayer::ImportModel(const char* filename) {
 		models.emplace_back(new GenericModel(filename));
 		editorRenderer.AddModel(*models.back());
-		//modelBindOffsets.push_back(modelRenderer.UploadModel(*models.back()));
 		if (models.back()->HasAnimations()) {
 			Log::Debug("Model has animations!");
-			//animationControllers.emplace_back(models.back());
+			animationControllers.emplace_back(models.back().get());
 		}
 		else {
 			Log::Debug("Model has no animations!");
@@ -474,30 +509,6 @@ namespace SGF {
 			if (open) {
 				DrawTreeNode(i, model.nodes[0]);
 				ImGui::TreePop();
-			}
-		}
-	}
-
-	void DecomposeTransformationMatrix(const glm::mat4& matrix, glm::vec3* pTranslation, glm::quat* pRotation, glm::vec3* pScale) {
-		if (pTranslation) {
-			*pTranslation = glm::vec3(matrix[3]);
-		}
-		if (pRotation || pScale) {
-			glm::vec3 col0 = glm::vec3(matrix[0]);
-			glm::vec3 col1 = glm::vec3(matrix[1]);
-			glm::vec3 col2 = glm::vec3(matrix[2]);
-
-			glm::vec3 scale = glm::vec3(glm::length(col0), glm::length(col1), glm::length(col2));
-			if (pScale) {
-				*pScale = scale;
-			}
-			if (pRotation) {
-				glm::mat3 rotMat(
-					col0 / (scale).x,
-					col1 / (scale).y,
-					col2 / (scale).z
-				);
-				*pRotation = glm::quat_cast(rotMat);
 			}
 		}
 	}

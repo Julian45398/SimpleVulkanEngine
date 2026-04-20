@@ -7,7 +7,7 @@ namespace SGF {
 		signalSemaphore = device.CreateSemaphore();
 
 		VkDescriptorPoolSize poolSizes[] = {
-			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SGF_FRAMES_IN_FLIGHT),
+			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2* SGF_FRAMES_IN_FLIGHT), // Camera and Bone transforms
 			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, SGF_FRAMES_IN_FLIGHT * 128),
 			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, SGF_FRAMES_IN_FLIGHT),
 			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)
@@ -40,48 +40,47 @@ namespace SGF {
 		modelPickMapped = (CursorHover*)device.MapMemory(modelPickMemory);
 
 		gridRenderer.Init(viewport.GetRenderPass(), 0, uniformLayout);
-		VkDescriptorSetLayout descriptorLayouts[] = {
-			uniformLayout, modelRenderer.GetDescriptorSetLayout()
-		};
 		// Pipeline:
         {
             // Layout:
-            VkDescriptorSetLayout descriptor_layouts[] = {
+            VkDescriptorSetLayout staticDescriptorLayouts[] = {
                 uniformLayout,
-				modelRenderer.GetDescriptorSetLayout()
+				modelRenderer.GetTextureDescriptorSetLayout()
             };
-            VkPushConstantRange colorOverlayRange;
-            colorOverlayRange.offset = 0;
-            colorOverlayRange.size = sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float); // color overlay (vec4), node index (uint32), transparency (f32)
-            colorOverlayRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            //VkPushConstantRange nodeIndexRange;
-            //nodeIndexRange.offset = sizeof(glm::vec4);
-            //nodeIndexRange.size = sizeof(uint32_t);
-            //nodeIndexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            //VkPushConstantRange transparency;
-            //transparency.offset = sizeof(glm::vec4) + sizeof(uint32_t);
-            //transparency.size = sizeof(float);
-            //transparency.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            VkPushConstantRange push_constant_ranges[] = {
-               colorOverlayRange//, nodeIndexRange, transparency 
+            VkDescriptorSetLayout skeletalDescriptorLayouts[] = {
+                uniformLayout,
+				modelRenderer.GetTextureDescriptorSetLayout(),
+				modelRenderer.GetBoneDescriptorSetLayout()
             };
-            pipelineLayout = device.CreatePipelineLayout(descriptor_layouts, push_constant_ranges);
-			outlineLayout = device.CreatePipelineLayout(descriptor_layouts);
+
+
+
+            VkPushConstantRange pushConstantRange;
+            pushConstantRange.offset = 0;
+            pushConstantRange.size = sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float); // color overlay (vec4), node index (uint32), transparency (f32)
+            pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            VkPushConstantRange pushConstantRanges[] = {
+               pushConstantRange
+            };
+            staticRenderPipelineLayout = device.CreatePipelineLayout(staticDescriptorLayouts, pushConstantRanges);
+			outlineLayout = device.CreatePipelineLayout(staticDescriptorLayouts);
+			skeletalRenderPipelineLayout = device.CreatePipelineLayout(skeletalDescriptorLayouts, pushConstantRanges);
         }
-		staticRenderPipeline = device.CreateGraphicsPipeline(pipelineLayout, viewport.GetRenderPass(), 0)
-            .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
+		staticRenderPipeline = device.CreateGraphicsPipeline(staticRenderPipelineLayout, viewport.GetRenderPass(), 0)
+            .FragmentShader("shaders/model.frag").VertexShader("shaders/model.vert").VertexInput(modelRenderer.GetStaticModelVertexInput())
             .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
 		outlinePipeline = device.CreateGraphicsPipeline(outlineLayout, viewport.GetRenderPass(), 0)
-            .FragmentShader("shaders/outline.frag").VertexShader("shaders/outline.vert").VertexInput(modelRenderer.GetPipelineVertexInput())
+            .FragmentShader("shaders/outline.frag").VertexShader("shaders/outline.vert").VertexInput(modelRenderer.GetStaticModelVertexInput())
             .DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL).AddColorBlendAttachment(false, 0)
 			.FrontFace(VK_FRONT_FACE_CLOCKWISE).Build();
+		skeletalRenderPipeline = device.CreateGraphicsPipeline(skeletalRenderPipelineLayout, viewport.GetRenderPass(), 0)
+			.FragmentShader("shaders/model.frag").VertexShader("shaders/model_skeletal.vert").VertexInput(modelRenderer.GetSkeletalModelVertexInput())
+			.DynamicState(VK_DYNAMIC_STATE_VIEWPORT).DynamicState(VK_DYNAMIC_STATE_SCISSOR).Depth(true, true).AddColorBlendAttachment(false, VK_COLOR_COMPONENT_R_BIT).Build();
 	}
 	EditorRenderer::~EditorRenderer() {
 		auto& device = Device::Get();
-		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout, pipelineLayout, outlineLayout, staticRenderPipeline, outlinePipeline);
+		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout, staticRenderPipelineLayout, outlineLayout, staticRenderPipeline, outlinePipeline);
 	}
-
-
 	void EditorRenderer::BeginFrame(RenderEvent& event, const glm::mat4& viewProj) {
 		VkClearValue clearValues[] = {
 			Vk::CreateColorClearValue(0.1f, 0.1f, 0.1f, 1.f),
@@ -150,20 +149,20 @@ namespace SGF {
 
 	void EditorRenderer::SetColorModifier(const glm::vec4& colorModifier) const {
 		VkCommandBuffer c = commands[imageIndex];
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), &colorModifier);
+		vkCmdPushConstants(c, staticRenderPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), &colorModifier);
 	}
 	void EditorRenderer::SetModelTransparency(float transparency) const {
 		VkCommandBuffer c = commands[imageIndex];
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
+		vkCmdPushConstants(c, staticRenderPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
 	}
 	void EditorRenderer::SetModifiers(const glm::vec4& colorModifier, float transparency) const {
 		VkCommandBuffer c = commands[imageIndex];
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), &colorModifier);
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
+		vkCmdPushConstants(c, staticRenderPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), &colorModifier);
+		vkCmdPushConstants(c, staticRenderPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
 	}
 	void EditorRenderer::SetCurrentID(CursorHover currentID) const {
 		VkCommandBuffer c = commands[imageIndex];
-		vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
+		vkCmdPushConstants(c, staticRenderPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
 	}
 	void EditorRenderer::DrawModelExcludeNode(const GenericModel& model, uint32_t modelIndex, const GenericModel::Node& excludedNode) const {
 		VkCommandBuffer c = commands[imageIndex];
@@ -219,50 +218,6 @@ namespace SGF {
 		modelRenderer.BindBuffersToModel(c, model);
 		modelRenderer.DrawModel(c, model);
 	}
-	/*
-	void EditorRenderer::DrawSelectedNode(const GenericModel& selectedModel, const GenericModel::Node& selectedNode) {
-		auto& c = commands[imageIndex];
-		BindPipeline(renderPipeline, pipelineLayout);
-		assert(modelBindOffsets.size() == models.size());
-		CursorHover currentID(0, 0);
-		for (size_t i = 0; i < modelBindOffsets.size(); ++i) {
-			currentID.model = i;
-			const glm::vec4* selectionColor = &NO_COLOR_MODIFIER;
-			float transparency = 1.f;
-			if (selectedModelIndex != UINT32_MAX) {
-				transparency = MESH_TRANSPARENCY;
-			}
-			modelRenderer.BindBuffersToModel(c, modelBindOffsets[i]);
-			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec4), selectionColor);
-			vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(float), &transparency);
-			auto& model = *models[i];
-			for (size_t j = 0; j < model.nodes.size(); ++j) {
-				currentID.node = j;
-				if (currentID == hoverValue) continue;
-				if (selectedModelIndex == i && selectedNodeIndex == j) {
-					uint8_t tempArray[sizeof(currentID) + sizeof(transparency)];
-					memcpy(tempArray, &currentID, sizeof(currentID));
-					memcpy(tempArray + sizeof(currentID), &NO_TRANSPARENCY, sizeof(transparency));
-					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(tempArray), tempArray);
-					modelRenderer.DrawNode(c, model, model.nodes[j]);
-					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4) + sizeof(uint32_t), sizeof(transparency), &transparency);
-				} else {
-					vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::vec4), sizeof(uint32_t), &currentID);
-					modelRenderer.DrawNode(c, model, model.nodes[j]);
-				}
-			}
-			if (hoverValue.IsValid()) {
-				selectionColor = (selectedModelIndex == hoverValue.model && selectedNodeIndex == hoverValue.node) ? &NO_COLOR_MODIFIER : &HOVER_COLOR;
-				uint8_t tempArray[sizeof(glm::vec4) + sizeof(uint32_t) + sizeof(float)];
-				memcpy(tempArray, selectionColor, sizeof(glm::vec4));
-				memcpy(tempArray + sizeof(glm::vec4), &hoverValue, sizeof(uint32_t));
-				memcpy(tempArray + sizeof(glm::vec4) + sizeof(uint32_t), &NO_TRANSPARENCY, sizeof(float));
-				vkCmdPushConstants(c, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(tempArray), tempArray);
-				modelRenderer.DrawNode(c, model, model.nodes[hoverValue.node]);
-			}
-		}
-	}
-	*/
     void EditorRenderer::DrawGrid() {
 		gridRenderer.Draw(commands[imageIndex], uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());
     }
@@ -279,11 +234,29 @@ namespace SGF {
 		}
 	}
 	
-	void EditorRenderer::BindPipeline(VkPipeline pipeline, VkPipelineLayout layout) {
+	void EditorRenderer::BindStaticPipeline(VkPipeline pipeline, VkPipelineLayout layout) {
 		auto& c = commands[imageIndex];
 		VkDescriptorSet sets[] = {
 			uniformDescriptors[imageIndex],
-			modelRenderer.GetDescriptorSet(imageIndex),
+			modelRenderer.GetTextureDescriptorSet(imageIndex),
+		};
+		vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+		vkCmdBindDescriptorSets(c, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);
+		glm::uvec2 viewportSize;
+		viewportSize.x = viewport.GetWidth();
+		viewportSize.y = viewport.GetHeight();
+        VkViewport view = { (float)0.0f, (float)0.0f, (float)viewport.GetWidth(), (float)viewport.GetHeight(), 0.0f, 1.0f };
+        VkRect2D scissor = { {0, 0}, viewport.GetExtent() };
+        vkCmdSetViewport(c, 0, 1, &view);
+        vkCmdSetScissor(c, 0, 1, &scissor);
+	}
+
+	void EditorRenderer::BindSkeletalPipeline(VkPipeline pipeline, VkPipelineLayout layout) {
+		auto& c = commands[imageIndex];
+		VkDescriptorSet sets[] = {
+			uniformDescriptors[imageIndex],
+			modelRenderer.GetTextureDescriptorSet(imageIndex),
+			modelRenderer.GetBoneDescriptorSet(imageIndex)
 		};
 		vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		vkCmdBindDescriptorSets(c, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, ARRAY_SIZE(sets), sets, 0, nullptr);

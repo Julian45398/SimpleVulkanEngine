@@ -1,4 +1,5 @@
 #include "AnimationController.hpp"
+#include "SGF.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 #include <algorithm>
@@ -46,20 +47,18 @@ namespace SGF {
     void AnimationController::UpdateBoneTransforms(const GenericModel::Animation& animation, float animationTime) {
 		assert(currentAnimationIndex != UINT32_MAX);
 		auto& model = *pModel;
-        // Reset all bones to identity
         for (auto& bone : model.bones) {
-            bone.currentTransform = glm::mat4(1.0f);
+            bone.currentTransform = bone.nodeTransform;
         }
-
-        // Apply animation channels
         for (const auto& channel : animation.channels) {
             if (channel.boneIndex >= model.bones.size()) continue;
 
             auto& bone = model.bones[channel.boneIndex];
 
-            glm::vec3 position(0.0f);
-            glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
-            glm::vec3 scale(1.0f);
+            glm::vec3 position;
+            glm::quat rotation;
+            glm::vec3 scale;
+            DecomposeTransformationMatrix(bone.nodeTransform, &position, &rotation, &scale);
 
             if (!channel.positionKeys.empty()) {
                 position = InterpolatePosition(channel.positionKeys, animationTime);
@@ -70,13 +69,11 @@ namespace SGF {
             if (!channel.scaleKeys.empty()) {
                 scale = InterpolateScale(channel.scaleKeys, animationTime);
             }
-
-            // Build transform: Scale * Rotation * Translation
+            // Build transform: Translation * Rotation * Scale 
             bone.currentTransform = glm::translate(glm::mat4(1.0f), position)
                 * glm::mat4_cast(rotation)
                 * glm::scale(glm::mat4(1.0f), scale);
         }
-
         // Update parent-child hierarchy
         for (size_t i = 1; i < model.bones.size(); ++i) {
             auto& bone = model.bones[i];
@@ -89,12 +86,21 @@ namespace SGF {
     }
 
     glm::vec3 AnimationController::InterpolatePosition(const std::vector<GenericModel::KeyFrame>& keys, float time) const {
-        if (keys.empty()) return glm::vec3(0.0f);
-        if (keys.size() == 1) return keys[0].value;
+        if (keys.empty())
+            return glm::vec3(0.0f);
+        if (keys.size() == 1)
+            return keys[0].value;
+        if (time <= keys.front().time)
+            return keys.front().value;
+        if (time >= keys.back().time)
+            return keys.back().value;
 
         for (size_t i = 0; i < keys.size() - 1; ++i) {
             if (time >= keys[i].time && time <= keys[i + 1].time) {
-                float t = (time - keys[i].time) / (keys[i + 1].time - keys[i].time);
+                float delta = keys[i + 1].time - keys[i].time;
+                if (delta <= 0.00001f)
+                    return keys[i].value;
+                float t = (time - keys[i].time) / delta;
                 return glm::mix(keys[i].value, keys[i + 1].value, t);
             }
         }
@@ -102,23 +108,36 @@ namespace SGF {
     }
 
     glm::quat AnimationController::InterpolateRotation(const std::vector<GenericModel::RotationKeyFrame>& keys, float time) const {
-        if (keys.empty()) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        if (keys.size() == 1) return glm::quat_cast(glm::mat4(1.0f)); // Placeholder
-
+        if (keys.empty())
+            return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        if (keys.size() == 1)
+            return keys[0].value;
+        if (time <= keys.front().time)
+            return keys.front().value;
+        if (time >= keys.back().time)
+            return keys.back().value;
         for (size_t i = 0; i < keys.size() - 1; ++i) {
             if (time >= keys[i].time && time <= keys[i + 1].time) {
-                float t = (time - keys[i].time) / (keys[i + 1].time - keys[i].time);
-
-                return glm::slerp(keys[i].value, keys[i + 1].value, t);
+                float delta = keys[i + 1].time - keys[i].time;
+                if (delta <= 0.00001f)
+                    return keys[i].value;
+                float t = (time - keys[i].time) / delta;
+                glm::quat q1 = keys[i].value;
+                glm::quat q2 = keys[i + 1].value;
+                // Ensure shortest path
+                if (glm::dot(q1, q2) < 0.0f)
+                    q2 = -q2;
+                return glm::normalize(glm::slerp(q1, q2, t));
             }
         }
-        return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        return keys.back().value;
     }
 
     void AnimationController::GetBonePalette(std::vector<glm::mat4>& outPalette) const {
 		auto& model = *pModel;
         outPalette.clear();
         outPalette.reserve(model.bones.size());
+        glm::mat4 globalInverse = glm::inverse(pModel->GetRoot().globalTransform);
         for (const auto& bone : model.bones) {
             outPalette.push_back(bone.currentTransform * bone.offsetMatrix);
         }

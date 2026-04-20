@@ -243,8 +243,6 @@ namespace SGF {
 
 	void BuildNode(GenericModel* pModel, aiNode* pNode, GenericModel::Node& node);
 
-
-
 	void LoadSkeletalAnimations(GenericModel* pModel, const aiScene* pScene) {
 		if (pScene->mNumAnimations == 0) {
 			Log::Info("Model has no animations!");
@@ -298,7 +296,12 @@ namespace SGF {
 					channel.rotationKeys.emplace_back();
 					channel.rotationKeys.back().time = static_cast<float>(key.mTime);
 					// Store quaternion as vec3 (temporary, should be quat)
-					channel.rotationKeys.back().value = glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z);
+					glm::quat rotation;
+					rotation.x = key.mValue.x;
+					rotation.y = key.mValue.y;
+					rotation.z = key.mValue.z;
+					rotation.w = key.mValue.w;
+					channel.rotationKeys.back().value = rotation;
 				}
 
 				// Load scale keys
@@ -382,10 +385,18 @@ namespace SGF {
 				};
 
 			aiNode* boneNode = findBoneNode(pScene->mRootNode, boneName);
-			if (boneNode && boneNode->mParent) {
-				const std::string parentName = boneNode->mParent->mName.C_Str();
-				if (boneNameToIndex.find(parentName) != boneNameToIndex.end()) {
-					pModel->bones[boneIndex].parent = boneNameToIndex[parentName];
+			if (boneNode) {
+				auto& bone = pModel->bones[boneIndex];
+				for (uint32_t j = 0; j < 4; ++j) {
+					for (uint32_t k = 0; k < 4; ++k) {
+						bone.nodeTransform[k][j] = boneNode->mTransformation[j][k];
+					}
+				}
+				if (boneNode->mParent) {
+					const std::string parentName = boneNode->mParent->mName.C_Str();
+					if (boneNameToIndex.find(parentName) != boneNameToIndex.end()) {
+						bone.parent = boneNameToIndex[parentName];
+					}
 				}
 			}
 		}
@@ -429,7 +440,6 @@ namespace SGF {
 					channel.boneIndex = oldToNewIndex[channel.boneIndex];
 				}
 			}
-
 			// Update vertex weights to reference new bone indices
 			for (auto& weight : pModel->vertexWeights) {
 				for (int i = 0; i < 4; ++i) {
@@ -438,17 +448,15 @@ namespace SGF {
 					}
 				}
 			}
-
 			assert(sortedBones[0].parent == UINT32_MAX);
+			sortedBones[0].currentTransform = sortedBones[0].nodeTransform;
 			for (size_t i = 1; i < pModel->bones.size(); ++i) {
-				Log::Info("Bone {}: '{}', parent: {}",
-					i, pModel->bones[i].name, pModel->bones[i].parent);
+				Log::Info("Bone {}: '{}', parent: {}", i, pModel->bones[i].name, pModel->bones[i].parent);
 				assert(sortedBones[i].parent < i); // Ensure parents come before children
+				sortedBones[i].currentTransform = sortedBones[sortedBones[i].parent].currentTransform * sortedBones[i].nodeTransform;
 			}
 
 			pModel->bones = std::move(sortedBones);
-
-
 		}
 
 		// Load vertex weights

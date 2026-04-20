@@ -205,12 +205,11 @@ namespace SGF {
 		size_t vertexDataSize = lineVertices.size() * sizeof(LineVertex);
 		if (vertexDataSize > vertexRingBuffer.GetPageSize()) {
 			Log::Warn("DebugRenderer: vertex data exceeds ring buffer page size!");
-			vertexRingBuffer.Resize(vertexDataSize, 0, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+			vertexRingBuffer.Resize(vertexDataSize);
 			return;
 		}
 
-		void* mapped = vertexRingBuffer.GetCurrentPagePointer();
-		memcpy(mapped, lineVertices.data(), vertexDataSize);
+		vertexRingBuffer.Write(lineVertices.data(), vertexDataSize, 0);
 
 		// Setup viewport and scissor
 		VkViewport viewport;
