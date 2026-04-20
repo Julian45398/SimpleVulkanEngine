@@ -422,11 +422,12 @@ namespace SGF {
 	}
 
 	const GenericModel::Node* GenericModel::ImportModel(const char* filename) {
+		Timer importTime;
 		//Clear();
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
 		if (scene == nullptr) {
-			SGF::Log::Error("No Scene available!");
+			SGF::Log::Error("No Scene available for file: {}", filename);
 			return nullptr;
 		}
 		name = scene->mName.C_Str();
@@ -502,6 +503,8 @@ namespace SGF {
 		}
 		LoadSkeletalBones(this, scene);
 		LoadSkeletalAnimations(this, scene);
+
+		SGF::Log::Info("Loading model file: {} finished, took: {} milliseconds", filename, importTime.currentMillis());
 		return pAttachmentNode;
 	}
 	void BuildNode(GenericModel* pModel, aiNode* pNode, GenericModel::Node& node) {

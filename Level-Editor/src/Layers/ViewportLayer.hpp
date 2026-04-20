@@ -10,6 +10,7 @@
 #include "DebugWindow.hpp"
 #include "ModelSelectionCPU.hpp"
 #include "AnimationController.hpp"
+#include <future>
 
 namespace SGF {
 	class ViewportLayer : public Layer {
@@ -57,10 +58,12 @@ namespace SGF {
         glm::dvec2 cursorMove;
         ImVec2 relativeCursor;
         CameraController cameraController;
+        std::future<std::unique_ptr<GenericModel>> loadingModel;
         
         float viewSize = 0.0f;
         float cameraZoom = 0.0f;
         bool isOrthographic = false;
+        bool doCPUModelIntersection = false;
         uint32_t inputMode = 0;
         SelectionMode selectionMode = SelectionMode::MODEL;
 		Profiler profiler;
@@ -71,6 +74,7 @@ namespace SGF {
 
     private:
 		void ImportModel(const char* filename);
+        void CheckModelImportStatus();
 	    void DrawTreeNode(uint32_t model, const GenericModel::Node& node);
 	    void DrawModelNodeExcludeSelectedHierarchy(const GenericModel& model, const GenericModel::Node& node) const;
 	    void DrawModelNodeRecursive(const GenericModel& model, const GenericModel::Node& node) const;
@@ -79,6 +83,7 @@ namespace SGF {
         void UpdateAnimations(const UpdateEvent& event);
         void BindPipeline(VkPipeline pipeline, VkPipelineLayout layout);
         void ClearSelection();
+        void UseGuizmo();
         void TestSelectionAlgorithms();
 	};
 }

@@ -4,7 +4,6 @@
 #include "ImGuizmo.h"
 #include "ModelSelectionCPU.hpp"
 #include <glm/gtx/matrix_decompose.hpp>
-#include <future>
 
 namespace SGF {
 	const glm::vec4 NO_COLOR_MODIFIER(1.f, 1.f, 1.f, 0.f);
@@ -201,8 +200,11 @@ namespace SGF {
 		}
 		return false;
 	}
+
+	
     
 	void ViewportLayer::OnEvent(const UpdateEvent& event) {
+		CheckModelImportStatus();
 		ImGuizmo::BeginFrame();
 		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 		UpdateAnimations(event);
@@ -237,46 +239,49 @@ namespace SGF {
 			cameraController.UpdateCamera(cursorMove, event.GetDeltaTime());
 		}
 		ImGui::Image(editorRenderer.GetImGuiTextureID(), size);
-		hitInfo.meshIndex = UINT32_MAX;
-		hitInfo.nodeIndex = UINT32_MAX;
-		hitInfo.triangleIndex = UINT32_MAX;
-		hitInfo.position = glm::vec3(0.f);
-		hitInfo.t = std::numeric_limits<float>::max();
+		
 		// Get hover value
 		if (ImGui::IsItemHovered()) {
-			auto hv = profiler.ProfileScope("CPU Model Selection");
-			//TestSelectionAlgorithms();
 			uint32_t modelHover = editorRenderer.GetHoveredModelIndex();
 			uint32_t nodeHover = editorRenderer.GetHoveredNodeIndex();
 			debugPanel.AddMessage(fmt::format("GPU Hover - Model: {} Node: {}", modelHover, nodeHover));
-			Ray ray;
 			{
 				ImVec2 mouse = ImGui::GetIO().MousePos;
 				ImVec2 imageMin = ImGui::GetItemRectMin();
 				relativeCursor = ImVec2(mouse.x - imageMin.x, mouse.y - imageMin.y);
-				ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
-				for (size_t i = 0; i < models.size(); ++i) {
-					auto& model = *models[i];
-					if (SGF::GetModelIntersection(ray, model, hitInfo)) {
-
+			}
+			if (doCPUModelIntersection) {
+				auto hv = profiler.ProfileScope("CPU Model Selection");
+				hitInfo.meshIndex = UINT32_MAX;
+				hitInfo.nodeIndex = UINT32_MAX;
+				hitInfo.triangleIndex = UINT32_MAX;
+				hitInfo.position = glm::vec3(0.f);
+				hitInfo.t = std::numeric_limits<float>::max();
+				{
+					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
+					for (size_t i = 0; i < models.size(); ++i) {
+						auto& model = *models[i];
+						if (SGF::GetModelIntersection(ray, model, hitInfo)) {
+						}
 					}
-				}
-				if (editorRenderer.IsCursorHoveringItem()) {
-					if (hitInfo.nodeIndex == nodeHover) {
-						debugPanel.AddMessage("CPU is the same as GPU hover value");
+					if (editorRenderer.IsCursorHoveringItem()) {
+						if (hitInfo.nodeIndex == nodeHover) {
+							debugPanel.AddMessage("CPU is the same as GPU hover value");
+						}
+						else {
+							debugPanel.AddMessage(fmt::format("CPU and GPU hover value dont match! CPU: {} - GPU: {}", hitInfo.nodeIndex, nodeHover));
+						}
+					}
+					else if (hitInfo.t < std::numeric_limits<float>::max()) {
+						debugPanel.AddMessage("CPU Hit detected, where no hit should be!");
 					}
 					else {
-						debugPanel.AddMessage(fmt::format("CPU and GPU hover value dont match! CPU: {} - GPU: {}", hitInfo.nodeIndex, nodeHover));
+						debugPanel.AddMessage("No hit with both methods");
 					}
-				}
-				else if (hitInfo.t < std::numeric_limits<float>::max()) {
-					debugPanel.AddMessage("CPU Hit detected, where no hit should be!");
-				}
-				else {
-					debugPanel.AddMessage("No hit with both methods");
 				}
 			}
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
+				SGF::Log::Debug("Mouse clicked while hovered!");
 				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
 				} else if (editorRenderer.IsCursorHoveringItem()) {
 					selectedModelIndex = modelHover;
@@ -286,9 +291,15 @@ namespace SGF {
 					selectedNodeIndex = UINT32_MAX;
 				}
 			}
-		} else {
 		}
 		if (selectedModelIndex != UINT32_MAX) {
+			UseGuizmo();
+		}
+		ImGui::End();
+		ImGui::PopStyleVar();
+	}
+
+	void ViewportLayer::UseGuizmo() {
 			ImGuizmo::SetOrthographic(isOrthographic);
 			ImGuizmo::SetDrawlist();
 			ImGuizmo::SetRect(ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y, editorRenderer.GetWidth(), editorRenderer.GetHeight());
@@ -312,9 +323,6 @@ namespace SGF {
 				}
 				editorRenderer.UpdateInstanceTransforms(model);
 			}
-		}
-		ImGui::End();
-		ImGui::PopStyleVar();
 	}
 
 	void ViewportLayer::DrawTreeNode(uint32_t modelIndex, const GenericModel::Node& node) {
@@ -355,6 +363,7 @@ namespace SGF {
 		selectedModelIndex = UINT32_MAX;
 		selectedNodeIndex = UINT32_MAX;
 	}
+
 
 	void ViewportLayer::TestSelectionAlgorithms() {
 		if (editorRenderer.IsCursorHoveringItem() && editorRenderer.GetHoveredNodeIndex() == 12) {
@@ -411,14 +420,31 @@ namespace SGF {
 	}
 
 	void ViewportLayer::ImportModel(const char* filename) {
-		models.emplace_back(new GenericModel(filename));
-		editorRenderer.AddModel(*models.back());
-		if (models.back()->HasAnimations()) {
-			Log::Debug("Model has animations!");
-			animationControllers.emplace_back(models.back().get());
+		if (loadingModel.valid()) {
+			// still loading a model - waiting for finished loading
+			auto loadedModel = loadingModel.get();
+			models.push_back(std::move(loadedModel));
+			editorRenderer.AddModel(*models.back());
+			if (models.back()->HasAnimations()) {
+				animationControllers.emplace_back(models.back().get());
+			}
 		}
-		else {
-			Log::Debug("Model has no animations!");
+		// Async import:
+		std::string file(filename);
+		loadingModel = std::async(std::launch::async, [f = std::move(file)]() {
+			auto ptr = std::make_unique<GenericModel>(f.c_str());
+			return std::move(ptr);
+			});
+	}
+	void ViewportLayer::CheckModelImportStatus() {
+		if (loadingModel.valid() && loadingModel.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+			// still loading a model - waiting for finished loading
+			models.push_back(std::move(loadingModel.get()));
+			editorRenderer.AddModel(*models.back().get());
+			if (models.back()->HasAnimations()) {
+				animationControllers.emplace_back(models.back().get());
+			}
+			SGF::Log::Debug("Finished loading model: {}", models.back().get()->name);
 		}
 	}
 
@@ -636,7 +662,15 @@ namespace SGF {
 
 		ImGui::Text("Selected ModelIndex: %d", selectedModelIndex);
 		ImGui::Separator();
-
+		if (doCPUModelIntersection) {
+			if (ImGui::Button("Disable CPU Model intersection")) {
+				doCPUModelIntersection = false;
+			}
+		}
+		else if (ImGui::Button("Enable CPU Model intersection")) {
+			doCPUModelIntersection = true;
+		}
+		ImGui::Separator();
 		cursorMove.x = 0; cursorMove.y = 0;
 		if (isOrthographic) {
 			if (ImGui::Button("Set Perspective")) {
@@ -663,6 +697,7 @@ namespace SGF {
 		if (ImGui::InputFloat3("Camera Forward: ", cameraForward, "%.3f")) {
 			cameraController.GetCamera().SetForward(cameraForward[0], cameraForward[1], cameraForward[2]);
 		}
+		
 		const auto& camera = cameraController.GetCamera();
 		auto forward = camera.GetForward();
 		auto position = camera.GetPos();
@@ -674,4 +709,5 @@ namespace SGF {
 
 		debugPanel.Draw();
 	}
+	
 }

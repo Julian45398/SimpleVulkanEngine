@@ -95,6 +95,7 @@ namespace SGF {
 
 		inline GenericModel() = default;
 		inline GenericModel(const char* filename) { ImportModel(filename); }
+		inline ~GenericModel() { SGF::Log::Debug("Generic model destructor called!"); }
 
 
         inline const std::string& GetName() const { return name; }
