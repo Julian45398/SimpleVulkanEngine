@@ -22,10 +22,10 @@ Currently, the project implements a **basic model renderer** with model selectio
 
 ### Camera
 
-* **Hold Right Mouse Button** — Enable first-person camera mode
-* **W / A / S / D** — Move camera
-* **Mouse Movement** — Look around / change view direction
-* **Left Ctrl (hold)** — Increase movement speed
+* **Hold Right Mouse Button** â€” Enable first-person camera mode
+* **W / A / S / D** â€” Move camera
+* **Mouse Movement** â€” Look around / change view direction
+* **Left Ctrl (hold)** â€” Increase movement speed
 
 ---
 
@@ -36,3 +36,5 @@ For build and setup instructions, see: [Build.md](Build.md)
 ---
 
 ## Notes
+
+For Running this application a Vulkan capable device is needed.
