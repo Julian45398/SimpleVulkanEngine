@@ -1,8 +1,38 @@
-Simple Vulkan Engine
-===
+# Simple Vulkan Engine
 
-Currently a just a simple model renderer using the Vulkan API
+![Preview](docs/preview.png)
 
-<img width="1405" height="796" alt="ImageOfRenderedCar" src="https://github.com/user-attachments/assets/eaa0cb59-a582-4188-bb8c-ca6fe393e882" />
+## Overview
 
-Gltf-model import currently only works partially - Only diffuse Textures rendered
+A lightweight Vulkan-based rendering engine focused on simplicity and clarity.
+Currently, the project implements a **basic model renderer** with model selection and transformation and supports skeletal animation.
+
+---
+
+## Features
+
+* Load **glTF models**
+* Render **skeletal animations**
+* Select individual **models and meshes**
+* Transform (move) objects within the scene
+
+---
+
+## Controls
+
+### Camera
+
+* **Hold Right Mouse Button** — Enable first-person camera mode
+* **W / A / S / D** — Move camera
+* **Mouse Movement** — Look around / change view direction
+* **Left Ctrl (hold)** — Increase movement speed
+
+---
+
+## Getting Started
+
+For build and setup instructions, see: [Build.md](Build.md)
+
+---
+
+## Notes
