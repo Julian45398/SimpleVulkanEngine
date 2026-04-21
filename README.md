@@ -37,4 +37,5 @@ For build and setup instructions, see: [Build.md](Build.md)
 
 ## Notes
 
-For Running this application a Vulkan capable device is needed.
+* Requires a Vulkan-compatible system to run
+* Designed and tested on Windows and Linux environments
