@@ -214,7 +214,7 @@ namespace SGF {
         if (stagingBuffer.GetSize() != 0) {
             device.WaitFence(fence);
         }
-        device.Destroy(fence, commandPool, textureDescriptorLayout, boneDescriptorLayout, sampler, vertexBuffer, vertexDeviceMemory);
+        device.Destroy(fence, commandPool, textureDescriptorLayout, boneDescriptorLayout, sampler, vertexBuffer, vertexDeviceMemory, vertexWeightsMemory);
     }
 
     size_t ModelRenderer::UploadTexture(const TextureImage& image, const Texture& texture, size_t offset) {
@@ -407,6 +407,7 @@ namespace SGF {
         totalBoneCount += model.bones.size();
         totalWeightCount += model.vertexWeights.size();
         modelDrawData.insert({&model, drawData});
+        uploadingModel = &model;
         return;
     }
 
@@ -427,6 +428,7 @@ namespace SGF {
         if (stagingBuffer.IsInitialized()) {
             device.WaitFence(fence);
             device.Reset(fence);
+            uploadingModel = nullptr;
             if (stagingBuffer.GetSize() < uploadSize) {
                 stagingBuffer.Resize(uploadSize);
             }
@@ -538,11 +540,11 @@ namespace SGF {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }
         
-    void ModelRenderer::BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const {
+    bool ModelRenderer::BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const {
 		auto it = modelDrawData.find(&model);
-        if (it == modelDrawData.end()) {
+        if (it == modelDrawData.end() || (&model == uploadingModel)) {
             SGF::Log::Warn("Attempted to bind buffers for a model that hasn't been uploaded!");
-			return;
+			return false;
         }
 		auto drawData = it->second;
         VkDeviceSize offsets[] = {
@@ -556,6 +558,7 @@ namespace SGF {
         uint32_t bindCount = model.HasSkeletalAnimation() ? ARRAY_SIZE(buffers) : (ARRAY_SIZE(buffers) - 1);
         vkCmdBindVertexBuffers(commands, 0, bindCount, buffers, offsets);
         vkCmdBindIndexBuffer(commands, vertexBuffer, INDEX_BUFFER_BYTE_OFFSET + drawData.indexOffset * sizeof(uint32_t), VK_INDEX_TYPE_UINT32);
+        return true;
     }
     void ModelRenderer::DrawModel(VkCommandBuffer commands, const GenericModel& model) const {
         DrawNodeRecursive(commands, model, model.GetRoot());
@@ -590,6 +593,7 @@ namespace SGF {
                 InvalidateDescriptors();
                 device.Reset(fence);
                 stagingBuffer.Clear();
+                uploadingModel = nullptr;
             }
         }
     }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <SGF.hpp>
-#include "Model.hpp"
+#include "Model/Model.hpp"
 
 
 namespace SGF {
@@ -35,7 +35,7 @@ namespace SGF {
         inline void UpdateBoneTransforms(const GenericModel& model, const std::vector<glm::mat4>& boneTransforms) { UpdateBoneTransforms(model, boneTransforms.data(), boneTransforms.size()); }
 
         void PrepareDrawing(uint32_t frameIndex);
-        void BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const;
+        bool BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const;
         void BindPipeline(VkCommandBuffer commands, VkPipeline pipeline) const;
 
         void DrawModel(VkCommandBuffer commands, const GenericModel& model) const;
@@ -87,6 +87,7 @@ namespace SGF {
         VkCommandPool commandPool = VK_NULL_HANDLE;
         VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
         StagingBuffer stagingBuffer;
+        const GenericModel* uploadingModel = nullptr;
         // Descriptors:
         VkDescriptorSet descriptorSets[SGF_FRAMES_IN_FLIGHT];
         VkDescriptorSet boneTransformsDescriptors[SGF_FRAMES_IN_FLIGHT];
