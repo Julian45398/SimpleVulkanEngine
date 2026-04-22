@@ -1,9 +1,7 @@
 #include "DebugRenderer.hpp"
-#include "Device.hpp"
-#include "CommandList.hpp"
+#include <SGF/Render.hpp>
 #include <cmath>
 #include <algorithm>
-#include "Vulkan.hpp"
 
 namespace SGF {
 	namespace {
@@ -94,18 +92,7 @@ namespace SGF {
 
 	DebugRenderer::~DebugRenderer() {
 		const auto& device = Device::Get();
-		if (pipeline != VK_NULL_HANDLE) {
-			device.Destroy(pipeline);
-		}
-		if (pipelineLayout != VK_NULL_HANDLE) {
-			device.Destroy(pipelineLayout);
-		}
-		if (descriptorPool != VK_NULL_HANDLE) {
-			device.Destroy(descriptorPool);
-		}
-		if (descriptorSetLayout != VK_NULL_HANDLE) {
-			device.Destroy(descriptorSetLayout);
-		}
+		device.Destroy(pipeline, pipelineLayout, descriptorPool, descriptorSetLayout);
 	}
 
 	void DebugRenderer::AddLine(const glm::vec3& start, const glm::vec3& end, SGF::Color::RGBA8 color) {

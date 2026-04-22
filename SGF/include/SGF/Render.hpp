@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SGF_Core.hpp"
+
 #include "Render/Vulkan.hpp"
 #include "Render/Device.hpp"
 #include "Render/RenderPass.hpp"
@@ -12,4 +14,4 @@
 #include "Render/Texture.hpp"
 #include "Render/Image.hpp"
 #include "Render/HostCoherentRingBuffer.hpp"
-#include "Render/DebugRenderer.hpp"
+#include "Render/Color.hpp"

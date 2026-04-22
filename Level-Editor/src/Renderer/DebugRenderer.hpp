@@ -1,9 +1,6 @@
 #pragma once
 
-#include "SGF_Core.hpp"
-#include "Render.hpp"
-#include "Vulkan.hpp"
-#include "Color.hpp"
+#include <SGF/Render.hpp>
 
 namespace SGF {
 	class DebugRenderer {

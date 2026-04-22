@@ -31,7 +31,6 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 	target_compile_definitions(${PROJECT_NAME} PRIVATE SVE_LOG_FATAL)
 endif()
 
-
 #add libraries
 #add_subdirectory(${LIB_DIR})
 target_compile_definitions(${PROJECT_NAME} PRIVATE PROJECT_NAME="${PROJECT_NAME}")

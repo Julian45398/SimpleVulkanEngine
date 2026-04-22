@@ -1,15 +1,16 @@
 #pragma once
 
 #include <SGF.hpp>
-#include "Model.hpp"
+#include "Model/Model.hpp"
 #include "Renderer/GridRenderer.hpp"
 #include "Renderer/ModelRenderer.hpp"
 #include "Renderer/EditorRenderer.hpp"
-#include "CameraController.hpp"
-#include "Viewport.hpp"
-#include "DebugWindow.hpp"
-#include "ModelSelectionCPU.hpp"
-#include "AnimationController.hpp"
+#include "Renderer/CameraController.hpp"
+#include "Renderer/Viewport.hpp"
+#include "Renderer/DebugRenderer.hpp"
+#include "UI/DebugWindow.hpp"
+#include "Model/ModelSelectionCPU.hpp"
+#include "Animation/AnimationController.hpp"
 #include <future>
 
 namespace SGF {

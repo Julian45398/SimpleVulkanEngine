@@ -2,7 +2,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "ImGuizmo.h"
-#include "ModelSelectionCPU.hpp"
+#include "Model/ModelSelectionCPU.hpp"
 #include <glm/gtx/matrix_decompose.hpp>
 
 namespace SGF {
@@ -125,8 +125,8 @@ namespace SGF {
 					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
 					debugRenderer.AddLine(camera.GetPos(), ray.GetOrigin() + ray.GetDirection() * 1000.f, SGF::Color::RGBA8::Blue());
 				}
-			}
-			if (event.GetKey() == SGF::KEY_B) {
+				return true;
+			} if (event.GetKey() == SGF::KEY_B) {
 				std::vector<glm::vec3> vertices;
 				std::vector<uint32_t> indices;
 				for (size_t l = 0; l < models.size(); ++l) {
@@ -164,9 +164,10 @@ namespace SGF {
 						indices.clear();
 					}
 				}
-			}
-			if (event.GetKey() == SGF::KEY_C) {
+				return true;
+			} else if (event.GetKey() == SGF::KEY_C) {
 				debugRenderer.Clear();
+				return true;
 			}
 		}
 		return false;
@@ -261,8 +262,7 @@ namespace SGF {
 					Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
 					for (size_t i = 0; i < models.size(); ++i) {
 						auto& model = *models[i];
-						if (SGF::GetModelIntersection(ray, model, hitInfo)) {
-						}
+						SGF::GetModelIntersection(ray, model, hitInfo);
 					}
 					if (editorRenderer.IsCursorHoveringItem()) {
 						if (hitInfo.nodeIndex == nodeHover) {
@@ -283,10 +283,13 @@ namespace SGF {
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { 
 				SGF::Log::Debug("Mouse clicked while hovered!");
 				if (ImGuizmo::IsOver()) { // Do nothing, gizmo is being used
+					SGF::Log::Debug("Guizmo is being used");
 				} else if (editorRenderer.IsCursorHoveringItem()) {
+					SGF::Log::Debug("Currently hovering Item!");
 					selectedModelIndex = modelHover;
 					selectedNodeIndex = (selectionMode == SelectionMode::NODE) ? nodeHover : models[selectedModelIndex]->GetRoot().index;
 				} else {
+					SGF::Log::Debug("Not Currently hovering Item!");
 					selectedModelIndex = UINT32_MAX;
 					selectedNodeIndex = UINT32_MAX;
 				}
@@ -313,7 +316,7 @@ namespace SGF {
 			auto proj = cameraController.GetProjMatrix(editorRenderer.GetAspectRatio());
 			auto globalTransform = model.GetNode(selectedNodeIndex).globalTransform;
 			glm::mat4 delta(1.f);
-			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::UNIVERSAL, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
+			ImGuizmo::Manipulate((float*)&view, (float*)&proj, ImGuizmo::OPERATION::ROTATE | ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::LOCAL, (float*)&globalTransform, (float*)&delta);
 			if (ImGuizmo::IsUsing()) {
 				if (selectionMode == SelectionMode::MODEL) {
 					// Apply to root node
@@ -362,61 +365,6 @@ namespace SGF {
     void ViewportLayer::ClearSelection() {
 		selectedModelIndex = UINT32_MAX;
 		selectedNodeIndex = UINT32_MAX;
-	}
-
-
-	void ViewportLayer::TestSelectionAlgorithms() {
-		if (editorRenderer.IsCursorHoveringItem() && editorRenderer.GetHoveredNodeIndex() == 12) {
-			debugPanel.AddMessage("Testing selection algorithms on node 12");
-			uint32_t hoveredModelIndex = editorRenderer.GetHoveredModelIndex();
-			uint32_t hoveredNodeIndex = editorRenderer.GetHoveredNodeIndex();
-			auto& model = *models[hoveredModelIndex];
-			auto& node12 = model.GetNode(12);
-			Ray ray = SGF::CreateRayFromPixel(relativeCursor.x, relativeCursor.y, editorRenderer.GetWidth(), editorRenderer.GetHeight(), cameraController.GetViewMatrix(), cameraController.GetProjMatrix(editorRenderer.GetAspectRatio()));
-			HitInfo cpuHitInfo;
-			std::vector<uint32_t> debugCheckedNodes;
-			bool cpuHit = SGF::GetNodeIntersection(ray, model, node12, cpuHitInfo);
-			const auto& vertices = model.GetVertices();
-			const auto& indices = model.GetIndices();
-			const auto& transform = node12.globalTransform;
-
-			std::vector<uint32_t> meshIndices;
-			std::vector<glm::vec3> meshVertices;
-			for (size_t j = 0; j < node12.meshes.size(); ++j) {
-				auto& mesh = model.GetMesh(node12, j);
-				meshIndices.reserve(mesh.indexCount);
-				meshVertices.reserve(mesh.vertexCount);
-				for (size_t i = 0; i < mesh.indexCount / 3; ++i) {
-					uint32_t i0 = indices[mesh.indexOffset + i * 3 + 0];
-					uint32_t i1 = indices[mesh.indexOffset + i * 3 + 1];
-					uint32_t i2 = indices[mesh.indexOffset + i * 3 + 2];
-
-					glm::vec3 v0 = vertices[mesh.vertexOffset].position;
-					glm::vec3 v1 = vertices[mesh.vertexOffset].position;
-					glm::vec3 v2 = vertices[mesh.vertexOffset].position;
-
-					v0 = glm::vec3(transform * glm::vec4(v0, 1.f));
-					v1 = glm::vec3(transform * glm::vec4(v1, 1.f));
-					v2 = glm::vec3(transform * glm::vec4(v2, 1.f));
-					meshIndices.push_back(i0);
-					meshIndices.push_back(i1);
-					meshIndices.push_back(i2);
-					meshVertices.push_back(v0);
-					meshVertices.push_back(v1);
-					meshVertices.push_back(v2);
-					debugRenderer.AddMesh(meshVertices, meshIndices, transform, SGF::Color::RGBA8::Red());
-					meshIndices.clear();
-					meshVertices.clear();
-				}
-			}
-
-			if (cpuHit) {
-				debugPanel.AddMessage(fmt::format("CPU Hit on Node 12! Hit Position: [ {}, {}, {} ]\nHit Normal: [ {}, {}, {} ]", cpuHitInfo.position.x, cpuHitInfo.position.y, cpuHitInfo.position.z, cpuHitInfo.normal.x, cpuHitInfo.normal.y, cpuHitInfo.normal.z));
-			}
-			else {
-				debugPanel.AddMessage("No CPU Hit on Node 12");
-			}
-		}
 	}
 
 	void ViewportLayer::ImportModel(const char* filename) {
@@ -656,19 +604,16 @@ namespace SGF {
 		ImGui::Text("Relative Pos: (%.3f, %.3f)", relativeCursor.x, relativeCursor.y);
 		ImGui::Text("Model: %d, Node: %d", editorRenderer.GetHoveredModelIndex(), editorRenderer.GetHoveredNodeIndex());
 
-		//ImGui::Text("Total Indices: %d,\nTotal Vertices: %d,\nTotal Textures: %ld\nMemory Used: %ld,\nMemory Allocated: %ld",
-			//editorRenderer.GetTotalIndexCount(), editorRenderer.GetTotalVertexCount(),
-			//editorRenderer.GetTextureCount(), editorRenderer.GetTotalDeviceMemoryUsed(), editorRenderer.GetTotalDeviceMemoryAllocated());
+		ImGui::Text("Total Indices: %d,\nTotal Vertices: %d,\nTotal Textures: %ld\nMemory Used: %ld,\nMemory Allocated: %ld",
+			editorRenderer.GetTotalIndexCount(), editorRenderer.GetTotalVertexCount(),
+			editorRenderer.GetTextureCount(), editorRenderer.GetTotalDeviceMemoryUsed(), editorRenderer.GetTotalDeviceMemoryAllocated());
 
 		ImGui::Text("Selected ModelIndex: %d", selectedModelIndex);
 		ImGui::Separator();
 		if (doCPUModelIntersection) {
-			if (ImGui::Button("Disable CPU Model intersection")) {
-				doCPUModelIntersection = false;
-			}
-		}
-		else if (ImGui::Button("Enable CPU Model intersection")) {
-			doCPUModelIntersection = true;
+			doCPUModelIntersection = !ImGui::Button("Disable CPU Model intersection");
+		} else {
+			doCPUModelIntersection = ImGui::Button("Enable CPU Model intersection");
 		}
 		ImGui::Separator();
 		cursorMove.x = 0; cursorMove.y = 0;

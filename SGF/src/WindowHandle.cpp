@@ -299,8 +299,8 @@ namespace SGF {
 		std::string filepath;
         if (!NFD_GetNativeWindowFromGLFWWindow((GLFWwindow*)nativeHandle, &args.parentWindow)) {
 #ifdef SGF_OS_WINDOWS 
-            args.parentWindow.handle = (void*)glfwGetWin32Window((GLFWwindow*)nativeHandle);
-            args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_WINDOWS;
+		args.parentWindow.handle = (void*)glfwGetWin32Window((GLFWwindow*)nativeHandle);
+		args.parentWindow.type = NFD_WINDOW_HANDLE_TYPE_WINDOWS;
 #elif defined(SGF_OS_LINUX)
 #ifdef SGF_USE_X11
             args.parentWindow.handle = (void*)glfwGetX11Window((GLFWwindow*)nativeHandle);

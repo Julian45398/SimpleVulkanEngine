@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "Model.hpp"
+#include "Model/Model.hpp"
 
 namespace SGF {
     class AnimationController {

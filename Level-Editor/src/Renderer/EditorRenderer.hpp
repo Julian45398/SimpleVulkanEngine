@@ -1,14 +1,14 @@
 #pragma once
 
 #include <SGF.hpp>
-#include "Model.hpp"
+#include "Model/Model.hpp"
 #include "Renderer/GridRenderer.hpp"
 #include "Renderer/ModelRenderer.hpp"
 #include "CameraController.hpp"
 #include "Viewport.hpp"
-#include "DebugWindow.hpp"
-#include "ModelSelectionCPU.hpp"
-#include "AnimationController.hpp"
+#include "UI/DebugWindow.hpp"
+#include "Model/ModelSelectionCPU.hpp"
+#include "Animation/AnimationController.hpp"
 
 namespace SGF {
 	class EditorRenderer {
@@ -38,6 +38,12 @@ namespace SGF {
         inline void BindOutlinePipeline() { BindStaticPipeline(outlinePipeline, outlineLayout); }
         inline void BindSkeletalRenderPipeline() { BindSkeletalPipeline(skeletalRenderPipeline, skeletalRenderPipelineLayout); }
         inline void BindSkeletalOutlinePipeline() { BindSkeletalPipeline(skeletalOutlinePipeline, skeletalOutlinePipelineLayout); }
+        inline uint32_t GetTotalIndexCount() const { return modelRenderer.GetTotalIndexCount(); }
+        inline uint32_t GetTotalVertexCount() const { return modelRenderer.GetTotalVertexCount(); }
+        inline uint32_t GetTextureCount() const { return modelRenderer.GetTextureCount(); }
+        inline size_t GetTotalDeviceMemoryUsed() const { return modelRenderer.GetTotalDeviceMemoryUsed(); }
+        inline size_t GetTotalDeviceMemoryAllocated() const { return modelRenderer.GetTotalDeviceMemoryAllocated(); }
+
         void SetColorModifier(const glm::vec4& colorModifier) const;
         void SetModelTransparency(float transparency) const;
         void SetModifiers(const glm::vec4& colorModifer, float transparency) const;

@@ -3,13 +3,16 @@
 
 namespace SGF {
     void PreInit();
+	void Init();
     void Setup();
+	void Run();
     void Cleanup();
+	void Terminate();
 }
 
 #include "Logging/Logger.hpp"
 #include "Logging/ErrorCodes.hpp"
-#include "Timer.hpp"
+#include "Profiling/Timer.hpp"
 
 #include <assert.h>
 #include <algorithm>

@@ -85,7 +85,9 @@ namespace SGF {
 	}
 	EditorRenderer::~EditorRenderer() {
 		auto& device = Device::Get();
-		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout, staticRenderPipelineLayout, outlineLayout, staticRenderPipeline, outlinePipeline);
+		device.Destroy(sampler, signalSemaphore, descriptorPool, uniformLayout, staticRenderPipelineLayout, 
+			skeletalRenderPipelineLayout, outlineLayout, skeletalOutlinePipelineLayout, 
+			skeletalRenderPipeline, staticRenderPipeline, skeletalOutlinePipeline, outlinePipeline, modelPickBuffer, modelPickMemory);
 	}
 	void EditorRenderer::BeginFrame(RenderEvent& event, const glm::mat4& viewProj) {
 		VkClearValue clearValues[] = {
@@ -172,13 +174,15 @@ namespace SGF {
 	}
 	void EditorRenderer::DrawModelExcludeNode(const GenericModel& model, uint32_t modelIndex, const GenericModel::Node& excludedNode) const {
 		VkCommandBuffer c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, model);
-		DrawNodeRecursiveExcludeNodePrivate(model, modelIndex, model.GetRoot(), excludedNode);
+		if (modelRenderer.BindBuffersToModel(c, model)) {
+			DrawNodeRecursiveExcludeNodePrivate(model, modelIndex, model.GetRoot(), excludedNode);
+		}
 	}
 	void EditorRenderer::DrawNodeRecursiveExcludeNode(const GenericModel& model, uint32_t modelIndex, const GenericModel::Node& currentNode, const GenericModel::Node& excludedNode) const {
 		VkCommandBuffer c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, model);
-		DrawNodeRecursiveExcludeNodePrivate(model, modelIndex, currentNode, excludedNode);
+		if (modelRenderer.BindBuffersToModel(c, model)) {
+			DrawNodeRecursiveExcludeNodePrivate(model, modelIndex, currentNode, excludedNode);
+		}
 	}
 	void EditorRenderer::DrawNodeRecursiveExcludeNodePrivate(const GenericModel& model, uint32_t modelIndex, const GenericModel::Node& currentNode, const GenericModel::Node& excludedNode) const {
 		if (currentNode.index == excludedNode.index) { return; }
@@ -207,22 +211,25 @@ namespace SGF {
 		CursorHover currentID(modelIndex, 0);
 		const glm::vec4* selectionColor;
 		auto& c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, model);
-		for (size_t j = 0; j < model.nodes.size(); ++j) {
-			currentID.node = j;
-			SetCurrentID(currentID);
-			modelRenderer.DrawNode(c, model, model.nodes[j]);
+		if (modelRenderer.BindBuffersToModel(c, model)) {
+			for (size_t j = 0; j < model.nodes.size(); ++j) {
+				currentID.node = j;
+				SetCurrentID(currentID);
+				modelRenderer.DrawNode(c, model, model.nodes[j]);
+			}
 		}
 	}
 	void EditorRenderer::DrawNodeOutline(const GenericModel& model, const GenericModel::Node& selectedNode) {
 		VkCommandBuffer c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, model);
-		modelRenderer.DrawNodeRecursive(c, model, selectedNode);
+		if (modelRenderer.BindBuffersToModel(c, model)) {
+			modelRenderer.DrawNodeRecursive(c, model, selectedNode);
+		}
 	}
 	void EditorRenderer::DrawModelOutline(const GenericModel& model) {
 		VkCommandBuffer c = commands[imageIndex];
-		modelRenderer.BindBuffersToModel(c, model);
-		modelRenderer.DrawModel(c, model);
+		if (modelRenderer.BindBuffersToModel(c, model)) {
+			modelRenderer.DrawModel(c, model);
+		}
 	}
     void EditorRenderer::DrawGrid() {
 		gridRenderer.Draw(commands[imageIndex], uniformDescriptors[imageIndex], viewport.GetWidth(), viewport.GetHeight());

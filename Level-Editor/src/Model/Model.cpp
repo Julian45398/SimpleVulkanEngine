@@ -224,7 +224,6 @@ namespace SGF {
 			assert(sortedBones[0].parent == UINT32_MAX);
 			sortedBones[0].currentTransform = sortedBones[0].nodeTransform;
 			for (size_t i = 1; i < pModel->bones.size(); ++i) {
-				Log::Info("Bone {}: '{}', parent: {}", i, pModel->bones[i].name, pModel->bones[i].parent);
 				assert(sortedBones[i].parent < i); // Ensure parents come before children
 				sortedBones[i].currentTransform = sortedBones[sortedBones[i].parent].currentTransform * sortedBones[i].nodeTransform;
 			}
@@ -390,7 +389,6 @@ namespace SGF {
 				if (AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &baseColor) ||
 					AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &baseColor)) {
 					hasBaseColor = true;
-					Log::Info("Base color is: [{}, {}, {}, {}]", baseColor.r, baseColor.g, baseColor.b, baseColor.a);
 				}
 				for (size_t j = 0; j < pMesh->mNumVertices; ++j) {
 					pModel->vertices[j + meshInfo.vertexOffset].color.r = baseColor.r;
@@ -414,9 +412,6 @@ namespace SGF {
 					pModel->vertices[meshInfo.vertexOffset + j].uv.y = 2.0f;
 				}
 			}
-			if (hasBaseColor) Log::Info("has base color");
-			if (hasVertexColors) Log::Info("has vertex colors");
-			if (hasTexture) Log::Info("Has texture");
 			if (!hasBaseColor && !hasTexture && !hasVertexColors) Log::Warn("Mesh doesnt have any color information!");
 		}
 	}
@@ -426,6 +421,7 @@ namespace SGF {
 		//Clear();
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
+		auto assimpLoadTime = importTime.currentMillis();
 		if (scene == nullptr) {
 			SGF::Log::Error("No Scene available for file: {}", filename);
 			return nullptr;
@@ -504,7 +500,7 @@ namespace SGF {
 		LoadSkeletalBones(this, scene);
 		LoadSkeletalAnimations(this, scene);
 
-		SGF::Log::Info("Loading model file: {} finished, took: {} milliseconds", filename, importTime.currentMillis());
+		SGF::Log::Info("Loading model file: {} finished, took: {} milliseconds, time for Assimp Scene: {}", filename, importTime.currentMillis(), assimpLoadTime);
 		return pAttachmentNode;
 	}
 	void BuildNode(GenericModel* pModel, aiNode* pNode, GenericModel::Node& node) {
