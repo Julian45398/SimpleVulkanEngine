@@ -6,6 +6,7 @@
 
 * **CMake**
 * **C++20-compatible compiler**
+* **glslc to compile glsl shaders to SPIR-V**
 * Supported platforms:
 
   * Windows 10 / Windows 11 (64-bit x86)
@@ -69,4 +70,5 @@ After a successful build, navigate to the directory containing the generated exe
 
 * Ensure your system has up-to-date Vulkan drivers installed.
 * If you encounter compiler issues, verify that your compiler fully supports the C++20 standard.
+* If the shaders cannot get compiled check that glslc is included in the PATH variable.
 * Ensure you are running the application from the executable directory else it may fail to load the required shader files
