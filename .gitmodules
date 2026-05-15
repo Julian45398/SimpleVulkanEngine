@@ -29,3 +29,6 @@
 [submodule "Level-Editor/lib/ImGuizmo"]
 	path = Level-Editor/lib/ImGuizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "SGF/lib/VulkanMemoryAllocator"]
+	path = SGF/lib/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
