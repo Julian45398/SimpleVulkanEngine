@@ -64,6 +64,10 @@ add_subdirectory("assimp")
 target_include_directories(SGF PUBLIC "assimp/include")
 target_link_libraries(SGF PUBLIC assimp)
 
+add_subdirectory("VulkanMemoryAllocator")
+target_link_libraries(SGF PRIVATE GPUOpen::VulkanMemoryAllocator)
+target_include_directories(SGF PRIVATE "VulkanMemoryAllocator/include")
+
 set(HEADER_DIRS PUBLIC
 	"shl" 
 	"glm"

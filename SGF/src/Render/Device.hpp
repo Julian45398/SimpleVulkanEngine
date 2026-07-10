@@ -1,4 +1,5 @@
 #pragma once
+#ifdef LKJWERLKJWERLKJWERLKWERLKJWERLKJ
 
 #include "SGF_Core.hpp"
 #include "GraphicsPipeline.hpp"
@@ -313,3 +314,4 @@ namespace SGF {
         static Device s_Instance;
     };
 }
+#endif

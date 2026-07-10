@@ -1,6 +1,8 @@
 #pragma once
 
 #include <SGF.hpp>
+#include <SGF/Core/Memory/MemorySizes.hpp>
+#include <SGF/Render/HostCoherentRingBuffer.hpp>
 #include "Model/Model.hpp"
 
 
@@ -23,10 +25,10 @@ namespace SGF {
             uint32_t boneTransformsOffset;
         };
     public:
-        void Initialize(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout);
-        inline ModelRenderer(VkRenderPass renderPass, uint32_t subpass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout uniformLayout) : boneTransformsRingBuffer(MemorySize::KB_64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+        void Initialize(SGF::GPU::RenderPass renderPass, uint32_t subpass, SGF::GPU::DescriptorPool descriptorPool, SGF::GPU::DescriptorSetLayout uniformLayout);
+        inline ModelRenderer(SGF::GPU::RenderPass renderPass, uint32_t subpass, SGF::GPU::DescriptorPool descriptorPool, SGF::GPU::DescriptorSetLayout uniformLayout) : boneTransformsRingBuffer(MemorySize::KB_64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
         { Initialize(renderPass, subpass, descriptorPool, uniformLayout); }
-        inline ModelRenderer() : boneTransformsRingBuffer(MemorySize::KB_64, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {}
+        inline ModelRenderer() : boneTransformsRingBuffer(MemorySize::KB_64, SGF::GPU::BufferUsage::UNIFORM_BUFFER) {}
         ~ModelRenderer();
 
         void UploadModel(const GenericModel& model);
@@ -35,37 +37,37 @@ namespace SGF {
         inline void UpdateBoneTransforms(const GenericModel& model, const std::vector<glm::mat4>& boneTransforms) { UpdateBoneTransforms(model, boneTransforms.data(), boneTransforms.size()); }
 
         void PrepareDrawing(uint32_t frameIndex);
-        bool BindBuffersToModel(VkCommandBuffer commands, const GenericModel& model) const;
-        void BindPipeline(VkCommandBuffer commands, VkPipeline pipeline) const;
+        bool BindBuffersToModel(GPU::CommandList commands, const GenericModel& model) const;
+        void BindPipeline(GPU::CommandList commands, GPU::GraphicsPipeline pipeline) const;
 
-        void DrawModel(VkCommandBuffer commands, const GenericModel& model) const;
-        void DrawNodeRecursive(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
-        void DrawNode(VkCommandBuffer commands, const GenericModel& model, const GenericModel::Node& node) const;
-        void DrawMesh(VkCommandBuffer commands, const GenericModel::Node& node, const GenericModel::Mesh& mesh) const;
+        void DrawModel(GPU::CommandList commands, const GenericModel& model) const;
+        void DrawNodeRecursive(GPU::CommandList commands, const GenericModel& model, const GenericModel::Node& node) const;
+        void DrawNode(GPU::CommandList commands, const GenericModel& model, const GenericModel::Node& node) const;
+        void DrawMesh(GPU::CommandList commands, const GenericModel::Node& node, const GenericModel::Mesh& mesh) const;
 
-        //void SetColorModifier(VkCommandBuffer commands, const glm::vec4& color = { 1.f, 1.f, 1.f, 1.f}) const;
-        //void SetMeshTransform(VkCommandBuffer commands, const glm::mat4& transform) const;
+        //void SetColorModifier(GPU::CommandList commands, const glm::vec4& color = { 1.f, 1.f, 1.f, 1.f}) const;
+        //void SetMeshTransform(GPU::CommandList commands, const glm::mat4& transform) const;
 
-        size_t GetTotalDeviceMemoryUsed() const;
-        size_t GetTotalDeviceMemoryAllocated() const;
+        size_t GetTotalMemoryUsed() const;
+        size_t GetTotalMemoryAllocated() const;
         inline size_t GetTextureCount() const { return textures.size(); }
         inline uint32_t GetTotalVertexCount() const { return totalVertexCount; }
         inline uint32_t GetTotalIndexCount() const { return totalIndexCount; }
         size_t GetBoneTransformsOffset(const GenericModel& model) const;
         size_t GetBoneVertexWeightsOffset(const GenericModel& model) const;
-        //inline VkPipelineLayout GetPipelineLayout() const { return pipelineLayout; } 
-        inline VkDescriptorSet GetTextureDescriptorSet(size_t index) const {
+        //inline GPU::PipelineLayout GetPipelineLayout() const { return pipelineLayout; } 
+        inline GPU::DescriptorSet GetTextureDescriptorSet(size_t index) const {
             assert(index < (sizeof(descriptorSets) / sizeof(descriptorSets[0])));
             return descriptorSets[index]; 
         }
-        inline VkDescriptorSet GetBoneDescriptorSet(size_t index) const { 
+        inline GPU::DescriptorSet GetBoneDescriptorSet(size_t index) const { 
             assert(index < (sizeof(boneTransformsDescriptors) / sizeof(boneTransformsDescriptors[0])));
             return boneTransformsDescriptors[index]; 
         }
-        inline VkDescriptorSetLayout GetTextureDescriptorSetLayout() const { return textureDescriptorLayout; }
-        inline VkDescriptorSetLayout GetBoneDescriptorSetLayout() const { return boneDescriptorLayout; }
-        static const VkPipelineVertexInputStateCreateInfo GetStaticModelVertexInput();
-        static const VkPipelineVertexInputStateCreateInfo GetSkeletalModelVertexInput();
+        inline GPU::DescriptorSetLayout GetTextureDescriptorSetLayout() const { return textureDescriptorLayout; }
+        inline GPU::DescriptorSetLayout GetBoneDescriptorSetLayout() const { return boneDescriptorLayout; }
+        //static const GPU::PipelineVertexInputStateCreateInfo GetStaticModelVertexInput();
+        //static const GPU::PipelineVertexInputStateCreateInfo GetSkeletalModelVertexInput();
 
         const ModelDrawData& GetDrawData(const GenericModel& model) const;
     private:
@@ -75,26 +77,26 @@ namespace SGF {
 		std::unordered_map<const GenericModel*, ModelDrawData> modelDrawData;
 		HostCoherentRingBuffer<SGF_FRAMES_IN_FLIGHT> boneTransformsRingBuffer;
         // Vertex buffers:
-        VkBuffer vertexBuffer = VK_NULL_HANDLE;
-        VkDeviceMemory vertexDeviceMemory = VK_NULL_HANDLE;
-        VkBuffer vertexWeightsBuffer = VK_NULL_HANDLE;
-        VkDeviceMemory vertexWeightsMemory = VK_NULL_HANDLE;
+        GPU::Buffer vertexBuffer = VK_NULL_HANDLE;
+        GPU::Memory vertexMemory = VK_NULL_HANDLE;
+        GPU::Buffer vertexWeightsBuffer = VK_NULL_HANDLE;
+        GPU::Memory vertexWeightsMemory = VK_NULL_HANDLE;
         size_t allocatedVertexWeightsSize = 0;
-        VkSampler sampler = VK_NULL_HANDLE;
+        GPU::Sampler sampler = VK_NULL_HANDLE;
         ImageMemoryAllocator textureAllocator;
         // TransferResources:
-        VkFence fence = VK_NULL_HANDLE;
-        VkCommandPool commandPool = VK_NULL_HANDLE;
-        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        GPU::Fence fence = VK_NULL_HANDLE;
+        GPU::CommandPool commandPool = VK_NULL_HANDLE;
+        GPU::CommandList commandBuffer = VK_NULL_HANDLE;
         StagingBuffer stagingBuffer;
         const GenericModel* uploadingModel = nullptr;
         // Descriptors:
-        VkDescriptorSet descriptorSets[SGF_FRAMES_IN_FLIGHT];
-        VkDescriptorSet boneTransformsDescriptors[SGF_FRAMES_IN_FLIGHT];
-        VkDescriptorSetLayout textureDescriptorLayout = VK_NULL_HANDLE;
-        VkDescriptorSetLayout boneDescriptorLayout = VK_NULL_HANDLE;
+        GPU::DescriptorSet descriptorSets[SGF_FRAMES_IN_FLIGHT];
+        GPU::DescriptorSet boneTransformsDescriptors[SGF_FRAMES_IN_FLIGHT];
+        GPU::DescriptorSetLayout textureDescriptorLayout = VK_NULL_HANDLE;
+        GPU::DescriptorSetLayout boneDescriptorLayout = VK_NULL_HANDLE;
         // Pipeline:
-        //VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        //GPU::PipelineLayout pipelineLayout = VK_NULL_HANDLE;
         uint32_t totalVertexCount = 0;
         uint32_t totalIndexCount = 0;
         uint32_t totalInstanceCount = 0;
@@ -110,9 +112,9 @@ namespace SGF {
         void FinalizeTransfer();
 
         size_t UploadTextures(const GenericModel& model, size_t startOffset);
-        size_t PrepareVertexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);
-        size_t PrepareIndexUpload(const GenericModel& model, size_t startOffset, VkBufferCopy* pRegion);
-        size_t PrepareInstanceUpload(const GenericModel& model, size_t offset, VkBufferCopy* pRegion);
+        size_t PrepareVertexUpload(const GenericModel& model, size_t startOffset, GPU::BufferCopy* pRegion);
+        size_t PrepareIndexUpload(const GenericModel& model, size_t startOffset, GPU::BufferCopy* pRegion);
+        size_t PrepareInstanceUpload(const GenericModel& model, size_t offset, GPU::BufferCopy* pRegion);
         size_t UploadVertexWeights(const GenericModel& model, size_t startOffset);
         size_t UploadTexture(const TextureImage& image, const Texture& texture, size_t offset);
     };

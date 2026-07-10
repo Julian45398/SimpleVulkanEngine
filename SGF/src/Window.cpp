@@ -1,3 +1,4 @@
+#if false
 #include "SGF_Core.hpp"
 #include "Window.hpp"
 #include "Render/Device.hpp"
@@ -147,7 +148,6 @@ namespace SGF {
 			SGF::Log::Fatal(ERROR_PRESENT_IMAGE);
 		}
 	}
-
     void Window::Open(const char* name, uint32_t newWidth, uint32_t newHeight, WindowCreateFlags flags, VkSampleCountFlagBits multisampleCount) {
         if (IsOpen()) {
             Close();
@@ -491,3 +491,4 @@ namespace SGF {
         CreateFramebuffers();
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef LKWJERLKJWERNDKSLKRJESLRKJSLEKRJSLERKJSERLKJJ
 #include <cstring>
 #include <vector>
 #include <volk.h>
@@ -1847,3 +1848,4 @@ namespace SGF {
 #pragma endregion DEVICE_USER_FUNCTIONS
 
 } // namespace SGF
+#endif

@@ -1,3 +1,4 @@
+#ifdef LKSJDRFKLJSERLKJSRLKJSELKJDF
 #include "SGF_Core.hpp"
 
 #include <volk.h>
@@ -284,3 +285,4 @@ namespace SGF {
 	}
 }
 
+#endif

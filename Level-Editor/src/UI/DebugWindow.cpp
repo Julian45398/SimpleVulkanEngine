@@ -1,6 +1,7 @@
 #include "DebugWindow.hpp"
 
 #include <SGF.hpp>
+#include <SGF/Core/Layers/ImGuiLayer.hpp>
 
 namespace SGF {
     DebugWindow::DebugWindow(const std::string& name) : windowName(name) {}

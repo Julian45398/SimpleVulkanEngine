@@ -1,9 +1,12 @@
 #pragma once
 
-#include "SGF_Core.hpp"
+#include <SGF/Core/GPU.hpp>
 
-#include "Render/Vulkan.hpp"
-#include "Render/Device.hpp"
+#include "Render/Camera.hpp"
+#include "Render/Color.hpp"
+#include "Render/HostCoherentRingBuffer.hpp"
+#include "Render/Texture.hpp"
+/*
 #include "Render/RenderPass.hpp"
 #include "Render/CommandList.hpp"
 #include "Render/GraphicsPipeline.hpp"
@@ -15,3 +18,4 @@
 #include "Render/Image.hpp"
 #include "Render/HostCoherentRingBuffer.hpp"
 #include "Render/Color.hpp"
+*/

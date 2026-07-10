@@ -26,19 +26,17 @@ namespace SGF {
 		};
 	}
 	
-	DebugRenderer::DebugRenderer(VkRenderPass renderPass, uint32_t subpass, uint32_t initialLineCapacity)
-		: vertexRingBuffer(sizeof(LineVertex) * initialLineCapacity * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT), 
-		  cameraBuffer(sizeof(glm::mat4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT),
-		  pipeline(VK_NULL_HANDLE),
-		  pipelineLayout(VK_NULL_HANDLE),
-		  descriptorPool(VK_NULL_HANDLE),
-		  descriptorSetLayout(VK_NULL_HANDLE)
+	DebugRenderer::DebugRenderer(GPU::RenderPass renderPass, uint32_t subpass, uint32_t initialLineCapacity)
+		: vertexRingBuffer(sizeof(LineVertex) * initialLineCapacity * 2, GPU::BufferUsage::VERTEX_BUFFER), 
+		  cameraBuffer(sizeof(glm::mat4), GPU::BufferUsage::UNIFORM_BUFFER),
+		  pipeline(nullptr),
+		  pipelineLayout(nullptr),
+		  descriptorPool(),
+		  descriptorSetLayout(nullptr)
 	{
 		lineVertices.reserve(initialLineCapacity * 2);
-		const auto& device = Device::Get();
-
 		// Create Descriptor Set Layout
-		VkDescriptorSetLayoutBinding layoutBindings[] = {
+		GPU::DescriptorSetLayoutBinding layoutBindings[] = {
 			Vk::CreateDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
 		};
 		descriptorSetLayout = device.CreateDescriptorSetLayout(layoutBindings);
@@ -47,7 +45,7 @@ namespace SGF {
 		VkDescriptorPoolSize poolSizes[] = {
 			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SGF_FRAMES_IN_FLIGHT)
 		};
-		descriptorPool = device.CreateDescriptorPool(SGF_FRAMES_IN_FLIGHT, poolSizes);
+		descriptorPool = GPU::CreateDescriptorPool(SGF_FRAMES_IN_FLIGHT, poolSizes);
 
 		// Allocate Descriptor Sets (one per frame)
 		VkDescriptorSetLayout layouts[SGF_FRAMES_IN_FLIGHT];

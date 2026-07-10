@@ -1,10 +1,9 @@
 #pragma once
 
-#include "SGF_Core.hpp"
-#include "Geometry/AABB.hpp"
-#include "Render/Texture.hpp"
+#include <SGF/Core.hpp>
+#include <SGF/Core/GPU.hpp>
+#include <SGF/Render/Texture.hpp>
 
-#include <glm/gtc/quaternion.hpp>
 
 namespace SGF {
 	class GenericModel {

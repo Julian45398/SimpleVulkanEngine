@@ -5,6 +5,7 @@
 #include "Input/Mousecodes.hpp"
 #include "WindowHandle.hpp"
 #include "Input/Input.hpp"
+#include <string>
 
 namespace SGF {
     struct WindowSettings {
@@ -31,7 +32,8 @@ namespace SGF {
         static void CreateMain() { Get().Open(s_WindowSettings.title, s_WindowSettings.width, s_WindowSettings.height, s_WindowSettings.createFlags); }
         inline static void SetCreateFlags(WindowCreateFlags flags) { s_WindowSettings.createFlags = flags; }
         inline static void SetSize(uint32_t width, uint32_t height) { s_WindowSettings.width = width, s_WindowSettings.height = height; }
-        inline static void SetTitle(const char* title) { assert(strlen(title) < ARRAY_SIZE(s_WindowSettings.title)); strncpy(s_WindowSettings.title, title, ARRAY_SIZE(s_WindowSettings.title)); }
+        inline static void SetTitle(const char* title) { SGF_ASSERT(strlen(title) < SGF_ARRAY_SIZE(s_WindowSettings.title)); strncpy(s_WindowSettings.title, title, SGF_ARRAY_SIZE(s_WindowSettings.title)); }
+        inline static void SetTitle(const std::string& title) { SGF_ASSERT(title.size() < SGF_ARRAY_SIZE(s_WindowSettings.title)); strncpy(s_WindowSettings.title, title.c_str(), SGF_ARRAY_SIZE(s_WindowSettings.title)); }
         inline static void EnableClear(float r, float g, float b, float a);
         inline static void CloseMain() { Get().Close(); }
 
@@ -150,10 +152,9 @@ namespace SGF {
         //====================================================================
         //============================Window Input============================
         //====================================================================
-        bool IsKeyPressed(Keycode key) const;
-        bool IsMousePressed(Mousecode button) const;
+        bool IsKeyPressed(Key key) const;
+        bool IsMousePressed(Mousebutton button) const;
         glm::dvec2 GetCursorPos() const;
-
     private:
         inline Window() {}
 
