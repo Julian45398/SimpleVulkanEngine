@@ -4,6 +4,7 @@
 #include <SGF/Core/Memory/MemorySizes.hpp>
 #include <SGF/Render/HostCoherentRingBuffer.hpp>
 #include "Model/Model.hpp"
+#include "Defines.hpp"
 
 
 namespace SGF {
@@ -75,7 +76,7 @@ namespace SGF {
         std::vector<TextureImage> textures;
         //std::vector<ModelDrawData> modelDrawData;
 		std::unordered_map<const GenericModel*, ModelDrawData> modelDrawData;
-		HostCoherentRingBuffer<SGF_FRAMES_IN_FLIGHT> boneTransformsRingBuffer;
+		HostCoherentRingBuffer<FRAMES_IN_FLIGHT> boneTransformsRingBuffer;
         // Vertex buffers:
         GPU::Buffer vertexBuffer = VK_NULL_HANDLE;
         GPU::Memory vertexMemory = VK_NULL_HANDLE;
@@ -91,8 +92,8 @@ namespace SGF {
         StagingBuffer stagingBuffer;
         const GenericModel* uploadingModel = nullptr;
         // Descriptors:
-        GPU::DescriptorSet descriptorSets[SGF_FRAMES_IN_FLIGHT];
-        GPU::DescriptorSet boneTransformsDescriptors[SGF_FRAMES_IN_FLIGHT];
+        GPU::DescriptorSet descriptorSets[FRAMES_IN_FLIGHT];
+        GPU::DescriptorSet boneTransformsDescriptors[FRAMES_IN_FLIGHT];
         GPU::DescriptorSetLayout textureDescriptorLayout = VK_NULL_HANDLE;
         GPU::DescriptorSetLayout boneDescriptorLayout = VK_NULL_HANDLE;
         // Pipeline:
@@ -102,7 +103,7 @@ namespace SGF {
         uint32_t totalInstanceCount = 0;
         uint32_t totalWeightCount = 0;
         uint32_t totalBoneCount = 0;
-        bool descriptorInvalidated[SGF_FRAMES_IN_FLIGHT] = {};
+        bool descriptorInvalidated[FRAMES_IN_FLIGHT] = {};
     private:
         void InvalidateDescriptors();
         void CheckTransferStatus();

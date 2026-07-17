@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Core/Math.hpp>
+#include <SGF/Core/Math/Math.hpp>
 #include <stdint.h>
 
 namespace SGF {

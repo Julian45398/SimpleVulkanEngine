@@ -10,6 +10,7 @@
 #include "Types.hpp"
 #include "CommandList.hpp"
 #include "CommandPool.hpp"
+#include "DescriptorSetLayout.hpp"
 #include "DescriptorPool.hpp"
 #include "GraphicsPipeline.hpp"
 #include "RenderPass.hpp"
@@ -17,7 +18,7 @@
 namespace SGF {
     namespace GPU {
         bool InitializeAPI(Flags<DriverFeature> flags = DriverFeature::NONE);
-        //uint32_t GetDeviceCount();
+
         std::vector<PhysicalDevice> GetAvailableDevices();
         std::string GetDeviceName(PhysicalDevice device);
         PhysicalDevice GetCurrentDevice();
@@ -209,14 +210,9 @@ namespace SGF {
         template<uint32_t COUNT>
         inline DescriptorSetLayout CreateDescriptorSetLayout(const std::array<DescriptorSetBinding, COUNT>& bindings, Flags<DescriptorSetLayoutCreate> flags = DescriptorSetLayoutCreate::NONE) { return CreateDescriptorSetLayout(bindings.data(), COUNT, flags); }
 
-        DescriptorPool CreateDescriptorPool(uint32_t maxSets, const DescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, Flags<DescriptorPoolCreate> flags = DescriptorPoolCreate::NONE);
-		inline DescriptorPool CreateDescriptorPool(uint32_t maxSets, const std::vector<DescriptorPoolSize>& poolSizes, Flags<DescriptorPoolCreate> flags = DescriptorPoolCreate::NONE) { return CreateDescriptorPool(maxSets, poolSizes.data(), (uint32_t)poolSizes.size(), flags); }
-        template<uint32_t COUNT>
-        inline DescriptorPool CreateDescriptorPool(uint32_t maxSets, const DescriptorPoolSize(&poolSizes)[COUNT], Flags<DescriptorPoolCreate> flags = DescriptorPoolCreate::NONE) { return CreateDescriptorPool(maxSets, poolSizes, COUNT, flags); }
-		template<uint32_t COUNT>
-		inline DescriptorPool CreateDescriptorPool(uint32_t maxSets, const std::array<DescriptorPoolSize, COUNT>& poolSizes, Flags<DescriptorPoolCreate> flags = DescriptorPoolCreate::NONE) { return CreateDescriptorPool(maxSets, poolSizes.data(), COUNT, flags); }
+        DescriptorPool CreateDescriptorPool(DescriptorSetLayout descriptorLayout, uint32_t maxSets, Flags<DescriptorPoolCreate> flags = DescriptorPoolCreate::NONE);
 
-        void UpdateDescriptor(DescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, DescriptorType descriptorType, const DescriptorBufferInfo* pBufferInfos, uint32_t descriptorCount);
+		void UpdateDescriptor(DescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, DescriptorType descriptorType, const DescriptorBufferInfo* pBufferInfos, uint32_t descriptorCount);
 		inline void UpdateDescriptor(DescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, DescriptorType descriptorType, const std::vector<DescriptorBufferInfo>& bufferInfos) { UpdateDescriptor(dstSet, dstBinding, dstArrayElement, descriptorType, bufferInfos.data(), (uint32_t)bufferInfos.size());   }
 		template<uint32_t COUNT>
 		inline void UpdateDescriptor(DescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement, DescriptorType descriptorType, const DescriptorBufferInfo(&bufferInfos)[COUNT]) { UpdateDescriptor(dstSet, dstBinding, dstArrayElement, descriptorType, bufferInfos, COUNT); }
@@ -258,6 +254,8 @@ namespace SGF {
 
         SampleCount GetMaxSupportedSampleCount();
 
+        void ClearDescriptorSetLayouts();
+
         void Destroy(Fence fence);
         void Destroy(Semaphore semaphore);
         void Destroy(Buffer buffer);
@@ -269,7 +267,7 @@ namespace SGF {
         void Destroy(ComputePipeline pipeline);
         void Destroy(RayTracingPipeline pipeline);
         void Destroy(PipelineLayout pipelineLayout);
-        void Destroy(DescriptorSetLayout descriptorSetLayout);
+        //void Destroy(DescriptorSetLayout descriptorSetLayout);
         void Destroy(DescriptorPool descriptorPool);
         void Destroy(Memory memory);
         void Destroy(CommandPool commandPool);

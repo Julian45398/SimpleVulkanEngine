@@ -5,6 +5,7 @@
 
 namespace SGF {
 	namespace {
+		/*
 		static constexpr VkVertexInputBindingDescription LINE_VERTEX_BINDINGS[] = {
 			{0, sizeof(DebugRenderer::LineVertex), VK_VERTEX_INPUT_RATE_VERTEX}
 			//{1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE},
@@ -24,6 +25,7 @@ namespace SGF {
 			.vertexAttributeDescriptionCount = ARRAY_SIZE(LINE_VERTEX_ATTRIBUTES),
 			.pVertexAttributeDescriptions = LINE_VERTEX_ATTRIBUTES,
 		};
+		*/
 	}
 	
 	DebugRenderer::DebugRenderer(GPU::RenderPass renderPass, uint32_t subpass, uint32_t initialLineCapacity)
@@ -32,27 +34,21 @@ namespace SGF {
 		  pipeline(nullptr),
 		  pipelineLayout(nullptr),
 		  descriptorPool(),
-		  descriptorSetLayout(nullptr)
-	{
+		  descriptorSetLayout() {
 		lineVertices.reserve(initialLineCapacity * 2);
 		// Create Descriptor Set Layout
-		GPU::DescriptorSetLayoutBinding layoutBindings[] = {
-			Vk::CreateDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
+		GPU::DescriptorSetBinding layoutBindings[] = {
+			GPU::DescriptorSetBinding(0, GPU::DescriptorType::UNIFORM_BUFFER, 1, GPU::ShaderStage::VERTEX)
 		};
-		descriptorSetLayout = device.CreateDescriptorSetLayout(layoutBindings);
+		descriptorSetLayout = GPU::CreateDescriptorSetLayout(layoutBindings);
 
 		// Create Descriptor Pool
 		VkDescriptorPoolSize poolSizes[] = {
 			Vk::CreateDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SGF_FRAMES_IN_FLIGHT)
 		};
-		descriptorPool = GPU::CreateDescriptorPool(SGF_FRAMES_IN_FLIGHT, poolSizes);
+		descriptorPool = GPU::CreateDescriptorPool(descriptorSetLayout, SGF_FRAMES_IN_FLIGHT);
 
-		// Allocate Descriptor Sets (one per frame)
-		VkDescriptorSetLayout layouts[SGF_FRAMES_IN_FLIGHT];
-		for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
-			layouts[i] = descriptorSetLayout;
-		}
-		device.AllocateDescriptorSets(descriptorPool, layouts, SGF_FRAMES_IN_FLIGHT, descriptorSets);
+		descriptorPool.AllocateToBuffer(SGF_FRAMES_IN_FLIGHT, descriptorSets);
 
 		// Update Descriptor Sets with Uniform Buffer info
 		for (uint32_t i = 0; i < SGF_FRAMES_IN_FLIGHT; ++i) {
@@ -76,7 +72,7 @@ namespace SGF {
 		pipelineLayout = device.CreatePipelineLayout(descriptorSetLayout);
 
 		// Create Graphics Pipeline
-		pipeline = device.CreateGraphicsPipeline(pipelineLayout, renderPass, subpass)
+		pipeline = GPU::CreateGraphicsPipeline(pipelineLayout, renderPass, subpass)
 			.FragmentShader("shaders/debug_line.frag")
 			.VertexShader("shaders/debug_line.vert")
 			.VertexInput(LINE_VERTEX_INPUT_INFO)

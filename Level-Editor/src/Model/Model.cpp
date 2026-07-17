@@ -1,5 +1,5 @@
 #include "Model.hpp"
-#include "Filesystem/File.hpp"
+#include <SGF/Core/Filesystem.hpp>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION

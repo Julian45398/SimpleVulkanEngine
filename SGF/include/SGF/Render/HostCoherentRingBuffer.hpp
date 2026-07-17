@@ -17,9 +17,9 @@ namespace SGF {
 		Flags<GPU::BufferUsage> m_UsageFlags;
 	public:
 		inline HostCoherentRingBuffer(size_t size, Flags<GPU::BufferUsage> usage) {
-			m_UsageFlags = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+			m_UsageFlags = usage | GPU::BufferUsage::TRANSFER_SRC;
 			m_Buffer = GPU::CreateBuffer(size * PAGE_COUNT, m_UsageFlags);
-			m_Memory = GPU::AllocateMemory(m_Buffer, GPU::MemoryProperty::HOST_VISIBLE | GPU::MemoryProperty::HOST_COHERENT);
+			m_Memory = GPU::AllocateMemory(m_Buffer, AsFlags(GPU::MemoryProperty::HOST_VISIBLE, GPU::MemoryProperty::HOST_COHERENT));
 			m_MappedMemory = GPU::MapMemory(m_Memory);
 			m_PageSize = size;
 			m_CurrentIndex = 0;
@@ -36,7 +36,7 @@ namespace SGF {
 		inline void Resize(size_t allocSize) {
 			GPU::Destroy(m_Buffer, m_Memory);
 			m_Buffer = GPU::CreateBuffer(allocSize * PAGE_COUNT, m_UsageFlags);
-			m_Memory = GPU::AllocateMemory(m_Buffer, AsFlags(GPU::MemoryProperty::HOST_COHERENT, GPU::MemoryProperty::HOST_VISIBLE);
+			m_Memory = GPU::AllocateMemory(m_Buffer, AsFlags(GPU::MemoryProperty::HOST_COHERENT, GPU::MemoryProperty::HOST_VISIBLE));
 			m_MappedMemory = GPU::MapMemory(m_Memory);
 			m_PageSize = allocSize;
 		}

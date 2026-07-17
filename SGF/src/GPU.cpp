@@ -79,6 +79,206 @@
 #endif
 #pragma endregion DEFINES
 
+
+
+#pragma region HIDDEN_TYPES
+namespace SGF::GPU {
+	namespace {
+		struct DescriptorPool_T {
+			VkDescriptorPool handle;
+			DescriptorSetLayout layout;
+		};
+		class DescriptorSetLayoutBinding_T {
+		public:
+			VkDescriptorSetLayoutBinding vkBinding{};
+			inline bool IsEqual(const DescriptorSetLayoutBinding_T& other) const {
+				if (vkBinding.binding != other.vkBinding.binding)
+					return false;
+				if (vkBinding.descriptorCount != other.vkBinding.descriptorCount)
+					return false;
+				if (vkBinding.descriptorType != other.vkBinding.descriptorType)
+					return false;
+				if (vkBinding.stageFlags != other.vkBinding.stageFlags)
+					return false;
+				if (vkBinding.pImmutableSamplers && other.vkBinding.pImmutableSamplers) {
+					for (uint32_t i = 0; i < vkBinding.descriptorCount; ++i) {
+						if (vkBinding.pImmutableSamplers[i] != other.vkBinding.pImmutableSamplers[i])
+							return false;
+					}
+				} else {
+					return false;
+				}
+			}
+			inline void AllocateSamplers(uint32_t descriptorCount, const VkSampler* pImmutableSamplers) {
+				SGF_ASSERT(pImmutableSamplers != nullptr);
+				VkSampler* pSamplers = nullptr;
+				if (descriptorCount == 1) {
+					pSamplers = new VkSampler;
+				}
+				else {
+					pSamplers = new VkSampler[descriptorCount];
+				}
+				memcpy(pSamplers, pImmutableSamplers, static_cast<size_t>(descriptorCount* sizeof(VkSampler)));
+				vkBinding.pImmutableSamplers = pSamplers;
+				SGF::Log::Debug("Descriptor Set Layout Binding immutable samplers allocated");
+			}
+			inline DescriptorSetLayoutBinding_T() : vkBinding{} {}
+			inline DescriptorSetLayoutBinding_T(uint32_t binding, VkDescriptorType type, uint32_t descriptorCount, VkPipelineStageFlags stageFlags, const VkSampler* pImmutableSamplers = nullptr) 
+				: vkBinding{binding, type, descriptorCount, stageFlags, nullptr} {
+				SGF_ASSERT(descriptorCount != 0);
+				if (pImmutableSamplers) {
+					AllocateSamplers(descriptorCount, pImmutableSamplers);
+				}
+			}
+			inline DescriptorSetLayoutBinding_T(DescriptorSetLayoutBinding_T&& other) {
+				vkBinding = other.vkBinding;
+				other.vkBinding.pImmutableSamplers = nullptr;
+			}
+			inline DescriptorSetLayoutBinding_T(const DescriptorSetLayoutBinding_T& other) {
+				vkBinding = other.vkBinding;
+				if (vkBinding.pImmutableSamplers) {
+					AllocateSamplers(other.vkBinding.descriptorCount, other.vkBinding.pImmutableSamplers);
+				}
+			}
+			inline ~DescriptorSetLayoutBinding_T() {
+				SGF_ASSERT(vkBinding.descriptorCount != 0);
+				SGF::Log::Debug("Descriptor Set Layout Binding descructor called");
+				if (vkBinding.pImmutableSamplers) {
+					if (vkBinding.descriptorCount == 1) {
+						Destroy((Sampler)vkBinding.pImmutableSamplers[0]);
+						delete vkBinding.pImmutableSamplers;
+					} else {
+						for (uint32_t i = 0; i < vkBinding.descriptorCount; ++i) {
+							Destroy((Sampler)vkBinding.pImmutableSamplers[i]);
+						}
+						delete[] vkBinding.pImmutableSamplers;
+					}
+					vkBinding.pImmutableSamplers = nullptr;
+				}
+			}
+		};
+		// Hidden Types
+		struct DescriptorSetLayout_T {
+			VkDescriptorSetLayout layout = nullptr;
+			uint32_t bindingCount = 0;
+			VkDescriptorSetLayoutCreateFlags createFlags = 0;
+			std::array<DescriptorSetLayoutBinding_T, DescriptorSetLayout::MAX_BINDINGS> bindings{};
+			uint32_t hashCollisionIndex = UINT32_MAX;
+
+			bool HasNext() const noexcept {
+				return hashCollisionIndex != UINT32_MAX;
+			}
+			bool IsEqual(const DescriptorSetLayout_T& other) const {
+				if (bindingCount != other.bindingCount) 
+					return false;
+				if (createFlags != other.createFlags)
+					return false;
+				for (uint32_t i = 0; i < bindingCount; ++i) {
+					if (!bindings[i].IsEqual(other.bindings[i]))
+						return false;
+				}
+			}
+			DescriptorSetLayout_T(const DescriptorSetBinding* pBindings, uint32_t count, Flags<DescriptorSetLayoutCreate> flags) 
+				: layout(nullptr), bindingCount(count), createFlags((VkDescriptorSetLayoutCreateFlags)flags.ToUnderlying()) {
+				for (uint32_t i = 0; i < count; ++i) {
+					const auto& b = pBindings[i];
+					bindings[i] = DescriptorSetLayoutBinding_T(b.binding, (VkDescriptorType)b.descriptorType, b.descriptorCount, (VkPipelineStageFlags)b.stageFlags.ToUnderlying(), (VkSampler*)b.pImmutableSamplers);
+				}
+			}
+			~DescriptorSetLayout_T() {
+				if (layout)
+					vkDestroyDescriptorSetLayout(s_LogicalDevice, layout, VULKAN_ALLOCATION_CALLBACKS);
+			}
+		};
+		struct Swapchain_T {
+			VkSwapchainKHR handle;
+			VkSurfaceKHR surface;
+			VkImage* pImages;
+			VkImageView* pImageViews;
+			VkFormat format;
+			uint32_t imageCount;
+			uint32_t imageIndex;
+			bool outOfDate;
+			VkExtent2D extent;
+			~Swapchain_T() {
+				if (pImageViews != nullptr) {
+					for (uint32_t i = 0; i < imageCount; ++i) {
+						Destroy(pImageViews[i]);
+					}
+					pImageViews = nullptr;
+				}
+				if (pImages != nullptr) {
+					delete[] pImages;
+					pImages = nullptr;
+				}
+			}
+		};
+		struct RenderPassBuilder_T {
+			struct SubpassData {
+				std::vector<VkAttachmentReference> colorReferences;
+				std::vector<VkAttachmentReference> inputReferences;
+				std::vector<VkAttachmentReference> resolveReferences;
+				std::vector<uint32_t> preserveReferences;
+				VkAttachmentReference depthStencilReference;
+				inline SubpassData() {
+					depthStencilReference.attachment = VK_ATTACHMENT_UNUSED;
+					depthStencilReference.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+				}
+			};
+			std::vector<VkAttachmentDescription> descriptions;
+			std::vector<VkAttachmentReference> references;
+			std::vector<VkSubpassDependency> dependencies;
+			std::vector<VkSubpassDescription> subpasses;
+			std::vector<SubpassData> subpassData;
+			VkRenderPassCreateInfo createInfo;
+			inline RenderPassBuilder_T() {
+				createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+				createInfo.pNext = nullptr;
+				createInfo.flags = 0;
+				createInfo.attachmentCount = 0;
+				createInfo.pAttachments = nullptr;
+				createInfo.subpassCount = 0;
+				createInfo.pSubpasses = nullptr;
+				createInfo.dependencyCount = 0;
+				createInfo.pDependencies = nullptr;
+				subpasses.push_back({});
+				subpasses.back().pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+				subpassData.emplace_back();
+			}
+		};
+
+		struct GraphicsPipelineBuilder_T {
+			VkGraphicsPipelineCreateInfo createInfo;
+			std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+			std::vector<VkDynamicState> dynamicStates;
+			std::vector<VkViewport> viewports;
+			std::vector<VkRect2D> scissors;
+			std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions;
+			std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions;
+			std::vector<ShaderModule> shaderModules;
+			std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+			VkPipelineVertexInputStateCreateInfo vertexInputState;
+			VkPipelineInputAssemblyStateCreateInfo inputAssemblyState;
+			VkPipelineTessellationStateCreateInfo tessellationState;
+			VkPipelineViewportStateCreateInfo viewportState;
+			VkPipelineRasterizationStateCreateInfo rasterizationState;
+			VkPipelineMultisampleStateCreateInfo multisampleState;
+			VkPipelineDepthStencilStateCreateInfo depthStencilState;
+			VkPipelineColorBlendStateCreateInfo colorBlendState;
+			VkPipelineDynamicStateCreateInfo dynamicState;
+
+			~GraphicsPipelineBuilder_T() {
+				for (auto& shaderModule : shaderModules) {
+					Destroy(shaderModule);
+				}
+			}
+		};
+		typedef uint32_t DescriptorLayoutIndex;
+	}
+	
+}
+#pragma endregion HIDDEN_TYPES
+
 #pragma region VULKAN_GLOBALS
 namespace SGF::GPU {
 	namespace {
@@ -99,99 +299,12 @@ namespace SGF::GPU {
 #ifdef SGF_ENABLE_VALIDATION
 		const char* VULKAN_MESSENGER_NAME = "VK_LAYER_KHRONOS_validation";
 		VkDebugUtilsMessengerEXT s_VulkanMessenger = VK_NULL_HANDLE;
+		std::vector<DescriptorSetLayout_T> s_DescriptorSetLayouts;
+		std::map<uint64_t, DescriptorLayoutIndex> s_AllocatedDescriptorMap;
 #endif
 	}
 }
 #pragma endregion VULKAN_GLOBALS
-
-#pragma region HIDDEN_TYPES
-namespace SGF::GPU {
-	// Hidden Types
-	struct Swapchain_T {
-		VkSwapchainKHR handle;
-		VkSurfaceKHR surface;
-		VkImage* pImages;
-		VkImageView* pImageViews;
-		VkFormat format;
-		uint32_t imageCount;
-		uint32_t imageIndex;
-		bool outOfDate;
-		VkExtent2D extent;
-		~Swapchain_T() {
-			if (pImageViews != nullptr) {
-				for (uint32_t i = 0; i < imageCount; ++i) {
-					Destroy(pImageViews[i]);
-				}
-				pImageViews = nullptr;
-			}
-			if (pImages != nullptr) {
-				delete[] pImages;
-				pImages = nullptr;
-			}
-		}
-	};
-	struct RenderPassBuilder_T {
-		struct SubpassData {
-			std::vector<VkAttachmentReference> colorReferences;
-			std::vector<VkAttachmentReference> inputReferences;
-			std::vector<VkAttachmentReference> resolveReferences;
-			std::vector<uint32_t> preserveReferences;
-			VkAttachmentReference depthStencilReference;
-			inline SubpassData() {
-				depthStencilReference.attachment = VK_ATTACHMENT_UNUSED;
-				depthStencilReference.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-			}
-		};
-		std::vector<VkAttachmentDescription> descriptions;
-		std::vector<VkAttachmentReference> references;
-		std::vector<VkSubpassDependency> dependencies;
-		std::vector<VkSubpassDescription> subpasses;
-		std::vector<SubpassData> subpassData;
-		VkRenderPassCreateInfo createInfo;
-		inline RenderPassBuilder_T() {
-			createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-			createInfo.pNext = nullptr;
-			createInfo.flags = 0;
-			createInfo.attachmentCount = 0;
-			createInfo.pAttachments = nullptr;
-			createInfo.subpassCount = 0;
-			createInfo.pSubpasses = nullptr;
-			createInfo.dependencyCount = 0;
-			createInfo.pDependencies = nullptr;
-			subpasses.push_back({});
-			subpasses.back().pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-			subpassData.emplace_back();
-		}
-	};
-
-	struct GraphicsPipelineBuilder_T {
-		VkGraphicsPipelineCreateInfo createInfo;
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-		std::vector<VkDynamicState> dynamicStates;
-		std::vector<VkViewport> viewports;
-		std::vector<VkRect2D> scissors;
-		std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions;
-		std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions;
-		std::vector<ShaderModule> shaderModules;
-		std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
-		VkPipelineVertexInputStateCreateInfo vertexInputState;
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState;
-		VkPipelineTessellationStateCreateInfo tessellationState;
-		VkPipelineViewportStateCreateInfo viewportState;
-		VkPipelineRasterizationStateCreateInfo rasterizationState;
-		VkPipelineMultisampleStateCreateInfo multisampleState;
-		VkPipelineDepthStencilStateCreateInfo depthStencilState;
-		VkPipelineColorBlendStateCreateInfo colorBlendState;
-		VkPipelineDynamicStateCreateInfo dynamicState;
-
-		~GraphicsPipelineBuilder_T() {
-			for (auto& shaderModule : shaderModules) {
-				Destroy(shaderModule);
-			}
-		}
-	};
-}
-#pragma endregion HIDDEN_TYPES
 
 #pragma region VULKAN_UTILS 
 namespace SGF::GPU::Util {
@@ -800,6 +913,59 @@ namespace SGF::GPU::Util {
 		if (vkAllocateCommandBuffers(s_LogicalDevice, &info, pBuffers) != VK_SUCCESS) {
 			Log::Fatal("{}", ERROR_ALLOCATE_COMMAND_BUFFERS);
 		}
+	}
+
+	[[nodiscard]]
+	constexpr uint64_t Mix64(uint64_t value) noexcept {
+		value += 0x9E3779B97F4A7C15ull;
+		value = (value ^ (value >> 30u)) * 0xBF58476D1CE4E5B9ull;
+		value = (value ^ (value >> 27u)) * 0x94D049BB133111EBull;
+
+		return value ^ (value >> 31u);
+	}
+
+	constexpr void HashCombine(uint64_t& seed, uint64_t value) noexcept {
+		seed ^= Mix64(value + 0x9E3779B97F4A7C15ull + (seed << 6u) + (seed >> 2u));
+	}
+
+	template<typename VulkanHandle>
+	[[nodiscard]]
+	uint64_t HandleToUInt64(VulkanHandle handle) noexcept {
+		if constexpr (std::is_pointer_v<VulkanHandle>) {
+			return static_cast<uint64_t>(
+				reinterpret_cast<uintptr_t>(handle));
+		}
+		else {
+			return static_cast<uint64_t>(handle);
+		}
+	}
+	[[nodiscard]]
+	uint64_t CreateHash(const DescriptorSetLayout_T l) {
+		uint64_t hash = 0x243F6A8885A308D3ull;
+		Util::HashCombine(hash, static_cast<uint64_t>(l.createFlags));
+
+		Util::HashCombine(hash, l.bindingCount);
+
+		for (uint32_t index = 0; index < l.bindingCount; ++index) {
+			const DescriptorSetLayoutBinding_T& binding = l.bindings[index];
+
+			Util::HashCombine(hash, static_cast<uint64_t>(binding.vkBinding.binding));
+			Util::HashCombine(hash, static_cast<uint64_t>(binding.vkBinding.descriptorCount));
+			Util::HashCombine(hash, static_cast<uint64_t>(binding.vkBinding.descriptorType));
+			Util::HashCombine(hash, static_cast<uint64_t>(binding.vkBinding.stageFlags));
+
+			// Distinguishes no immutable samplers from an immutable array.
+			if (binding.vkBinding.pImmutableSamplers) {
+				for (uint32_t i = 0; i < binding.vkBinding.descriptorCount; ++i) {
+					auto sampler = binding.vkBinding.pImmutableSamplers[i];
+					Util::HashCombine(hash, Util::HandleToUInt64(sampler));
+				}
+			}
+			else {
+				Util::HashCombine(hash, static_cast<uint64_t>(0));
+			}
+		}
+		return hash;
 	}
 }
 #pragma endregion VULKAN_UTILS
@@ -1641,27 +1807,58 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 			TRACK_COMMAND_POOL(1);
 			return CreateCommandPool(info);
 		}
-
-		DescriptorSetLayout CreateDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) {
+		VkDescriptorSetLayout CreateDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& info) {
 			VkDescriptorSetLayout layout;
 			if (vkCreateDescriptorSetLayout(s_LogicalDevice, &info, VULKAN_ALLOCATION_CALLBACKS, &layout) != VK_SUCCESS) {
 				Log::Fatal("{}", ERROR_CREATE_DESCRIPTOR_LAYOUT);
 			}
-			return (DescriptorSetLayout)layout;
+			return layout;
 		}
 		static_assert(sizeof(DescriptorSetBinding) == sizeof(VkDescriptorSetLayoutBinding));
 		static_assert(sizeof(VkDescriptorPoolSize) == sizeof(DescriptorPoolSize));
-		DescriptorSetLayout CreateDescriptorSetLayout(const DescriptorSetBinding* pBindings, uint32_t bindingCount, Flags<DescriptorSetLayoutCreate> flags) {
+		VkDescriptorSetLayout CreateDescriptorSetLayout(const DescriptorSetLayout_T& layout) {
 			VkDescriptorSetLayoutCreateInfo info;
+			static_assert(sizeof(VkDescriptorSetLayoutBinding) == sizeof(DescriptorSetLayoutBinding_T));
 			info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 			info.pNext = nullptr;
-			VkDescriptorSetLayoutBinding binding;
-			info.pBindings = (const VkDescriptorSetLayoutBinding*)pBindings;
-			info.bindingCount = bindingCount;
-			info.flags = flags;
+			info.pBindings = (const VkDescriptorSetLayoutBinding*)layout.bindings.data();
+			info.bindingCount = layout.bindingCount;
+			info.flags = layout.createFlags;
 			return CreateDescriptorSetLayout(info);
 		}
-
+		DescriptorSetLayout GetDescriptorSetLayout(const DescriptorSetBinding* pBindings, uint32_t bindingCount, Flags<DescriptorSetLayoutCreate> flags) {
+			SGF_ASSERT(bindingCount <= DescriptorSetLayout::MAX_BINDINGS);
+			DescriptorSetLayout_T layout(pBindings, bindingCount, flags);
+			uint64_t hash = Util::CreateHash(layout);
+			uint64_t index = UINT64_MAX;
+			auto it = s_AllocatedDescriptorMap.find(hash);
+			if (it != s_AllocatedDescriptorMap.end()) {
+				index = static_cast<uint64_t>(it->second);
+				while (!s_DescriptorSetLayouts[index].IsEqual(layout)) {
+					auto& l = s_DescriptorSetLayouts[index];
+					if (l.HasNext()) {
+						index = static_cast<uint64_t>(l.hashCollisionIndex);
+					}
+					else {
+						layout.layout = CreateDescriptorSetLayout(layout);
+						s_DescriptorSetLayouts.emplace_back(std::move(layout));
+						l.hashCollisionIndex = static_cast<uint32_t>(s_DescriptorSetLayouts.size() - 1);
+						break;
+					}
+				}
+			} else {
+				layout.layout = CreateDescriptorSetLayout(layout);
+				s_DescriptorSetLayouts.emplace_back(std::move(layout));
+				index = static_cast<uint64_t>(s_DescriptorSetLayouts.size() - 1);
+				s_AllocatedDescriptorMap.insert({ hash, static_cast<uint32_t>(index) });
+			}
+			return *(DescriptorSetLayout*)&index;
+		}
+		void ClearDescriptorSetLayouts() {
+			s_DescriptorSetLayouts.clear();
+			s_AllocatedDescriptorMap.clear();
+			s_DescriptorSetLayouts.shrink_to_fit();
+		}
 		DescriptorPool CreateDescriptorPool(const VkDescriptorPoolCreateInfo& info) {
 			SGF_ASSERT(info.sType == VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
 			SGF_ASSERT(info.pPoolSizes != nullptr);
@@ -1673,14 +1870,19 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 			TRACK_DESCRIPTOR_POOL(1);
 			return *(DescriptorPool*)&pool;
 		}
-
-		DescriptorPool CreateDescriptorPool(uint32_t maxSets, const DescriptorPoolSize* pPoolSizes, uint32_t poolSizeCount, Flags<DescriptorPoolCreate> flags) {
+		DescriptorPool CreateDescriptorPool(DescriptorSetLayout layout, uint32_t maxSets, Flags<DescriptorPoolCreate> flags) {
 			VkDescriptorPoolCreateInfo info;
+			info.poolSizeCount = layout.GetBindingCount();
+			std::vector<VkDescriptorPoolSize> poolSizes(info.poolSizeCount);
+			auto bindings = layout.GetBindings();
+			for (uint32_t i = 0; i < info.poolSizeCount; ++i) {
+				poolSizes[i].descriptorCount = bindings[i].descriptorCount;
+				poolSizes[i].type = (VkDescriptorType)bindings[i].descriptorType;
+			}
 			info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 			info.flags = flags;
 			info.pNext = nullptr;
-			info.poolSizeCount = poolSizeCount;
-			info.pPoolSizes = (const VkDescriptorPoolSize*)pPoolSizes;
+			info.pPoolSizes = poolSizes.data();
 			info.maxSets = maxSets;
 			return CreateDescriptorPool(info);
 		}
@@ -1729,12 +1931,7 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 		DescriptorPool CreateDescriptorPool(uint32_t maxSets, std::vector<DescriptorPoolSize>& poolSizes, Flags<DescriptorPoolCreate> flags) {
 			return CreateDescriptorPool(maxSets, poolSizes.data(), (uint32_t)poolSizes.size(), flags);
 		}
-		DescriptorSet AllocateDescriptorSet(DescriptorPool pool, DescriptorSetLayout descriptorSetLayout) {
-			DescriptorSet set;
-			AllocateDescriptorSets(pool, &descriptorSetLayout, 1, &set);
-			return set;
-		}
-		bool AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& info, DescriptorSet* pDescriptorSets) {
+		inline bool AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& info, DescriptorSet* pDescriptorSets) {
 			VkResult result = vkAllocateDescriptorSets(s_LogicalDevice, &info, (VkDescriptorSet*)pDescriptorSets);
 			if (result != VK_SUCCESS) {
 				if (result != VK_ERROR_OUT_OF_POOL_MEMORY) {
@@ -1744,22 +1941,30 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 			}
 			return true;
 		}
+		DescriptorSet AllocateDescriptorSet(DescriptorPool pool, DescriptorSetLayout descriptorSetLayout) {
+			DescriptorSet set;
+			VkDescriptorSetAllocateInfo info;
+			VkDescriptorSetLayout layout = static_cast<VkDescriptorSetLayout>(descriptorSetLayout.GetNativeHandle());
+			info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			info.descriptorPool = *(VkDescriptorPool*)&pool;
+			info.pSetLayouts = &layout;
+			info.descriptorSetCount = 1;
+			info.pNext = nullptr;
+			return (AllocateDescriptorSets(info, &set)) ? set : nullptr;
+		}
 		bool AllocateDescriptorSets(DescriptorPool pool, DescriptorSetLayout* pSetLayouts, uint32_t setCount, DescriptorSet* pDescriptorSets) {
+			std::vector<VkDescriptorSetLayout> layouts(setCount);
+			for (uint32_t i = 0; i < setCount; ++i) {
+				layouts[i] = static_cast<VkDescriptorSetLayout>(pSetLayouts[i].GetNativeHandle());
+			}
 			VkDescriptorSetAllocateInfo info;
 			info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 			info.descriptorPool = *(VkDescriptorPool*)&pool;
-			info.pSetLayouts = (VkDescriptorSetLayout*)pSetLayouts;
+			info.pSetLayouts = layouts.data();
 			info.descriptorSetCount = setCount;
 			info.pNext = nullptr;
 			return AllocateDescriptorSets(info, pDescriptorSets);
 		}
-		bool AllocateDescriptorSets(DescriptorPool pool, std::vector<DescriptorSetLayout> setLayouts, DescriptorSet* pDescriptorSets) {
-			return AllocateDescriptorSets(pool, setLayouts.data(), (uint32_t)setLayouts.size(), pDescriptorSets);
-		}
-		void UpdateDescriptors(const VkWriteDescriptorSet* pDescriptorWrites, uint32_t writeCount, VkCopyDescriptorSet* pDescriptorCopies, uint32_t copyCount) {
-			vkUpdateDescriptorSets(s_LogicalDevice, writeCount, pDescriptorWrites, copyCount, pDescriptorCopies);
-		}
-		
 		Format GetSupportedFormat(const Format* pCandidates, uint32_t candidateCount, Flags<FormatFeature> features, ImageTiling tiling) {
 			SGF_ASSERT(tiling == VK_IMAGE_TILING_LINEAR || tiling == VK_IMAGE_TILING_OPTIMAL);
 			for (uint32_t i = 0; i < candidateCount; i++) {
@@ -1775,8 +1980,6 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 			}
 			return Format::MAX_ENUM;
 		}
-		
-
 		uint32_t AcquireNextImage(Swapchain swapchain, uint64_t timeout, Semaphore signalSemaphore, Fence signalFence) {
 			uint32_t imageIndex;
 			if (vkAcquireNextImageKHR(s_LogicalDevice, swapchain->handle, timeout, (VkSemaphore)signalSemaphore, (VkFence)signalFence, &imageIndex) != VK_SUCCESS) {
@@ -1785,7 +1988,6 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 			}
 			return imageIndex;
 		}
-
 		Swapchain CreateSwapchain(WindowHandle windowHandle, Flags<SwapchainCreate> flags, Flags<ImageUsage> imageUsage) {
 			auto size = windowHandle.GetFramebufferSize();
 			VkSurfaceKHR surface = Util::CreateSurface(windowHandle);
@@ -1892,11 +2094,14 @@ constexpr void CreateDefaultImageInfo(VkImageCreateInfo* pInfo,const VkExtent3D&
 			vkDestroyPipelineLayout(s_LogicalDevice, (VkPipelineLayout)pipelineLayout, VULKAN_ALLOCATION_CALLBACKS);
 			TRACK_PIPELINE_LAYOUT(-1);
 		}
+		/*
 		void Destroy(DescriptorSetLayout descriptorSetLayout) {
 			SGF_ASSERT(descriptorSetLayout != VK_NULL_HANDLE);
+			static_assert(false && "TODO");
 			vkDestroyDescriptorSetLayout(s_LogicalDevice, (VkDescriptorSetLayout)descriptorSetLayout, VULKAN_ALLOCATION_CALLBACKS);
 			TRACK_DESCRIPTOR_SET_LAYOUT(-1);
 		}
+		*/
 		void Destroy(DescriptorPool descriptorPool) {
 			SGF_ASSERT(descriptorPool != VK_NULL_HANDLE);
 			vkDestroyDescriptorPool(s_LogicalDevice, *(VkDescriptorPool*)&descriptorPool, VULKAN_ALLOCATION_CALLBACKS);
@@ -2160,9 +2365,6 @@ namespace SGF::GPU {
 #pragma endregion BASIC_STRUCTS
 	// CommandList Functions:
 
-#pragma region TYPE_CONVERSIONS
-#pragma endregion TYPE_CONVERSIONS
-
 #pragma region COMMAND_LIST_FUNCTIONS
 namespace SGF::GPU {
 	// Reinterpret a pointer-sized opaque handle as a Vulkan handle.
@@ -2339,27 +2541,21 @@ namespace SGF::GPU {
 		if (bindingCount > kStackMax)
 			delete[] vkOffsets;
 	}
-
 	void CommandList::BindIndexBuffer32Bit(Buffer indexBuffer, size_t offset) {
 		vkCmdBindIndexBuffer(CMD(this), VK<VkBuffer>(indexBuffer), static_cast<VkDeviceSize>(offset), VK_INDEX_TYPE_UINT32);
 	}
-
 	void CommandList::BindIndexBuffer16Bit(Buffer indexBuffer, size_t offset) {
 		vkCmdBindIndexBuffer(CMD(this), VK<VkBuffer>(indexBuffer), static_cast<VkDeviceSize>(offset), VK_INDEX_TYPE_UINT16);
 	}
-
 	void CommandList::BindIndexBuffer8Bit(Buffer indexBuffer, size_t offset) {
 		vkCmdBindIndexBuffer(CMD(this), VK<VkBuffer>(indexBuffer), static_cast<VkDeviceSize>(offset), VK_INDEX_TYPE_UINT8_KHR);
 	}
-
 	void CommandList::BindPipeline(ComputePipeline pipeline) {
 		vkCmdBindPipeline(CMD(this), VK_PIPELINE_BIND_POINT_COMPUTE, VK<VkPipeline>(pipeline));
 	}
-
 	void CommandList::BindPipeline(GraphicsPipeline pipeline) {
 		vkCmdBindPipeline(CMD(this), VK_PIPELINE_BIND_POINT_GRAPHICS, VK<VkPipeline>(pipeline));
 	}
-
 	void CommandList::BindPipeline(RayTracingPipeline pipeline) {
 		vkCmdBindPipeline(CMD(this), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, VK<VkPipeline>(pipeline));
 	}
@@ -2367,7 +2563,6 @@ namespace SGF::GPU {
 	void CommandList::PushConstants(PipelineLayout layout, Flags<ShaderStage> stageFlags, uint32_t offset, uint32_t size, const void* pValues) {
 		vkCmdPushConstants(CMD(this), VK<VkPipelineLayout>(layout), VKF(stageFlags), offset, size, pValues);
 	}
-
 #ifdef SGF_GPU_EXTENDED_FUNCTIONS
 	void CommandList::PushDescriptorSet(PipelineBindPoint bindPoint, PipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const WriteDescriptorSet* descriptorWrites) {
 		vkCmdPushDescriptorSetKHR(
@@ -3797,3 +3992,29 @@ namespace SGF::GPU {
 	}
 }
 #pragma endregion COMMAND_POOL
+
+
+#pragma region DESCRIPTOR_SET_LAYOUT
+namespace SGF::GPU {
+	DescriptorType DescriptorSetLayout::GetDescriptorType(uint32_t index) const {
+		SGF_ASSERT(m_Index < s_DescriptorSetLayouts.size());
+		return (DescriptorType)s_DescriptorSetLayouts[m_Index].bindings[index].vkBinding.descriptorType;
+	}
+	DescriptorSetBinding DescriptorSetLayout::GetBinding(uint32_t index) const {
+		SGF_ASSERT(m_Index < s_DescriptorSetLayouts.size());
+		return *(const DescriptorSetBinding*)&(s_DescriptorSetLayouts[m_Index].bindings[index].vkBinding);
+	}
+	const DescriptorSetBinding* DescriptorSetLayout::GetBindings() const {
+		static_assert(sizeof(DescriptorSetBinding) == sizeof(DescriptorSetLayoutBinding_T));
+		return (const DescriptorSetBinding*)(s_DescriptorSetLayouts[m_Index].bindings.data());
+	}
+	uint32_t DescriptorSetLayout::GetBindingCount() const {
+		SGF_ASSERT(m_Index < s_DescriptorSetLayouts.size());
+		return s_DescriptorSetLayouts[m_Index].bindingCount;
+	}
+	void* DescriptorSetLayout::GetNativeHandle() const {
+		SGF_ASSERT(m_Index < s_DescriptorSetLayouts.size());
+		return s_DescriptorSetLayouts[m_Index].layout;
+	}
+}
+#pragma endregion DESCRIPTOR_SET_LAYOUT

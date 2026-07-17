@@ -1,7 +1,6 @@
 #pragma once
 
-#include "SGF_Core.hpp"
-#include "Geometry/Ray.hpp"
+#include <SGF/Core/Math/Geometry/Ray.hpp>
 #include "Model.hpp"
 #include <limits>
 

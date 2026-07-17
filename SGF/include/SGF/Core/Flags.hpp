@@ -15,7 +15,7 @@ namespace SGF {
         using EnumType = E;
         using Underlying = std::underlying_type_t<E>;
 
-        constexpr Flags() {};
+        constexpr Flags() : m_Value{} {};
 
         template<std::same_as<E>... Es>
         constexpr Flags(Es... flags)

@@ -1,32 +1,28 @@
 #pragma once
 
-#include <stdint.h>
+#include <stddef.h>
 #include <vector>
 #include <array>
 
 #include "Types.hpp"
 
-namespace SGF {
-	namespace GPU {
-		class DescriptorPool {
-			DescriptorSet AllocateDescriptorSet(DescriptorSetLayout descriptorSetLayout);
-			//void AllocateDescriptorSets(const DescriptorSetAllocateInfo& info, DescriptorSet* pSets);
-			std::vector<DescriptorSet> AllocateDescriptorSets(const DescriptorSetLayout* pSetLayouts, uint32_t setCount) const;
-			inline std::vector<DescriptorSet> AllocateDescriptorSets(const std::vector<DescriptorSetLayout> setLayouts) const { return AllocateDescriptorSets(setLayouts.data(), (uint32_t)setLayouts.size()); }
-			template<uint32_t COUNT>
-			inline std::vector<DescriptorSet> AllocateDescriptorSets(const std::array<DescriptorSetLayout, COUNT> setLayouts) const { return AllocateDescriptorSets(setLayouts.data(), COUNT); }
-			template<uint32_t COUNT>
-			inline std::vector<DescriptorSet> AllocateDescriptorSets(const DescriptorSetLayout(&setLayouts)[COUNT]) const { return AllocateDescriptorSets(setLayouts, COUNT); }
+namespace SGF::GPU {
+	class DescriptorPool {
+	public:
+		DescriptorSet Allocate() const;
+		std::vector<DescriptorSet> Allocate(uint32_t count) const;
+		void AllocateToBuffer(uint32_t count, DescriptorSet* pDescriptorSetBuffer) const;
 
-			void FreeDescriptorSets(const DescriptorSet* pDescriptorSets, uint32_t count) const;
-			template<uint32_t COUNT>
-			inline void FreeDescriptorSets(const DescriptorSet(&descriptorSets)[COUNT]) const { FreeDescriptorSets(descriptorSets, COUNT); }
-			template<uint32_t COUNT>
-			inline void FreeDescriptorSets(const std::array<DescriptorSet, COUNT>& descriptorSets) const { FreeDescriptorSets(descriptorSets.data(), COUNT); }
-			inline void FreeDescriptorSets(const std::vector<DescriptorSet>& descriptorSets) const { FreeDescriptorSets(descriptorSets.data(), (uint32_t)descriptorSets.size()); }
-			inline void FreeDescriptorSet(DescriptorSet descriptorSet) const { FreeDescriptorSets(&descriptorSet, 1); }
-		private:
-			void* m_Handle = nullptr;
-		};
-	}
+		void Free(DescriptorSet descriptorSet);
+		void Free(const DescriptorSet* pDescriptorSets, uint32_t count) const;
+		template<uint32_t COUNT>
+		inline void Free(const DescriptorSet(&descriptorSets)[COUNT]) const { Free(descriptorSets, COUNT); }
+		template<uint32_t COUNT>
+		inline void Free(const std::array<DescriptorSet, COUNT>& descriptorSets) const { Free(descriptorSets.data(), COUNT); }
+		inline void Free(const std::vector<DescriptorSet>& descriptorSets) const { Free(descriptorSets.data(), (uint32_t)descriptorSets.size()); }
+		void Reset();
+		void ShrinkToFit();
+	private:
+		void* m_Handle;
+	};
 }

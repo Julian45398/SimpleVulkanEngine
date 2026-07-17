@@ -2,6 +2,10 @@
 
 #include <SGF/Core/GPU.hpp>
 #include <SGF/Render/Color.hpp>
+#include <SGF/Render/HostCoherentRingBuffer.hpp>
+
+#include "Defines.hpp"
+
 
 namespace SGF {
 	class DebugRenderer {
@@ -24,12 +28,12 @@ namespace SGF {
 		inline uint32_t GetLineCount() const { return (uint32_t)lineVertices.size() / 2; }
 	private:
 		std::vector<LineVertex> lineVertices;
-		HostCoherentRingBuffer<SGF_FRAMES_IN_FLIGHT> vertexRingBuffer;
-		HostCoherentRingBuffer<SGF_FRAMES_IN_FLIGHT> cameraBuffer;
+		HostCoherentRingBuffer<FRAMES_IN_FLIGHT> vertexRingBuffer;
+		HostCoherentRingBuffer<FRAMES_IN_FLIGHT> cameraBuffer;
 		GPU::GraphicsPipeline pipeline;
 		GPU::PipelineLayout pipelineLayout;
 		GPU::DescriptorPool descriptorPool;
 		GPU::DescriptorSetLayout descriptorSetLayout;
-		GPU::DescriptorSet descriptorSets[SGF_FRAMES_IN_FLIGHT];
+		GPU::DescriptorSet descriptorSets[FRAMES_IN_FLIGHT];
 	};
 }

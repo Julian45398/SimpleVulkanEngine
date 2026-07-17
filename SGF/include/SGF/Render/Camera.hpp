@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Core/Math.hpp>
+#include <SGF/Core/Math/Math.hpp>
 
 namespace SGF {
 	inline constexpr glm::vec3 X_AXIS = glm::vec3(1.f, 0.f, 0.f);
